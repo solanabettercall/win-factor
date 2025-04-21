@@ -1,0 +1,122 @@
+version: "3.8"
+
+services:
+  api_gateway:
+    container_name: api_gateway
+    build: ./http-api-gateway
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./http-api-gateway/src:/usr/src/app/src
+    command: npm run start:dev
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+            - dist/
+        - action: sync
+          path: ./test
+          target: /app/test
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: package-lock.json
+    environment:
+      - PORT=3000
+    depends_on:
+      nats:
+        condition: service_started
+      users_microservice:
+        condition: service_started
+      payments_microservice:
+        condition: service_started
+
+  users_microservice:
+    container_name: users_microservice
+    build: ./users-microservice
+    volumes:
+      - ./users-microservice/src:/usr/src/app/src
+    command: npm run start:dev
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+            - dist/
+        - action: sync
+          path: ./test
+          target: /app/test
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: package-lock.json
+    depends_on:
+      nats:
+        condition: service_started
+      mysql_db:
+        condition: service_healthy
+
+  payments_microservice:
+    container_name: payments_microservice
+    build: ./payments-microservice
+    volumes:
+      - ./payments-microservice/src:/usr/src/app/src
+    command: npm run start:dev
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore:
+            - node_modules/
+            - dist/
+        - action: sync
+          path: ./test
+          target: /app/test
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: package-lock.json
+    depends_on:
+      nats:
+        condition: service_started
+      mysql_db:
+        condition: service_healthy
+
+  nats:
+    container_name: nats
+    image: nats
+    ports:
+      - 4222:4222
+
+  mysql_db:
+    container_name: mysql_db
+    image: mysql
+    ports:
+      - "3307:3307"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password_123
+      - MYSQL_DATABASE=nestjs_db
+      - MYSQL_USER=testuser
+      - MYSQL_PASSWORD=testuser123
+      - MYSQL_TCP_PORT=3307
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p$$MYSQL_ROOT_PASSWORD",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 5
