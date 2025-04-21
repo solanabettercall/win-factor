@@ -3,6 +3,7 @@ import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './typeorm/entities/User';
 import { Payment } from './typeorm/entities/Payment';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { Payment } from './typeorm/entities/Payment';
       password: 'testuser123',
     }),
     UsersModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [],
