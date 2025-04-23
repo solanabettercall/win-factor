@@ -34,7 +34,7 @@ services:
         condition: service_started
       users_microservice:
         condition: service_healthy
-      payments_microservice:
+      parser_microservice:
         condition: service_healthy
 
   users_microservice:
@@ -68,11 +68,11 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  payments_microservice:
-    container_name: payments_microservice
-    build: ./payments-microservice
+  parser_microservice:
+    container_name: parser_microservice
+    build: ./parser-microservice
     volumes:
-      - ./payments-microservice/src:/usr/src/app/src
+      - ./parser-microservice/src:/usr/src/app/src
     command: yarn run start:dev
     develop:
       watch:

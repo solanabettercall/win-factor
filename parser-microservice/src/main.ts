@@ -17,6 +17,6 @@ async function bootstrap() {
   await app.startAllMicroservices();
   await app.listen(3000);
 
-  logger.log('Payments Microservice is Running!');
+  logger.log('Parser Microservice is Running!');
 }
 bootstrap();
