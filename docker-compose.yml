@@ -24,9 +24,9 @@ services:
           path: yarn.lock
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 15s
-      timeout: 3s
-      retries: 3
+      interval: 2s
+      timeout: 5s
+      retries: 5
     environment:
       - PORT=3000
     depends_on:

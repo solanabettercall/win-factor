@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { PaymentsModule } from './payments/payments.module';
 import { HealthModule } from './health/health.module';
+import { ParserModule } from './parser/parser.module';
 
 @Module({
-  imports: [PaymentsModule, HealthModule],
+  imports: [HealthModule, ParserModule],
   controllers: [],
   providers: [],
 })
