@@ -23,6 +23,7 @@ export class UsersController {
 
   @Get(':id')
   async getUserById(@Param('id') id: string) {
+    console.log(id);
     const user = await lastValueFrom(
       this.natsClient.send({ cmd: 'getUserById' }, { userId: id }),
     );
