@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { CveOldService } from './cve-old.service';
+import { CveService } from './cve.service';
 import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
 
@@ -8,20 +8,9 @@ import { appConfig } from 'src/config/parser.config';
     HttpModule.registerAsync({
       useFactory: () => {
         const options: HttpModuleOptions = {
-          baseURL: 'https://www-old.cev.eu',
           headers: {
             'user-agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0',
-            accept:
-              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'accept-language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-            'upgrade-insecure-requests': '1',
-            'sec-fetch-dest': 'document',
-            'sec-fetch-mode': 'navigate',
-            'sec-fetch-site': 'none',
-            'sec-fetch-user': '?1',
-            priority: 'u=0, i',
-            te: 'trailers',
           },
         };
         if (appConfig().isLocal) {
@@ -36,6 +25,7 @@ import { appConfig } from 'src/config/parser.config';
       },
     }),
   ],
-  providers: [CveOldService],
+
+  providers: [CveService],
 })
-export class CveOldModule {}
+export class CveModule {}
