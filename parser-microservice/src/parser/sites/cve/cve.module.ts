@@ -3,6 +3,7 @@ import { CveService } from './cve.service';
 import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
 import { CompetitionService } from './competition.service';
+import { CalendarService } from './calendar.service';
 
 @Module({
   imports: [
@@ -33,6 +34,6 @@ import { CompetitionService } from './competition.service';
     }),
   ],
 
-  providers: [CveService, CompetitionService],
+  providers: [CveService, CompetitionService, CalendarService],
 })
 export class CveModule {}
