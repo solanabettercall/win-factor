@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CompetitionService } from './competition.service';
 import { CalendarService } from './calendar.service';
+import { parse } from 'date-fns';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class CveService implements OnModuleInit {
@@ -28,10 +30,17 @@ export class CveService implements OnModuleInit {
     //   }
     //   await new Promise((resolve) => setTimeout(resolve, 1000));
     // }
-    // const matches = await this.calendarService.getMatchesInRange(
-    //   parse('01.04.2024', 'dd.MM.yyyy', new Date()),
-    //   parse('01.04.2025', 'dd.MM.yyyy', new Date()),
+    // const matches = await this.calendarService.getMatchesByYearMonth(
+    //   parse('01.07.2004', 'dd.MM.yyyy', new Date()),
     // );
     // console.log(matches.length);
+    const matches = await firstValueFrom(
+      this.calendarService.getMatchesInRange(
+        parse('01.04.2024', 'dd.MM.yyyy', new Date()),
+        parse('01.04.2025', 'dd.MM.yyyy', new Date()),
+      ),
+    );
+    console.log(matches.length);
+    // of(1, 2, 3).subscribe(console.log);
   }
 }

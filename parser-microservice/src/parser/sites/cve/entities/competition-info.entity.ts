@@ -1,7 +1,7 @@
 import { ICompetitionInfo } from '../interfaces/competition-info.interface';
 
 export class CompetitionInfo implements ICompetitionInfo {
-  id: string;
+  id: number;
   name: string;
   logoUrl: string;
 

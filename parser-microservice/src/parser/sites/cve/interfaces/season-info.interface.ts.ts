@@ -1,3 +1,3 @@
 export interface ISeasonInfo {
-  id: string;
+  id: number;
 }
