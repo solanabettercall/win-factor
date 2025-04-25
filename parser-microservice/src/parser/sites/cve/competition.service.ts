@@ -9,7 +9,7 @@ import * as UrlParse from 'url-parse';
 export class CompetitionService {
   private readonly logger = new Logger(CompetitionService.name);
 
-  private readonly baseDomain = 'cev.eu';
+  private readonly BASE_DOMAIN = 'cev.eu';
 
   constructor(private readonly httpService: HttpService) {}
 
@@ -39,8 +39,8 @@ export class CompetitionService {
 
     parsedUrl.set('protocol', 'https:');
     if (!parsedUrl.hostname || !parsedUrl.host) {
-      parsedUrl.set('host', this.baseDomain);
-      parsedUrl.set('hostname', this.baseDomain);
+      parsedUrl.set('host', this.BASE_DOMAIN);
+      parsedUrl.set('hostname', this.BASE_DOMAIN);
     }
     return parsedUrl.href;
   }
