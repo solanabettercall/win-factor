@@ -16,7 +16,9 @@ export class CveService implements OnModuleInit {
     // console.log(competitionLinks);
     // await this.competitionService.fetchCompetitionLinks(competitionLinks);
 
-    const calendar = await this.calendarService.getCalendar();
+    const calendar = await this.calendarService.getCalendarByYearMonth(
+      new Date(),
+    );
     console.log(calendar[0]);
   }
 }

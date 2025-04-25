@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { IMatchInfo } from './interfaces/match-info.interface';
 import { MatchInfo } from './entities/match-info.entity';
 import * as UrlParse from 'url-parse';
+import * as moment from 'moment';
 @Injectable()
 export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
@@ -23,13 +24,15 @@ export class CalendarService {
     return normalizedUrl.href;
   }
 
-  public async getCalendar(): Promise<IMatchInfo[]> {
+  public async getCalendarByYearMonth(date: Date): Promise<IMatchInfo[]> {
+    const momentDate = moment(date).day(1).format('YYYY-MM-DD');
+
     const response: AxiosResponse = await firstValueFrom(
       this.httpService.get(this.CALENDAR_URL, {
         params: {
           nodeId: 11346,
           culture: 'en-US',
-          date: '2024-04-01',
+          date: momentDate,
         },
       }),
     );
