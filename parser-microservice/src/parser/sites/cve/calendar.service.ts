@@ -9,7 +9,7 @@ import * as UrlParse from 'url-parse';
 export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
   private readonly CALENDAR_URL =
-    'https://www.cev.eu/umbraco/api/CalendarApi/GetCalendar?nodeId=11346&culture=en-US';
+    'https://www.cev.eu/umbraco/api/CalendarApi/GetCalendar';
 
   private readonly BASE_DOMAIN = 'cev.eu';
 
@@ -20,13 +20,18 @@ export class CalendarService {
     normalizedUrl.set('host', this.BASE_DOMAIN);
     normalizedUrl.set('hostname', this.BASE_DOMAIN);
     normalizedUrl.set('protocol', 'https:');
-    this.logger.debug(normalizedUrl);
     return normalizedUrl.href;
   }
 
   public async getCalendar(): Promise<IMatchInfo[]> {
     const response: AxiosResponse = await firstValueFrom(
-      this.httpService.get(this.CALENDAR_URL),
+      this.httpService.get(this.CALENDAR_URL, {
+        params: {
+          nodeId: 11346,
+          culture: 'en-US',
+          date: '2024-04-01',
+        },
+      }),
     );
     const rawMatches = response.data['Dates']?.flatMap((d) => d.Matches) || [];
 
