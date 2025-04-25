@@ -3,7 +3,7 @@ import { catchError, firstValueFrom, retry } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { CompetitionLink } from './interfaces/competition-link.interface';
 import { HttpService } from '@nestjs/axios';
-import * as UrlParse from 'url-parse';
+import { normalizeUrl } from './utils/normalize-url';
 
 @Injectable()
 export class CompetitionService {
@@ -32,17 +32,6 @@ export class CompetitionService {
         this.logger.error(`Не удалось загрузить ${href}: ${error.message}`);
       }
     }
-  }
-
-  private normalizeRawHref(href: string): string {
-    const parsedUrl = UrlParse(href);
-
-    parsedUrl.set('protocol', 'https:');
-    if (!parsedUrl.hostname || !parsedUrl.host) {
-      parsedUrl.set('host', this.BASE_DOMAIN);
-      parsedUrl.set('hostname', this.BASE_DOMAIN);
-    }
-    return parsedUrl.href;
   }
 
   public async parseCompetitionLinks(): Promise<CompetitionLink[]> {
@@ -99,7 +88,7 @@ export class CompetitionService {
                       );
 
                       if (canAppend && itemTitle && href) {
-                        const normalizedLink = this.normalizeRawHref(href);
+                        const normalizedLink = normalizeUrl(href);
                         competitions.push({
                           menuTitle,
                           title,

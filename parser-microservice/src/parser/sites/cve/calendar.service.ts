@@ -31,11 +31,8 @@ import {
   isBefore,
   isWithinInterval,
 } from 'date-fns';
-import { createMatchInfo } from './utils/create-match-info.util';
-import {
-  IGetCalendarResponse,
-  IRawMatch,
-} from './interfaces/raw/raw-match.interface';
+import { createMatchInfo } from './utils/create-match-info';
+import { IGetCalendarResponse } from './interfaces/raw/raw-match.interface';
 
 @Injectable()
 export class CalendarService {

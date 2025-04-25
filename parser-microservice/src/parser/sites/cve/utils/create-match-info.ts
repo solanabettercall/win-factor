@@ -1,17 +1,7 @@
 import { MatchInfo } from '../entities/match-info.entity';
 import { IMatchInfo } from '../interfaces/match-info.interface';
 import { IRawMatch } from '../interfaces/raw/raw-match.interface';
-import * as UrlParse from 'url-parse';
-
-const BASE_DOMAIN = 'cev.eu';
-
-function normalizeUrl(url: string) {
-  const normalizedUrl = UrlParse(url);
-  normalizedUrl.set('host', BASE_DOMAIN);
-  normalizedUrl.set('hostname', BASE_DOMAIN);
-  normalizedUrl.set('protocol', 'https:');
-  return normalizedUrl.href;
-}
+import { normalizeUrl } from './normalize-url';
 
 export function createMatchInfo(raw: IRawMatch): IMatchInfo {
   return new MatchInfo({
