@@ -1,11 +1,28 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { AxiosResponse } from 'axios';
-import { firstValueFrom } from 'rxjs';
+import {
+  firstValueFrom,
+  from as rxjsFrom,
+  mergeMap,
+  toArray,
+  lastValueFrom,
+  Observable,
+  filter,
+} from 'rxjs';
 import { IMatchInfo } from './interfaces/match-info.interface';
 import { MatchInfo } from './entities/match-info.entity';
 import * as UrlParse from 'url-parse';
-import * as moment from 'moment';
+
+import {
+  addYears,
+  eachMonthOfInterval,
+  format,
+  isAfter,
+  isBefore,
+  isWithinInterval,
+} from 'date-fns';
+
 @Injectable()
 export class CalendarService {
   private readonly logger = new Logger(CalendarService.name);
@@ -13,6 +30,9 @@ export class CalendarService {
     'https://www.cev.eu/umbraco/api/CalendarApi/GetCalendar';
 
   private readonly BASE_DOMAIN = 'cev.eu';
+  private readonly MIN_DATE = new Date(1948, 8, 1); // Сентябрь 1948
+  private readonly MAX_DATE = addYears(new Date(), 1);
+  private readonly CONCURRENCY_LIMIT = 5;
 
   constructor(private readonly httpService: HttpService) {}
 
@@ -24,20 +44,55 @@ export class CalendarService {
     return normalizedUrl.href;
   }
 
-  public async getCalendarByYearMonth(date: Date): Promise<IMatchInfo[]> {
-    const momentDate = moment(date).day(1).format('YYYY-MM-DD');
+  public async getMatchesInRange(from: Date, to: Date): Promise<MatchInfo[]> {
+    // Гарантируем границы
+    from = isBefore(from, this.MIN_DATE) ? this.MIN_DATE : from;
+    to = isAfter(to, this.MAX_DATE) ? this.MAX_DATE : to;
+
+    if (isAfter(from, to)) {
+      const errMessage = `Дата начала (${from}) не может быть позже даты конца (${to})`;
+      this.logger.warn(errMessage);
+      throw new BadRequestException(errMessage);
+    }
+
+    const months = eachMonthOfInterval({ start: from, end: to });
+
+    // Запрашиваем данные по каждому месяцу параллельно
+    const allMatches$: Observable<IMatchInfo[]> = rxjsFrom(months).pipe(
+      mergeMap(
+        (monthDate) => this.getMatchesByYearMonth(monthDate),
+        this.CONCURRENCY_LIMIT,
+      ),
+      mergeMap((matches) => matches),
+      filter((match) => isWithinInterval(match.date, { start: from, end: to })),
+      toArray(),
+    );
+
+    const allMatches: IMatchInfo[] = await lastValueFrom(allMatches$);
+
+    return allMatches;
+  }
+
+  public async getMatchesByYearMonth(date: Date): Promise<IMatchInfo[]> {
+    this.logger.verbose(
+      `start getMatchesByYearMonth() ${format(date, 'dd.MM.yyyy')}`,
+    );
+    const formatedDate = format(date, 'yyyy-MM-dd');
 
     const response: AxiosResponse = await firstValueFrom(
       this.httpService.get(this.CALENDAR_URL, {
         params: {
           nodeId: 11346,
           culture: 'en-US',
-          date: momentDate,
+          date: formatedDate,
         },
       }),
     );
     const rawMatches = response.data['Dates']?.flatMap((d) => d.Matches) || [];
 
+    this.logger.verbose(
+      `end getMatchesByYearMonth() ${format(date, 'dd.MM.yyyy')}`,
+    );
     return rawMatches.map(
       (match): MatchInfo =>
         new MatchInfo({
