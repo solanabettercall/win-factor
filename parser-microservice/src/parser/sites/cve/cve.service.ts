@@ -34,13 +34,13 @@ export class CveService implements OnModuleInit {
     //   parse('01.07.2004', 'dd.MM.yyyy', new Date()),
     // );
     // console.log(matches.length);
-    const matches = await firstValueFrom(
-      this.calendarService.getMatchesInRange(
-        parse('01.04.2024', 'dd.MM.yyyy', new Date()),
-        parse('01.04.2025', 'dd.MM.yyyy', new Date()),
-      ),
-    );
-    console.log(matches.length);
+    // const matches = await firstValueFrom(
+    //   this.calendarService.getMatchesInRange(
+    //     parse('01.04.2024', 'dd.MM.yyyy', new Date()),
+    //     parse('01.04.2025', 'dd.MM.yyyy', new Date()),
+    //   ),
+    // );
+    // console.log(matches.length);
     // of(1, 2, 3).subscribe(console.log);
   }
 }

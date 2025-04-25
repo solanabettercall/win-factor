@@ -35,5 +35,6 @@ import { CalendarService } from './calendar.service';
   ],
 
   providers: [CveService, CompetitionService, CalendarService],
+  exports: [CalendarService],
 })
 export class CveModule {}
