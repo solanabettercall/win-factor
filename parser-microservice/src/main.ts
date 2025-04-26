@@ -18,5 +18,9 @@ async function bootstrap() {
   await app.listen(3000);
 
   logger.log('Parser Microservice is Running!');
+
+  const unusedVariable = 42;
+
+  console.log('Hello, world!');
 }
 bootstrap();
