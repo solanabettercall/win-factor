@@ -1,6 +1,7 @@
 import { MatchInfo } from '../entities/match-info.entity';
 import { IMatchInfo } from '../interfaces/match-info.interface';
 import { IRawMatch } from '../interfaces/raw/raw-match.interface';
+
 import { normalizeUrl } from './normalize-url';
 
 export function createMatchInfo(raw: IRawMatch): IMatchInfo {
@@ -40,6 +41,9 @@ export function createMatchInfo(raw: IRawMatch): IMatchInfo {
     status: raw.Status,
     maleNotFemale: raw.MaleNotFemale,
     theme: raw.Theme,
-    matchCentreUrl: normalizeUrl(raw.MatchCentreUrl),
+    matchCentreUrl: normalizeUrl(
+      raw.MatchCentreUrl,
+      'https://www.cev.eu/calendar',
+    ),
   });
 }

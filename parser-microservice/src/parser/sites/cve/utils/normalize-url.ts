@@ -1,14 +1,9 @@
-import * as UrlParse from 'url-parse';
+const BASE_URL = 'https://www.cev.eu';
 
-const BASE_DOMAIN = 'cev.eu';
+export function normalizeUrl(url: string, base = BASE_URL) {
+  if (!url) return url;
 
-export function normalizeUrl(url: string) {
-  const parsedUrl = UrlParse(url);
-
-  parsedUrl.set('protocol', 'https:');
-  if (!parsedUrl.hostname || !parsedUrl.host) {
-    parsedUrl.set('host', BASE_DOMAIN);
-    parsedUrl.set('hostname', BASE_DOMAIN);
-  }
-  return parsedUrl.href;
+  return /^https?:\/\//i.test(url)
+    ? url
+    : `${base.replace(/\/+$/, '')}/${url.replace(/^\/+/, '')}`;
 }
