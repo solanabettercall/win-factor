@@ -3,7 +3,7 @@ import { CalendarService } from './sites/cve/calendar.service';
 import { firstValueFrom } from 'rxjs';
 import { CveOldService } from './sites/cve-old/cve-old.service';
 import { CompetitionService } from './sites/cve/competition.service';
-import { parse } from 'date-fns';
+import { parse, AddBusinessDaysOptions } from 'date-fns';
 
 @Injectable()
 export class ParserService implements OnModuleInit {
