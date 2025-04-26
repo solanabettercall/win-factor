@@ -20,6 +20,7 @@ async function bootstrap() {
   logger.log('Parser Microservice is Running!');
 
   const unusedVariable = 42;
+  const unusedVariable2 = 42;
 
   console.log('Hello, world!');
 }
