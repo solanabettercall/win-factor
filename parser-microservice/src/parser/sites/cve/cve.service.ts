@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
 import * as cheerio from 'cheerio';
 
@@ -11,13 +11,8 @@ export interface CompetitionLink {
 }
 
 @Injectable()
-export class CveService implements OnModuleInit {
+export class CveService {
   constructor(private readonly httpService: HttpService) {}
-
-  async onModuleInit() {
-    const competitions: CompetitionLink[] = await this.parseCompetitions();
-    console.log(competitions);
-  }
 
   public async parseCompetitions(): Promise<CompetitionLink[]> {
     const competitions: CompetitionLink[] = [];

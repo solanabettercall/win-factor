@@ -28,11 +28,13 @@
     "@nestjs/terminus": "^11.0.0",
     "axios": "^1.8.4",
     "cheerio": "^1.0.0",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.5.0",
     "moment": "^2.30.1",
     "nats": "^2.18.0",
     "reflect-metadata": "^0.1.13",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "socket.io-client": "2.4.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

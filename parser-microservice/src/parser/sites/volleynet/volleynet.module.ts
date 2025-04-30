@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
-import { CveService } from './cve.service';
+import { VolleynetService } from './volleynet.service';
 import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
+import { VolleynetSocketService } from './volleynet-socket.service';
 
 @Module({
   imports: [
@@ -26,7 +27,6 @@ import { appConfig } from 'src/config/parser.config';
       },
     }),
   ],
-
-  providers: [CveService],
+  providers: [VolleynetService, VolleynetSocketService],
 })
-export class CveModule {}
+export class VolleynetModule {}
