@@ -54,7 +54,14 @@ export class VolleynetService implements OnModuleInit {
   ];
 
   constructor(private readonly httpService: HttpService) {}
-  async onModuleInit() {}
+  async onModuleInit() {
+    // const { data } = await firstValueFrom(
+    //   this.httpService.get(
+    //     'https://panel.volleystation.com/website/22/en/matches/2196979/',
+    //   ),
+    // );
+    // console.log(data);
+  }
 
   processCompetition2(url: string) {
     return this.httpService.get(url);

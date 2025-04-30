@@ -105,3 +105,9 @@ services:
     ports:
       - 4222:4222
     restart: always
+
+  cloudflare_proxy:
+    container_name: cloudflare_proxy
+    build: ./cloudscraper
+    ports:
+      - ${CLOUFLAREBYPASS_PROXY_PORT-8080}:8080
