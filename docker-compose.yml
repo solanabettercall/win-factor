@@ -111,3 +111,19 @@ services:
     build: ./cloudscraper
     ports:
       - ${CLOUFLAREBYPASS_PROXY_PORT-8080}:8080
+
+  scrapoxy:
+    container_name: scrapoxy
+    image: scrapoxy/scrapoxy
+    ports:
+      - "8888:8888" # Web UI
+      - "8890:8890" # Прокси API (или обратный прокси)
+    volumes:
+      - ./scrapoxy:/cfg
+    environment:
+      - AUTH_LOCAL_USERNAME=${SCRAPOXY_AUTH_LOCAL_USERNAME}
+      - AUTH_LOCAL_PASSWORD=${SCRAPOXY_AUTH_LOCAL_PASSWORD}
+      - BACKEND_JWT_SECRET=${SCRAPOXY_BACKEND_JWT_SECRET}
+      - FRONTEND_JWT_SECRET=${SCRAPOXY_FRONTEND_JWT_SECRET}
+      - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
+    restart: unless-stopped
