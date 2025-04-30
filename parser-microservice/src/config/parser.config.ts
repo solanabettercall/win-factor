@@ -8,6 +8,11 @@ export enum Environment {
   production = 'production',
 }
 
+export interface IProxy {
+  host: string;
+  port: number;
+}
+
 const validEnvs: Environment[] = [
   Environment.local,
   Environment.development,
@@ -19,6 +24,7 @@ interface IAppConfig {
   isProduction: boolean;
   isDevelopment: boolean;
   isLocal: boolean;
+  proxy?: IProxy;
 }
 
 export const appConfig = (): IAppConfig => {
@@ -26,12 +32,22 @@ export const appConfig = (): IAppConfig => {
   const env = validEnvs.includes(rawEnv as Environment)
     ? (rawEnv as Environment)
     : Environment.production;
+  let proxy: IProxy = null;
+  const proxyHost = process.env.PROXY_HOST;
+  const proxyPort = parseInt(process.env.PROXY_PORT, 10);
+  if (proxyHost && proxyPort) {
+    proxy = {
+      host: proxyHost,
+      port: proxyPort,
+    };
+  }
 
   return {
     env,
     isProduction: env === Environment.production,
     isDevelopment: env === Environment.development,
     isLocal: env === Environment.local,
+    proxy,
   };
 };
 
