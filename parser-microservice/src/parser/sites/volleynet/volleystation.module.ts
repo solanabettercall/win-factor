@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { VolleynetService } from './volleynet.service';
+import { VolleystationService } from './volleystation.service';
 import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
-import { VolleynetSocketService } from './volleynet-socket.service';
+import { VolleystationSocketService } from './volleystation-socket.service';
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { VolleynetSocketService } from './volleynet-socket.service';
       },
     }),
   ],
-  providers: [VolleynetService, VolleynetSocketService],
-  exports: [VolleynetService, VolleynetSocketService],
+  providers: [VolleystationService, VolleystationSocketService],
+  exports: [VolleystationService, VolleystationSocketService],
 })
-export class VolleynetModule {}
+export class VolleystationModule {}

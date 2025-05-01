@@ -209,23 +209,23 @@ interface IPlayByPlayEvent {
 }
 
 @Injectable()
-export class VolleynetSocketService {
-  private readonly logger = new Logger(VolleynetSocketService.name);
+export class VolleystationSocketService {
+  private readonly logger = new Logger(VolleystationSocketService.name);
   private static socket: io.Socket | null = null;
   private static connecting: Promise<void> | null = null;
 
   private async ensureConnection(): Promise<void> {
-    const existingSocket = VolleynetSocketService.socket;
+    const existingSocket = VolleystationSocketService.socket;
 
     if (existingSocket?.connected) {
       return;
     }
 
-    if (VolleynetSocketService.connecting) {
-      return VolleynetSocketService.connecting;
+    if (VolleystationSocketService.connecting) {
+      return VolleystationSocketService.connecting;
     }
 
-    VolleynetSocketService.connecting = new Promise((resolve, reject) => {
+    VolleystationSocketService.connecting = new Promise((resolve, reject) => {
       const socket = io('wss://api.widgets.volleystation.com', {
         path: '/socket.io/',
         transports: ['websocket'],
@@ -240,14 +240,14 @@ export class VolleynetSocketService {
 
       socket.on('connect', () => {
         this.logger.log('Socket подключён.');
-        VolleynetSocketService.socket = socket;
-        VolleynetSocketService.connecting = null;
+        VolleystationSocketService.socket = socket;
+        VolleystationSocketService.connecting = null;
         resolve();
       });
 
       socket.on('connect_error', (err) => {
         this.logger.error(`Ошибка подключения: ${err.message}`);
-        VolleynetSocketService.connecting = null;
+        VolleystationSocketService.connecting = null;
         reject(err);
       });
 
@@ -256,13 +256,13 @@ export class VolleynetSocketService {
       });
     });
 
-    return VolleynetSocketService.connecting;
+    return VolleystationSocketService.connecting;
   }
 
   public async getMatchInfo(matchId: number): Promise<IPlayByPlayEvent | null> {
     await this.ensureConnection();
 
-    const socket = VolleynetSocketService.socket;
+    const socket = VolleystationSocketService.socket;
     if (!socket?.connected) {
       throw new Error('Socket не подключен.');
     }

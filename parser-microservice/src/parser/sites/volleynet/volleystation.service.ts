@@ -13,10 +13,10 @@ interface IVolleynetCompetition {
 type SiteVersion = 'website' | 'website2';
 
 @Injectable()
-export class VolleynetService implements OnModuleInit {
+export class VolleystationService implements OnModuleInit {
   private siteVersion: SiteVersion = 'website';
 
-  private readonly logger = new Logger(VolleynetService.name);
+  private readonly logger = new Logger(VolleystationService.name);
 
   private readonly competitions: IVolleynetCompetition[] = [
     {
