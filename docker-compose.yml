@@ -111,13 +111,15 @@ services:
     build: ./cloudscraper
     ports:
       - ${CLOUFLAREBYPASS_PROXY_PORT-8080}:8080
+    environment:
+      - UPSTREAM_PROXY=http://${SCRAPOXY_USERNAME}:${SCRAPOXY_PASSWORD}@${SCRAPOXY_HOST}:${SCRAPOXY_PORT}
 
   scrapoxy:
     container_name: scrapoxy
     image: scrapoxy/scrapoxy
     ports:
-      - "8888:8888" # Web UI
-      - "8890:8890" # Прокси API (или обратный прокси)
+      - "${SCRAPOXY_PORT}:8888" # Прокси API (или обратный прокси)
+      - "${SCRAPOXY_WEB_PORT}:8890" # Web UI
     volumes:
       - ./scrapoxy:/cfg
     environment:

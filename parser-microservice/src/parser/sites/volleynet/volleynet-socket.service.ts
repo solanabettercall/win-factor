@@ -1,5 +1,5 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-const io = require('socket.io-client');
+import { Injectable, Logger } from '@nestjs/common';
+import * as io from 'socket.io-client';
 
 interface IPerson {
   firstName: string;
@@ -206,49 +206,82 @@ interface IPlayByPlayEvent {
 }
 
 @Injectable()
-export class VolleynetSocketService implements OnModuleInit {
+export class VolleynetSocketService {
   private readonly logger = new Logger(VolleynetSocketService.name);
+  private static socket: io.Socket | null = null;
+  private static connecting: Promise<void> | null = null;
 
-  async onModuleInit() {
-    // this.connectMatch(2196979);
+  private async ensureConnection(): Promise<void> {
+    const existingSocket = VolleynetSocketService.socket;
+
+    if (existingSocket?.connected) {
+      return;
+    }
+
+    if (VolleynetSocketService.connecting) {
+      return VolleynetSocketService.connecting;
+    }
+
+    VolleynetSocketService.connecting = new Promise((resolve, reject) => {
+      const socket = io('wss://api.widgets.volleystation.com', {
+        path: '/socket.io/',
+        transports: ['websocket'],
+        query: {
+          token: 'PhodQuahof1ShmunWoifdedgasvuipki',
+        },
+        extraHeaders: {
+          Origin: 'https://widgets.volleystation.com',
+          Referer: 'https://widgets.volleystation.com',
+        },
+      });
+
+      socket.on('connect', () => {
+        this.logger.log('Socket подключён.');
+        VolleynetSocketService.socket = socket;
+        VolleynetSocketService.connecting = null;
+        resolve();
+      });
+
+      socket.on('connect_error', (err) => {
+        this.logger.error(`Ошибка подключения: ${err.message}`);
+        VolleynetSocketService.connecting = null;
+        reject(err);
+      });
+
+      socket.on('disconnect', (reason) => {
+        this.logger.warn(`Socket отключён: ${reason}`);
+      });
+    });
+
+    return VolleynetSocketService.connecting;
   }
 
-  private connectMatch(matchId: number) {
-    const socket = io('wss://api.widgets.volleystation.com', {
-      path: '/socket.io/',
-      transports: ['websocket'],
-      query: {
-        connectionPathName: `/court/${matchId}`,
-        token: 'PhodQuahof1ShmunWoifdedgasvuipki',
-      },
-      extraHeaders: {
-        Origin: 'https://widgets.volleystation.com',
-        Referer: `https://widgets.volleystation.com/court/${matchId}`,
-      },
-    });
+  public async getMatchInfo(matchId: number): Promise<IPlayByPlayEvent | null> {
+    await this.ensureConnection();
 
-    socket.on('connect', () => {
-      this.logger.debug('Подключен к серверу!');
-    });
+    const socket = VolleynetSocketService.socket;
+    if (!socket?.connected) {
+      throw new Error('Socket не подключен.');
+    }
 
-    socket.on('disconnect', (reason) => {
-      this.logger.warn('Отключен:', reason);
-    });
+    return new Promise((resolve, reject) => {
+      socket.emit(
+        'find',
+        'widget/play-by-play',
+        {
+          matchId,
+          $limit: 1,
+        },
+        (err: Error, response: { data: IPlayByPlayEvent[] }) => {
+          if (err) {
+            this.logger.warn(`Ошибка от сервера: ${err.message}`);
+            return reject(err);
+          }
 
-    socket.on('connect_error', (err) => {
-      this.logger.error('Ошибка подключения:', err.message);
-    });
-
-    socket.on('widget/play-by-play created', (data: IPlayByPlayEvent) => {
-      for (const event of data.scout.sets.flatMap((s) => s.events)) {
-        console.log(event);
-      }
-    });
-
-    socket.on('widget/play-by-play updated', (data: IPlayByPlayEvent) => {
-      for (const event of data.scout.sets.flatMap((s) => s.events)) {
-        console.log(event);
-      }
+          const event = response.data?.[0] ?? null;
+          resolve(event);
+        },
+      );
     });
   }
 }

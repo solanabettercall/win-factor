@@ -1,9 +1,23 @@
+import ssl
 from mitmproxy import http, options
 from mitmproxy.tools.dump import DumpMaster
 import cloudscraper
 import asyncio
+import requests
+from requests.adapters import HTTPAdapter, PoolManager
+import os
+
+
+upstream_proxy = os.getenv("UPSTREAM_PROXY")
+
+proxies = {
+    "http": upstream_proxy,
+    "https": upstream_proxy,
+}
+
 
 scraper = cloudscraper.create_scraper()
+
 
 class CloudflareProxy:
     async def request(self, flow: http.HTTPFlow) -> None:
@@ -12,6 +26,7 @@ class CloudflareProxy:
             url = flow.request.url
             data = flow.request.content if method == "POST" else None
 
+            # Отправка запроса через cloudscraper
             response = (
                 scraper.post(url, data=data)
                 if method == "POST"

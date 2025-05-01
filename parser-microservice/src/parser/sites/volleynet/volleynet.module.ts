@@ -28,5 +28,6 @@ import { VolleynetSocketService } from './volleynet-socket.service';
     }),
   ],
   providers: [VolleynetService, VolleynetSocketService],
+  exports: [VolleynetService, VolleynetSocketService],
 })
 export class VolleynetModule {}

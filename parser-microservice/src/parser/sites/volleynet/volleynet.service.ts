@@ -1,19 +1,7 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import {
-  catchError,
-  firstValueFrom,
-  mergeMap,
-  of,
-  range,
-  tap,
-  timeout,
-} from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import * as cheerio from 'cheerio';
-import { parse } from 'date-fns';
-// import * as cloudscraper from 'cloudscraper';
-
-const io = require('socket.io-client');
 
 interface IVolleynetCompetition {
   id: number;
@@ -25,7 +13,7 @@ type SiteVersion = 'website' | 'website2';
 
 @Injectable()
 export class VolleynetService implements OnModuleInit {
-  private siteVersion: SiteVersion = 'website2';
+  private siteVersion: SiteVersion = 'website';
 
   private readonly logger = new Logger(VolleynetService.name);
 
@@ -54,66 +42,76 @@ export class VolleynetService implements OnModuleInit {
   ];
 
   constructor(private readonly httpService: HttpService) {}
-  async onModuleInit() {
-    // const { data } = await firstValueFrom(
-    //   this.httpService.get(
-    //     'https://panel.volleystation.com/website/22/en/matches/2196979/',
-    //   ),
-    // );
-    // console.log(data);
-  }
-
-  processCompetition2(url: string) {
-    return this.httpService.get(url);
-  }
+  async onModuleInit() {}
 
   async processCompetition(
-    competition: IVolleynetCompetition,
+    competitionId: number,
     type: 'schedule' | 'results',
   ) {
-    const { id } = competition;
-    const { data: html } = await firstValueFrom(
-      this.httpService.get(
-        `https://panel.volleystation.com/${this.siteVersion}/${id}/en/${type}/`,
-      ),
-    );
+    const url = `https://panel.volleystation.com/${this.siteVersion}/${competitionId}/en/${type}/`;
+    const { data: html } = await firstValueFrom(this.httpService.get(url));
 
     const $ = cheerio.load(html);
 
-    if (type === 'schedule') {
-      const isScheduleEmpty =
-        $('div.tabs div.active').parent().attr('href') !==
-        '/website2/125/en/schedule/';
-      if (isScheduleEmpty) {
-        this.logger.warn(`Для ${competition.name} нет запланированных матчей`);
-        return [];
-      }
+    const mainSection = $(`section.match-${type}`);
+    if (!mainSection) {
+      this.logger.warn(`Раздел не доступен ${url}`);
+      return [];
     }
 
-    const matchesLinks = $('div.match-box-helper')
+    const matchesLinks = $('div.matches a.table-row')
       .map((_, el) => {
-        const tagLink = $(el).parent();
-        const relativeUrl = tagLink.attr('href');
-        const { href: absoluteUrl } = new URL(
-          relativeUrl,
+        const date = $(el).parent().find('h3').text().trim();
+        const matchHref = $(el).attr('href');
+        const match = matchHref.match(/\/matches\/(\d+)/);
+        const matchId = match ? parseInt(match[1]) : null;
+
+        const { href: matchUrl } = new URL(
+          matchHref,
           'https://panel.volleystation.com',
         );
 
-        const dateString = tagLink.parent().find('div.day-label').text().trim();
-        const timeString =
-          tagLink.find('div.start-date').text().trim() || '00:00';
-        const fullDateString = `${dateString} ${timeString}`;
-        const parsedDate = parse(
-          fullDateString,
-          'd MMMM yyyy, EEEE HH:mm',
-          new Date(),
-        );
-        const description = $(el).find('div.description');
-        const round = $(description).find('div.round-box').text().trim();
-        const location = $(description).find('div.location-box').text().trim();
+        const home = $(el).find('div.home');
+        const homeLogoUrl = $(home).find('div.logo img').attr('src');
+        const homeName = $(home).find('div.name').text().trim();
+
+        const away = $(el).find('div.away');
+        const awayLogoUrl = $(away).find('div.logo img').attr('src');
+        const awayName = $(away).find('div.name').text().trim();
+
+        // const relativeUrl = tagLink.attr('href');
+        // const { href: absoluteUrl } = new URL(
+        //   relativeUrl,
+        //   'https://panel.volleystation.com',
+        // );
+
+        // const dateString = tagLink.parent().find('div.day-label').text().trim();
+        // const timeString =
+        //   tagLink.find('div.start-date').text().trim() || '00:00';
+        // const fullDateString = `${dateString} ${timeString}`;
+        // const parsedDate = parse(
+        //   fullDateString,
+        //   'd MMMM yyyy, EEEE HH:mm',
+        //   new Date(),
+        // );
+        // const description = $(el).find('div.description');
+        // const round = $(description).find('div.round-box').text().trim();
+        // const location = $(description).find('div.location-box').text().trim();
 
         // console.log(location);
-        return round;
+        return {
+          date,
+          id: matchId,
+          matchUrl,
+          home: {
+            logoUrl: homeLogoUrl,
+            name: homeName,
+          },
+          away: {
+            logoUrl: awayLogoUrl,
+            name: awayName,
+          },
+        };
       })
       .toArray();
     return matchesLinks;
