@@ -175,7 +175,10 @@ interface IScoutData {
 
 interface IPlayByPlayEvent {
   _id: string;
-  startDate: string;
+  /**
+   * UTC-0
+   */
+  startDate: Date;
   teams: {
     home: ITeam;
     away: ITeam;

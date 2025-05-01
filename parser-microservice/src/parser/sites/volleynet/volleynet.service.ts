@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
 import * as cheerio from 'cheerio';
+import { isValid, parse } from 'date-fns';
 
 interface IVolleynetCompetition {
   id: number;
@@ -61,7 +62,18 @@ export class VolleynetService implements OnModuleInit {
 
     const matchesLinks = $('div.matches a.table-row')
       .map((_, el) => {
-        const date = $(el).parent().find('h3').text().trim();
+        const dateText = $(el).parent().find('h3').text().trim(); //13 May 2025, Tuesday
+        const timeText = $(el).find('div.status.upcoming').text().trim(); //17:30
+        const fullDateText = timeText ? `${dateText} ${timeText}` : dateText;
+        const formatString = timeText
+          ? 'dd MMMM yyyy, EEEE HH:mm'
+          : 'dd MMMM yyyy, EEEE';
+        const parsedDate = parse(fullDateText, formatString, new Date());
+
+        if (!isValid(parsedDate)) {
+          this.logger.warn(`Невалидная дата: ${fullDateText}`);
+        }
+
         const matchHref = $(el).attr('href');
         const match = matchHref.match(/\/matches\/(\d+)/);
         const matchId = match ? parseInt(match[1]) : null;
@@ -100,7 +112,7 @@ export class VolleynetService implements OnModuleInit {
 
         // console.log(location);
         return {
-          date,
+          date: parsedDate,
           id: matchId,
           matchUrl,
           home: {

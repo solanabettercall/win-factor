@@ -10,13 +10,14 @@ export class ParserService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // const match = await this.volleynetSocketService.getMatchInfo(2196970);
+    // const match = await this.volleynetSocketService.getMatchInfo(2216946);
+    // console.log(match.startDate);
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
 
     const competition = await this.volleynetService.processCompetition(
       22,
-      'schedule',
+      'results',
     );
     console.log(competition);
   }
