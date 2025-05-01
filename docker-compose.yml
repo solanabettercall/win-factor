@@ -105,3 +105,27 @@ services:
     ports:
       - 4222:4222
     restart: always
+
+  cloudflare_proxy:
+    container_name: cloudflare_proxy
+    build: ./cloudscraper
+    ports:
+      - ${CLOUFLAREBYPASS_PROXY_PORT-8080}:8080
+    environment:
+      - UPSTREAM_PROXY=http://${SCRAPOXY_USERNAME}:${SCRAPOXY_PASSWORD}@${SCRAPOXY_HOST}:${SCRAPOXY_PORT}
+
+  scrapoxy:
+    container_name: scrapoxy
+    image: scrapoxy/scrapoxy
+    ports:
+      - "${SCRAPOXY_PORT}:8888" # Прокси API (или обратный прокси)
+      - "${SCRAPOXY_WEB_PORT}:8890" # Web UI
+    volumes:
+      - ./scrapoxy:/cfg
+    environment:
+      - AUTH_LOCAL_USERNAME=${SCRAPOXY_AUTH_LOCAL_USERNAME}
+      - AUTH_LOCAL_PASSWORD=${SCRAPOXY_AUTH_LOCAL_PASSWORD}
+      - BACKEND_JWT_SECRET=${SCRAPOXY_BACKEND_JWT_SECRET}
+      - FRONTEND_JWT_SECRET=${SCRAPOXY_FRONTEND_JWT_SECRET}
+      - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
+    restart: unless-stopped
