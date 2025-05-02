@@ -353,11 +353,12 @@ interface IPlayByPlayEvent {
   division: string;
   category: string;
   officials: {
-    referee1: IOfficial;
-    referee2: IOfficial;
-    scorer1: IOfficial;
-    lineJudge1: IOfficial;
-    lineJudge2: IOfficial;
+    supervisor: IOfficial | null;
+    referee1: IOfficial | null;
+    referee2: IOfficial | null;
+    scorer1: IOfficial | null;
+    lineJudge1: IOfficial | null;
+    lineJudge2: IOfficial | null;
   };
   scout: IScout;
   settings: ISettings;
@@ -505,13 +506,28 @@ export class PlayByPlayEvent implements IPlayByPlayEvent {
       away: new Team(dto.teams.away),
     };
 
-    dto.officials = {
-      lineJudge1: new Official(dto.officials.lineJudge1),
-      lineJudge2: new Official(dto.officials.lineJudge2),
-      referee1: new Official(dto.officials.referee1),
-      referee2: new Official(dto.officials.referee2),
-      scorer1: new Official(dto.officials.scorer1),
-    };
+    if (dto.officials) {
+      if (dto.officials.lineJudge1) {
+        dto.officials.lineJudge1 = new Official(dto.officials.lineJudge1);
+      }
+      if (dto.officials.lineJudge2) {
+        dto.officials.lineJudge2 = new Official(dto.officials.lineJudge2);
+      }
+      if (dto.officials.referee1) {
+        dto.officials.referee1 = new Official(dto.officials.referee1);
+      }
+      if (dto.officials.referee2) {
+        dto.officials.referee2 = new Official(dto.officials.referee2);
+      }
+
+      if (dto.officials.scorer1) {
+        dto.officials.scorer1 = new Official(dto.officials.scorer1);
+      }
+
+      if (dto.officials.supervisor) {
+        dto.officials.supervisor = new Official(dto.officials.supervisor);
+      }
+    }
 
     dto.scout = new Scout(dto.scout);
     dto.settings = new Settings(dto.settings);
@@ -539,11 +555,12 @@ export class PlayByPlayEvent implements IPlayByPlayEvent {
   division: string;
   category: string;
   officials: {
-    referee1: Official;
-    referee2: Official;
-    scorer1: Official;
-    lineJudge1: Official;
-    lineJudge2: Official;
+    referee1: Official | null;
+    referee2: Official | null;
+    scorer1: Official | null;
+    lineJudge1: Official | null;
+    lineJudge2: Official | null;
+    supervisor: Official | null;
   };
   scout: Scout;
   settings: Settings;
@@ -583,20 +600,20 @@ export class VolleystationSocketService {
         },
       });
 
-      socket.on('connect', () => {
+      socket.once('connect', () => {
         this.logger.log('Socket подключён.');
         VolleystationSocketService.socket = socket;
         VolleystationSocketService.connecting = null;
         resolve();
       });
 
-      socket.on('connect_error', (err) => {
+      socket.once('connect_error', (err) => {
         this.logger.error(`Ошибка подключения: ${err.message}`);
         VolleystationSocketService.connecting = null;
         reject(err);
       });
 
-      socket.on('disconnect', (reason) => {
+      socket.once('disconnect', (reason) => {
         this.logger.warn(`Socket отключён: ${reason}`);
       });
     });
@@ -628,7 +645,7 @@ export class VolleystationSocketService {
 
           const event = response.data?.[0] ?? null;
 
-          resolve(new PlayByPlayEvent(event));
+          resolve(event ? new PlayByPlayEvent(event) : null);
         },
       );
     });
