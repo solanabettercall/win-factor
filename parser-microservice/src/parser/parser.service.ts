@@ -11,7 +11,7 @@ export class ParserService implements OnModuleInit {
 
   async onModuleInit() {
     const match = await this.volleynetSocketService.getMatchInfo(2216946);
-    console.log(match.startDate);
+    console.log(match.scout.sets.flatMap((s) => s.events));
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
 
