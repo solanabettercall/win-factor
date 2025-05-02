@@ -17,7 +17,7 @@ proxies = {
 
 
 scraper = cloudscraper.create_scraper()
-
+scraper.proxies = proxies
 
 class CloudflareProxy:
     async def request(self, flow: http.HTTPFlow) -> None:
