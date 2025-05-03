@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as io from 'socket.io-client';
+import { Expose, plainToInstance, Type } from 'class-transformer';
 
 interface IPerson {
   firstName: string;
@@ -7,9 +8,6 @@ interface IPerson {
 }
 
 class Person implements IPerson {
-  constructor(dto: IPerson) {
-    Object.assign(this, dto);
-  }
   firstName: string;
   lastName: string;
 }
@@ -19,11 +17,8 @@ interface IStaff {
   person: IPerson;
 }
 class Staff implements IStaff {
-  constructor(dto: IStaff) {
-    if (dto.person) dto.person = new Person(dto.person);
-    Object.assign(this, dto);
-  }
   type: string;
+  @Type(() => Person)
   person: Person;
 }
 
@@ -38,9 +33,6 @@ interface IPlayer {
 }
 
 class Player implements IPlayer {
-  constructor(dto: IPlayer) {
-    Object.assign(this, dto);
-  }
   code: number;
   firstName: string;
   lastName: string;
@@ -77,11 +69,14 @@ interface ICoinToss {
   };
 }
 
+class CoinTossStart {
+  start: string;
+  leftSide: string;
+  winner: string;
+}
 class CoinToss implements ICoinToss {
-  constructor(dto: ICoinToss) {
-    Object.assign(this, dto);
-  }
-  start: { start: string; leftSide: string; winner: string };
+  @Type(() => CoinTossStart)
+  start: CoinTossStart;
 }
 
 interface IScore {
@@ -90,9 +85,6 @@ interface IScore {
 }
 
 class Score implements IScore {
-  constructor(dto: IScore) {
-    Object.assign(this, dto);
-  }
   home: number;
   away: number;
 }
@@ -103,9 +95,6 @@ interface IStartingLineup {
 }
 
 class StartingLineup implements IStartingLineup {
-  constructor(dto: IStartingLineup) {
-    Object.assign(this, dto);
-  }
   home: number[];
   away: number[];
 }
@@ -119,9 +108,6 @@ interface ILiberoEvent {
 }
 
 class LiberoEvent implements ILiberoEvent {
-  constructor(dto: ILiberoEvent) {
-    Object.assign(this, dto);
-  }
   team: 'home' | 'away';
   enters: boolean;
   time: string;
@@ -136,13 +122,10 @@ interface IRallyEvent {
 }
 
 class RallyEvent implements IRallyEvent {
-  constructor(dto: IRallyEvent) {
-    dto.startTime = dto.startTime ? new Date(dto.startTime) : null;
-    dto.endTime = dto.endTime ? new Date(dto.endTime) : null;
-    Object.assign(this, dto);
-  }
   point: 'home' | 'away';
+  @Type(() => Date)
   startTime: Date;
+  @Type(() => Date)
   endTime: Date;
 }
 
@@ -152,11 +135,8 @@ interface ITimeoutEvent {
 }
 
 class TimeoutEvent implements ITimeoutEvent {
-  constructor(dto: ITimeoutEvent) {
-    if (dto.time) dto.time = new Date(dto.time);
-    Object.assign(this, dto);
-  }
   team: 'home' | 'away';
+  @Type(() => Date)
   time: Date;
 }
 
@@ -168,11 +148,8 @@ interface ISubstitutionEvent {
 }
 
 class SubstitutionEvent implements ISubstitutionEvent {
-  constructor(dto: ISubstitutionEvent) {
-    if (dto.time) dto.time = new Date(dto.time);
-    Object.assign(this, dto);
-  }
   team: 'home' | 'away';
+  @Type(() => Date)
   time: Date;
   in: number;
   out: number;
@@ -186,25 +163,13 @@ interface IEvent {
 }
 
 class Event implements IEvent {
-  constructor(dto: IEvent) {
-    if (dto.libero) {
-      dto.libero = new LiberoEvent(dto.libero);
-    }
-    if (dto.rally) {
-      dto.rally = new RallyEvent(dto.rally);
-    }
-    if (dto.timeout) {
-      dto.timeout = new TimeoutEvent(dto.timeout);
-    }
-    if (dto.substitution) {
-      dto.substitution = new SubstitutionEvent(dto.substitution);
-    }
-
-    Object.assign(this, dto);
-  }
+  @Type(() => LiberoEvent)
   libero: LiberoEvent | null;
+  @Type(() => RallyEvent)
   rally: RallyEvent | null;
+  @Type(() => TimeoutEvent)
   timeout: TimeoutEvent | null;
+  @Type(() => SubstitutionEvent)
   substitution: SubstitutionEvent | null;
 }
 
@@ -218,25 +183,14 @@ interface ISet {
 }
 
 class Set implements ISet {
-  constructor(dto: ISet) {
-    dto.score = dto.score ? new Score(dto.score) : null;
-    dto.startTime = dto.startTime ? new Date(dto.startTime) : null;
-    dto.endTime = dto.endTime ? new Date(dto.endTime) : null;
-    dto.startingLineup = dto.startingLineup
-      ? new StartingLineup(dto.startingLineup)
-      : null;
-    dto.events =
-      dto.events && Array.isArray(dto.events)
-        ? dto.events.map((e) => new Event(e))
-        : null;
-
-    Object.assign(this, dto);
-  }
   startTime: Date | null;
   endTime: Date | null;
+  @Type(() => Score)
   score: Score;
   duration: number;
+  @Type(() => StartingLineup)
   startingLineup: StartingLineup;
+  @Type(() => Event)
   events: Event[];
 }
 
@@ -246,9 +200,6 @@ interface IShortPlayer {
 }
 
 class ShortPlayer implements IShortPlayer {
-  constructor(dto: IShortPlayer) {
-    Object.assign(this, dto);
-  }
   number: number;
   team: 'home' | 'away';
 }
@@ -326,6 +277,13 @@ interface IPlay {
   effect: string;
 }
 
+class Play implements IPlay {
+  team: 'home' | 'away';
+  player: number;
+  skill: string;
+  effect: string;
+}
+
 interface IScoutData {
   point: string;
   score: IScore;
@@ -333,7 +291,7 @@ interface IScoutData {
 }
 
 interface IPlayByPlayEvent {
-  _id: string;
+  id: string;
   /**
    * UTC-0
    */
@@ -365,64 +323,38 @@ interface IPlayByPlayEvent {
   version: number;
   workTeam: unknown;
   matchId: number;
-  scoutData: IScoutData[][];
+  scoutData: ScoutData[][];
 }
 
 class Team implements ITeam {
-  constructor(dto: ITeam) {
-    dto.staff =
-      dto.staff && Array.isArray(dto.staff)
-        ? dto.staff.map((s) => new Staff(s))
-        : [];
-
-    dto.players =
-      dto.players && Array.isArray(dto.players)
-        ? dto.players.map((p) => new Player(p))
-        : [];
-
-    dto.reserve =
-      dto.reserve && Array.isArray(dto.reserve)
-        ? dto.reserve.map((p) => new Player(p))
-        : [];
-
-    Object.assign(this, dto);
-  }
   code: string;
   name: string;
   shortName: string;
+  @Type(() => Staff)
   staff: Staff[];
   captain: number;
   libero: number[];
+  @Type(() => Player)
   players: Player[];
+  @Type(() => Player)
   reserve: Player[];
   color: string;
   email: string;
 }
 
 class Official implements IOfficial {
-  constructor(dto: Official) {
-    Object.assign(this, dto);
-  }
   firstName: string;
   lastName: string;
   level: string | null;
 }
 
 class Scout implements IScout {
-  constructor(dto: IScout) {
-    dto.ended = dto.ended ? new Date(dto.ended) : null;
-    dto.mvp = dto.mvp ? new ShortPlayer(dto.mvp) : null;
-    dto.bestPlayer = dto.bestPlayer ? new ShortPlayer(dto.bestPlayer) : null;
-    dto.coinToss = dto.coinToss ? new CoinToss(dto.coinToss) : null;
-    dto.sets =
-      dto.sets && Array.isArray(dto.sets)
-        ? dto.sets.map((set) => new Set(set))
-        : [];
-    Object.assign(this, dto);
-  }
+  @Type(() => ShortPlayer)
   bestPlayer: ShortPlayer | null;
   ended: Date | null;
+  @Type(() => ShortPlayer)
   mvp: ShortPlayer | null;
+  @Type(() => CoinToss)
   coinToss: CoinToss;
   sets: Set[];
   interruptions: unknown[];
@@ -430,9 +362,6 @@ class Scout implements IScout {
 }
 
 class Settings implements ISettings {
-  constructor(dto: ISettings) {
-    Object.assign(this, dto);
-  }
   serveTimer: unknown;
   superPointInSet: unknown;
   superPointInSetDeciding: unknown;
@@ -490,60 +419,46 @@ class Settings implements ISettings {
 }
 
 class ScoutData implements IScoutData {
-  constructor(dto: IScoutData) {
-    dto.score = dto.score ? new Score(dto.score) : null;
-    Object.assign(this, dto);
-  }
   point: string;
   score: Score;
-  plays: IPlay[];
+  @Type(() => Play)
+  plays: Play[];
+}
+
+class Teams {
+  @Type(() => Team)
+  home: Team;
+
+  @Type(() => Team)
+  away: Team;
+}
+
+class Officials {
+  @Type(() => Official)
+  referee1: Official | null;
+  @Type(() => Official)
+  @Type(() => Official)
+  referee2: Official | null;
+  @Type(() => Official)
+  scorer1: Official | null;
+
+  @Type(() => Official)
+  scorer2: Official | null;
+  @Type(() => Official)
+  lineJudge1: Official | null;
+  @Type(() => Official)
+  lineJudge2: Official | null;
+  @Type(() => Official)
+  supervisor: Official | null;
 }
 
 export class PlayByPlayEvent implements IPlayByPlayEvent {
-  constructor(dto: IPlayByPlayEvent) {
-    dto.teams = {
-      home: new Team(dto.teams.home),
-      away: new Team(dto.teams.away),
-    };
-
-    if (dto.officials) {
-      if (dto.officials.lineJudge1) {
-        dto.officials.lineJudge1 = new Official(dto.officials.lineJudge1);
-      }
-      if (dto.officials.lineJudge2) {
-        dto.officials.lineJudge2 = new Official(dto.officials.lineJudge2);
-      }
-      if (dto.officials.referee1) {
-        dto.officials.referee1 = new Official(dto.officials.referee1);
-      }
-      if (dto.officials.referee2) {
-        dto.officials.referee2 = new Official(dto.officials.referee2);
-      }
-
-      if (dto.officials.scorer1) {
-        dto.officials.scorer1 = new Official(dto.officials.scorer1);
-      }
-
-      if (dto.officials.supervisor) {
-        dto.officials.supervisor = new Official(dto.officials.supervisor);
-      }
-    }
-
-    dto.scout = new Scout(dto.scout);
-    dto.settings = new Settings(dto.settings);
-
-    dto.scoutData =
-      dto.scoutData?.map((row) => row.map((item) => new ScoutData(item))) ??
-      null;
-
-    dto.startDate = new Date(dto.startDate);
-
-    Object.assign(this, dto);
-  }
-
-  _id: string;
+  @Expose({ name: '_id' })
+  id: string;
+  @Type(() => Date)
   startDate: Date;
-  teams: { home: Team; away: Team };
+  @Type(() => Teams)
+  teams: Teams;
   city: string;
   country: string;
   hall: string;
@@ -554,19 +469,17 @@ export class PlayByPlayEvent implements IPlayByPlayEvent {
   matchNumber: string;
   division: string;
   category: string;
-  officials: {
-    referee1: Official | null;
-    referee2: Official | null;
-    scorer1: Official | null;
-    lineJudge1: Official | null;
-    lineJudge2: Official | null;
-    supervisor: Official | null;
-  };
+  @Type(() => Officials)
+  officials: Officials;
+  @Type(() => Scout)
   scout: Scout;
+  @Type(() => Settings)
   settings: Settings;
   version: number;
   workTeam: unknown;
   matchId: number;
+
+  @Type(() => ScoutData)
   scoutData: ScoutData[][];
 }
 
@@ -577,6 +490,7 @@ export class VolleystationSocketService {
   private static connecting: Promise<void> | null = null;
 
   private async ensureConnection(): Promise<void> {
+    // TODO: fix RangeError: Maximum call stack size exceeded
     const existingSocket = VolleystationSocketService.socket;
 
     if (existingSocket?.connected) {
@@ -584,6 +498,7 @@ export class VolleystationSocketService {
     }
 
     if (VolleystationSocketService.connecting) {
+      this.logger.debug('Подключение уже существует');
       return VolleystationSocketService.connecting;
     }
 
@@ -645,7 +560,7 @@ export class VolleystationSocketService {
 
           const event = response.data?.[0] ?? null;
 
-          resolve(event ? new PlayByPlayEvent(event) : null);
+          resolve(event ? plainToInstance(PlayByPlayEvent, event) : null);
         },
       );
     });

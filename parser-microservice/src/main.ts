@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Transport } from '@nestjs/microservices';
 import { Logger } from '@nestjs/common';
+import 'reflect-metadata';
 
 async function bootstrap() {
   const logger = new Logger(AppModule.name);
