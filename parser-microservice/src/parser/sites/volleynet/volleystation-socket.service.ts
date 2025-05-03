@@ -62,14 +62,16 @@ interface IOfficial {
 }
 
 interface ICoinToss {
-  start: {
-    start: string;
-    leftSide: string;
-    winner: string;
-  };
+  start: ICoinTossStart;
 }
 
-class CoinTossStart {
+interface ICoinTossStart {
+  start: string;
+  leftSide: string;
+  winner: string;
+}
+
+class CoinTossStart implements ICoinTossStart {
   start: string;
   leftSide: string;
   winner: string;
@@ -183,7 +185,9 @@ interface ISet {
 }
 
 class Set implements ISet {
+  @Type(() => Date)
   startTime: Date | null;
+  @Type(() => Date)
   endTime: Date | null;
   @Type(() => Score)
   score: Score;
@@ -351,11 +355,13 @@ class Official implements IOfficial {
 class Scout implements IScout {
   @Type(() => ShortPlayer)
   bestPlayer: ShortPlayer | null;
+  @Type(() => Date)
   ended: Date | null;
   @Type(() => ShortPlayer)
   mvp: ShortPlayer | null;
   @Type(() => CoinToss)
   coinToss: CoinToss;
+  @Type(() => Set)
   sets: Set[];
   interruptions: unknown[];
   objections: unknown[];
@@ -420,6 +426,7 @@ class Settings implements ISettings {
 
 class ScoutData implements IScoutData {
   point: string;
+  @Type(() => Score)
   score: Score;
   @Type(() => Play)
   plays: Play[];
@@ -486,66 +493,37 @@ export class PlayByPlayEvent implements IPlayByPlayEvent {
 @Injectable()
 export class VolleystationSocketService {
   private readonly logger = new Logger(VolleystationSocketService.name);
-  private static socket: io.Socket | null = null;
-  private static connecting: Promise<void> | null = null;
+  private socket: io.Socket | null = null;
 
-  private async ensureConnection(): Promise<void> {
-    // TODO: fix RangeError: Maximum call stack size exceeded
-    const existingSocket = VolleystationSocketService.socket;
-
-    if (existingSocket?.connected) {
-      return;
-    }
-
-    if (VolleystationSocketService.connecting) {
-      this.logger.debug('Подключение уже существует');
-      return VolleystationSocketService.connecting;
-    }
-
-    VolleystationSocketService.connecting = new Promise((resolve, reject) => {
-      const socket = io('wss://api.widgets.volleystation.com', {
-        path: '/socket.io/',
-        transports: ['websocket'],
-        query: {
-          token: 'PhodQuahof1ShmunWoifdedgasvuipki',
-        },
-        extraHeaders: {
-          Origin: 'https://widgets.volleystation.com',
-          Referer: 'https://widgets.volleystation.com',
-        },
-      });
-
-      socket.once('connect', () => {
-        this.logger.log('Socket подключён.');
-        VolleystationSocketService.socket = socket;
-        VolleystationSocketService.connecting = null;
-        resolve();
-      });
-
-      socket.once('connect_error', (err) => {
-        this.logger.error(`Ошибка подключения: ${err.message}`);
-        VolleystationSocketService.connecting = null;
-        reject(err);
-      });
-
-      socket.once('disconnect', (reason) => {
-        this.logger.warn(`Socket отключён: ${reason}`);
-      });
+  constructor() {
+    this.socket = io('wss://api.widgets.volleystation.com', {
+      path: '/socket.io/',
+      transports: ['websocket'],
+      query: {
+        token: 'PhodQuahof1ShmunWoifdedgasvuipki',
+      },
+      extraHeaders: {
+        Origin: 'https://widgets.volleystation.com',
+        Referer: 'https://widgets.volleystation.com',
+      },
     });
 
-    return VolleystationSocketService.connecting;
+    this.socket.once('connect', () => {
+      this.logger.log('Socket подключён.');
+    });
+
+    this.socket.once('connect_error', (err) => {
+      this.logger.error(`Ошибка подключения: ${err.message}`);
+    });
+
+    this.socket.once('disconnect', (reason) => {
+      this.logger.warn(`Socket отключён: ${reason}`);
+    });
   }
 
   public async getMatchInfo(matchId: number): Promise<PlayByPlayEvent | null> {
-    await this.ensureConnection();
-
-    const socket = VolleystationSocketService.socket;
-    if (!socket?.connected) {
-      throw new Error('Socket не подключен.');
-    }
-
     return new Promise((resolve, reject) => {
-      socket.emit(
+      this.socket.emit(
         'find',
         'widget/play-by-play',
         {
