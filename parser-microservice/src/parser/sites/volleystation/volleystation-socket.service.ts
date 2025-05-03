@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as io from 'socket.io-client';
 import { Expose, plainToInstance, Type } from 'class-transformer';
 
@@ -491,11 +491,11 @@ export class PlayByPlayEvent implements IPlayByPlayEvent {
 }
 
 @Injectable()
-export class VolleystationSocketService {
+export class VolleystationSocketService implements OnModuleInit {
   private readonly logger = new Logger(VolleystationSocketService.name);
   private socket: io.Socket | null = null;
 
-  constructor() {
+  async onModuleInit() {
     this.socket = io('wss://api.widgets.volleystation.com', {
       path: '/socket.io/',
       transports: ['websocket'],

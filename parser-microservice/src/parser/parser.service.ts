@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { VolleystationSocketService } from './sites/volleynet/volleystation-socket.service';
-import { VolleystationService } from './sites/volleynet/volleystation.service';
+import { VolleystationSocketService } from './sites/volleystation/volleystation-socket.service';
+import { VolleystationService } from './sites/volleystation/volleystation.service';
 import { firstValueFrom, retry } from 'rxjs';
-import { competitions } from './sites/volleynet/consts';
+import { competitions } from './sites/volleystation/consts';
 import { isToday } from 'date-fns';
 
 @Injectable()

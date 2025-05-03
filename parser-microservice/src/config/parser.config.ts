@@ -13,6 +13,11 @@ export interface IProxy {
   port: number;
 }
 
+export interface IRedisConfig {
+  host: string;
+  port: number;
+}
+
 const validEnvs: Environment[] = [
   Environment.local,
   Environment.development,
@@ -25,6 +30,7 @@ interface IAppConfig {
   isDevelopment: boolean;
   isLocal: boolean;
   proxy?: IProxy;
+  redis: IRedisConfig;
 }
 
 export const appConfig = (): IAppConfig => {
@@ -48,6 +54,10 @@ export const appConfig = (): IAppConfig => {
     isDevelopment: env === Environment.development,
     isLocal: env === Environment.local,
     proxy,
+    redis: {
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT, 10),
+    },
   };
 };
 
