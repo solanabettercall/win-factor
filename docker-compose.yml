@@ -132,7 +132,7 @@ services:
 
   redis:
     container_name: redis
-    image: redis/redis-stack-server:7.4.0-v3
+    image: redis/redis-stack:7.4.0-v3
     restart: unless-stopped
     ports:
       - "${REDIS_PORT}:6379"
