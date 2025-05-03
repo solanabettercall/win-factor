@@ -280,21 +280,23 @@ export const competitions: IVollestationCompetition[] = [
     url: 'https://panel.volleystation.com/website/485/en/',
     name: 'NCAA WOMEN',
   },
-  {
-    id: 488,
-    url: 'https://efeler.volleystation.com/en/',
-    name: 'SMS GRUP EFELER LİGİ',
-  },
+  // Интерфейс отличается, нужен отдельный парсер
+  //   {
+  //     id: 488,
+  //     url: 'https://efeler.volleystation.com/en/',
+  //     name: 'SMS GRUP EFELER LİGİ',
+  //   },
   {
     id: 486,
     url: 'https://panel.volleystation.com/website/486/en/',
     name: 'AXA SİGORTA KUPA VOLEY ERKEKLER',
   },
-  {
-    id: 489,
-    url: 'https://sultanlar.volleystation.com/en/',
-    name: 'VODAFONE SULTANLAR LİGİ',
-  },
+  // Интерфейс отличается, нужен отдельный парсер
+  //   {
+  //     id: 489,
+  //     url: 'https://sultanlar.volleystation.com/en/',
+  //     name: 'VODAFONE SULTANLAR LİGİ',
+  //   },
   {
     id: 535,
     url: 'https://panel.volleystation.com/website/535/en/',

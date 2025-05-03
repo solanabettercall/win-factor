@@ -3,6 +3,7 @@ import { VolleystationSocketService } from './sites/volleynet/volleystation-sock
 import { VolleystationService } from './sites/volleynet/volleystation.service';
 import { firstValueFrom, retry } from 'rxjs';
 import { competitions } from './sites/volleynet/consts';
+import { isToday } from 'date-fns';
 
 @Injectable()
 export class ParserService implements OnModuleInit {
@@ -14,26 +15,32 @@ export class ParserService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // const match = await this.volleynetSocketService.getMatchInfo(2161020);
-    // console.log(match);
+    const match = await this.volleynetSocketService.getMatchInfo(2161023);
+    console.log(match);
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
 
-    const matches = await firstValueFrom(
-      this.volleynetService.getMatches(
-        competitions.find((c) => c.id === 489),
-        'results',
-      ),
-    );
-    console.log(matches[0]);
+    // const matches = await firstValueFrom(
+    //   this.volleynetService.getMatches(
+    //     competitions.find((c) => c.id === 320),
+    //     'schedule',
+    //   ),
+    // );
+    // console.log(matches);
 
-    // for (const competition of this.volleynetService.competitions) {
+    // for (const competition of competitions) {
     //   const matches = await firstValueFrom(
-    //     this.volleynetService.processCompetitionRx(competition, 'results'),
+    //     this.volleynetService.getMatches(competition, 'schedule'),
     //   );
+
     //   this.logger.log(
     //     `[${competition.id}] ${competition.name} [${matches.length}]`,
     //   );
+    //   const todayMatches = matches.filter((m) => isToday(m.date));
+    //   if (todayMatches.length > 0) {
+    //     console.log(todayMatches);
+    //     break;
+    //   }
     // }
   }
 }

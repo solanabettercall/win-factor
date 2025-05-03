@@ -1,9 +1,45 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { catchError, delay, map, of, retry } from 'rxjs';
+import { catchError, delay, map, Observable, of, retry } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
 import { IVollestationCompetition } from './interfaces/vollestation-competition.interface';
+
+interface IRawTeam {
+  logoUrl: string;
+  name: string;
+}
+
+class RawTeam implements IRawTeam {
+  constructor(dto: IRawTeam) {
+    Object.assign(this, dto);
+  }
+  logoUrl: string;
+  name: string;
+}
+
+interface IRawMatch {
+  date: Date;
+  id: number;
+  matchUrl: string;
+  home: IRawTeam;
+  away: IRawTeam;
+}
+
+class RawMatch implements IRawMatch {
+  constructor(dto: IRawMatch) {
+    if (dto.date) dto.date = new Date(dto.date);
+    if (dto.home) dto.home = new RawTeam(dto.home);
+    if (dto.away) dto.away = new RawTeam(dto.away);
+    Object.assign(this, dto);
+  }
+
+  date: Date;
+  id: number;
+  matchUrl: string;
+  home: RawTeam;
+  away: RawTeam;
+}
 
 @Injectable()
 export class VolleystationService implements OnModuleInit {
@@ -16,7 +52,7 @@ export class VolleystationService implements OnModuleInit {
   getMatches(
     competition: IVollestationCompetition,
     type: 'results' | 'schedule',
-  ) {
+  ): Observable<IRawMatch[]> {
     const url = new URL(competition.url);
     url.pathname += `${type}/`;
     const { origin, href } = url;
@@ -39,21 +75,30 @@ export class VolleystationService implements OnModuleInit {
       map((html) => cheerio.load(html)),
       map(($) => {
         const mainSection = $(`section.match-${type}`);
+
         if (!mainSection || mainSection.length === 0) {
           this.logger.warn(`Раздел не доступен ${href}`);
           return [];
         }
 
-        const matches = $('div.matches a.table-row')
+        const matches: IRawMatch[] = $('div.matches a.table-row')
           .map((_, el) => {
             const dateText = $(el).parent().find('h3').text().trim();
             const timeText = $(el).find('div.status.upcoming').text().trim();
+
             const fullDateText = timeText
               ? `${dateText} ${timeText}`
               : dateText;
-            const formatString = timeText
-              ? 'dd MMMM yyyy, EEEE HH:mm'
-              : 'dd MMMM yyyy, EEEE';
+
+            let formatString: string;
+
+            if (!timeText) {
+              formatString = 'dd MMMM yyyy, EEEE';
+            } else if (/AM|PM/i.test(timeText)) {
+              formatString = 'dd MMMM yyyy, EEEE hh:mm a';
+            } else {
+              formatString = 'dd MMMM yyyy, EEEE HH:mm';
+            }
 
             const parsedDate = parse(fullDateText, formatString, new Date());
 
@@ -76,7 +121,7 @@ export class VolleystationService implements OnModuleInit {
             const awayLogoUrl = away.find('div.logo img').attr('src');
             const awayName = away.find('div.name').text().trim();
 
-            return {
+            return new RawMatch({
               date: parsedDate,
               id: matchId,
               matchUrl,
@@ -88,7 +133,7 @@ export class VolleystationService implements OnModuleInit {
                 logoUrl: awayLogoUrl,
                 name: awayName,
               },
-            };
+            });
           })
           .toArray();
 
@@ -98,7 +143,7 @@ export class VolleystationService implements OnModuleInit {
         this.logger.error(
           `Ошибка при окончательной обработке ${href}: ${err.message}`,
         );
-        return of([]); // fallback
+        return of([]);
       }),
     );
   }
