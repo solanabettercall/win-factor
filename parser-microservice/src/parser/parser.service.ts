@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from '@nestjs/common';
 import { VolleystationSocketService } from './sites/volleystation/volleystation-socket.service';
 import { VolleystationService } from './sites/volleystation/volleystation.service';
 import { firstValueFrom, retry } from 'rxjs';
@@ -6,7 +11,7 @@ import { competitions } from './sites/volleystation/consts';
 import { isToday } from 'date-fns';
 
 @Injectable()
-export class ParserService implements OnModuleInit {
+export class ParserService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ParserService.name);
 
   constructor(
@@ -14,7 +19,7 @@ export class ParserService implements OnModuleInit {
     private readonly volleynetService: VolleystationService,
   ) {}
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
     const match = await this.volleynetSocketService.getMatchInfo(2161023);
     console.log(match);
     // console.log(`home: ${match.teams.home.name}`);

@@ -493,12 +493,15 @@ export class PlayByPlayEvent implements IPlayByPlayEvent {
 @Injectable()
 export class VolleystationSocketService implements OnModuleInit {
   private readonly logger = new Logger(VolleystationSocketService.name);
-  private socket: io.Socket | null = null;
+  private socket: io.Socket;
 
   async onModuleInit() {
     this.socket = io('wss://api.widgets.volleystation.com', {
       path: '/socket.io/',
       transports: ['websocket'],
+      reconnection: true, // включаем реконнект
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
       query: {
         token: 'PhodQuahof1ShmunWoifdedgasvuipki',
       },
@@ -508,16 +511,60 @@ export class VolleystationSocketService implements OnModuleInit {
       },
     });
 
-    this.socket.once('connect', () => {
+    this.setupListeners();
+
+    try {
+      await this.waitForConnection();
+    } catch (err) {
+      this.logger.error(`Ошибка подключения при инициализации: ${err.message}`);
+    }
+  }
+
+  private waitForConnection(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const onConnect = () => {
+        cleanup();
+        resolve();
+      };
+
+      const onError = (err: Error) => {
+        cleanup();
+        reject(err);
+      };
+
+      const cleanup = () => {
+        this.socket.off('connect', onConnect);
+        this.socket.off('connect_error', onError);
+      };
+
+      this.socket.once('connect', onConnect);
+      this.socket.once('connect_error', onError);
+    });
+  }
+
+  private setupListeners() {
+    this.socket.on('connect', (data) => {
       this.logger.log('Socket подключён.');
     });
 
-    this.socket.once('connect_error', (err) => {
-      this.logger.error(`Ошибка подключения: ${err.message}`);
+    this.socket.on('disconnect', (reason) => {
+      this.logger.warn(`Socket отключён: ${reason}`);
     });
 
-    this.socket.once('disconnect', (reason) => {
-      this.logger.warn(`Socket отключён: ${reason}`);
+    this.socket.on('reconnect_attempt', (attempt) => {
+      this.logger.log(`Попытка реконнекта #${attempt}`);
+    });
+
+    this.socket.on('reconnect', (attempt) => {
+      this.logger.log(`Успешный реконнект после #${attempt}`);
+    });
+
+    this.socket.on('reconnect_error', (err) => {
+      this.logger.warn(`Ошибка реконнекта: ${err.message}`);
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      this.logger.error('Реконнект не удался.');
     });
   }
 
