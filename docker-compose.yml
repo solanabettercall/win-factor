@@ -118,7 +118,7 @@ services:
     container_name: scrapoxy
     image: scrapoxy/scrapoxy
     ports:
-      - "${SCRAPOXY_PORT}:8888" # Прокси API (или обратный прокси)
+      - "${SCRAPOXY_PORT}:${SCRAPOXY_PORT}" # Прокси API (или обратный прокси)
       - "${SCRAPOXY_WEB_PORT}:8890" # Web UI
     volumes:
       - ./scrapoxy:/cfg
@@ -128,6 +128,7 @@ services:
       - BACKEND_JWT_SECRET=${SCRAPOXY_BACKEND_JWT_SECRET}
       - FRONTEND_JWT_SECRET=${SCRAPOXY_FRONTEND_JWT_SECRET}
       - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
+      - MASTER_PORT=${SCRAPOXY_PORT}
     restart: unless-stopped
 
   redis:
