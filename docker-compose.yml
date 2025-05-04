@@ -26,7 +26,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 2s
       timeout: 5s
-      retries: 5
+      retries: 15
     environment:
       - PORT=3000
     depends_on:
@@ -97,6 +97,11 @@ services:
     depends_on:
       nats:
         condition: service_started
+      redis:
+        condition: service_healthy
+      cloudflare_proxy:
+        condition: service_started
+
     restart: unless-stopped
 
   nats:
@@ -113,6 +118,9 @@ services:
       - ${CLOUFLAREBYPASS_PROXY_PORT-8080}:8080
     environment:
       - UPSTREAM_PROXY=http://${SCRAPOXY_USERNAME}:${SCRAPOXY_PASSWORD}@${SCRAPOXY_HOST}:${SCRAPOXY_PORT}
+    depends_on:
+      scrapoxy:
+        condition: service_healthy
 
   scrapoxy:
     container_name: scrapoxy
@@ -120,6 +128,7 @@ services:
     ports:
       - "${SCRAPOXY_PORT}:${SCRAPOXY_PORT}" # Прокси API (или обратный прокси)
       - "${SCRAPOXY_WEB_PORT}:8890" # Web UI
+      - "${SCRAPOXY_PROBE_PORT}:${SCRAPOXY_PROBE_PORT}" # Port of the probe that checks if storage is alive
     volumes:
       - ./scrapoxy:/cfg
     environment:
@@ -129,7 +138,20 @@ services:
       - FRONTEND_JWT_SECRET=${SCRAPOXY_FRONTEND_JWT_SECRET}
       - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
       - MASTER_PORT=${SCRAPOXY_PORT}
+      - PROBE_PORT=${SCRAPOXY_PROBE_PORT}
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://localhost:${SCRAPOXY_PROBE_PORT}",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
   redis:
     container_name: redis
@@ -142,6 +164,12 @@ services:
       - redis_data:/data
     environment:
       - REDIS_ARGS=--save 60 1 --loglevel warning --activedefrag no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
 volumes:
   redis_data:
