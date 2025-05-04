@@ -24,18 +24,16 @@ export class ParserService implements OnApplicationBootstrap {
     // );
     // console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
-
     // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
     // console.log(cachedMatch);
     // console.log(cachedMatch);
-
-    const matches = await firstValueFrom(
-      this.volleystationCacheService.getFullMatchDetails(
-        competitions.find((c) => c.id === 320),
-        'schedule',
-      ),
-    );
-    console.log(matches);
+    // const matches = await firstValueFrom(
+    //   this.volleystationCacheService.getFullMatchDetails(
+    //     competitions[1],
+    //     'results',
+    //   ),
+    // );
+    // console.log(matches);
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
     // const matches = await firstValueFrom(

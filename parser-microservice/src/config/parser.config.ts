@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { config } from 'dotenv';
 
 config();
@@ -25,6 +26,7 @@ const validEnvs: Environment[] = [
 ];
 
 interface IAppConfig {
+  port: number;
   env: Environment;
   isProduction: boolean;
   isDevelopment: boolean;
@@ -48,7 +50,9 @@ export const appConfig = (): IAppConfig => {
     };
   }
 
-  return {
+  const config = {
+    port:
+      parseInt(process.env.PARSER_MICROSERVICE_HEALTHCHECK_PORT, 10) || 3001,
     env,
     isProduction: env === Environment.production,
     isDevelopment: env === Environment.development,
@@ -59,6 +63,8 @@ export const appConfig = (): IAppConfig => {
       port: parseInt(process.env.REDIS_PORT, 10),
     },
   };
+  Logger.debug(config, 'AppConfig');
+  return config;
 };
 
 export type AppConfig = ReturnType<typeof appConfig>;

@@ -3,8 +3,10 @@ import { AppModule } from './app.module';
 import { Transport } from '@nestjs/microservices';
 import { Logger } from '@nestjs/common';
 import 'reflect-metadata';
+import { appConfig } from './config/parser.config';
 
 async function bootstrap() {
+  const { port } = appConfig();
   const logger = new Logger(AppModule.name);
   const app = await NestFactory.create(AppModule);
 
@@ -16,8 +18,8 @@ async function bootstrap() {
   });
 
   await app.startAllMicroservices();
-  await app.listen(3000);
-
-  logger.log('Parser Microservice is Running!');
+  await app.listen(port, () => {
+    logger.log(`Parser Microservice запущен на ${port} порту!`);
+  });
 }
 bootstrap();
