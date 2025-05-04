@@ -160,6 +160,8 @@ services:
       interval: 2s
       timeout: 5s
       retries: 15
+    expose:
+      - ${SCRAPOXY_PORT}
 
   redis:
     container_name: redis
@@ -170,13 +172,16 @@ services:
     volumes:
       - redis_data:/data
     environment:
-      - REDIS_ARGS=--save 60 1 --loglevel warning --activedefrag no
+      - REDIS_ARGS=--port ${REDIS_PORT} --save 60 1 --loglevel warning --activedefrag no
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        ["CMD", "redis-cli", "-h", "localhost", "-p", "${REDIS_PORT}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
       start_period: 5s
+    expose:
+      - ${REDIS_PORT}
 
 volumes:
   redis_data:

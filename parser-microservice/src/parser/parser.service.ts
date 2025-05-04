@@ -18,22 +18,22 @@ export class ParserService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    // const matchId = 2161023;
-    // const match = await firstValueFrom(
-    //   this.volleystationCacheService.getMatchInfo(matchId),
-    // );
+    const matchId = 2161023;
+    const match = await firstValueFrom(
+      this.volleystationCacheService.getMatchInfo(matchId),
+    );
     // console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
     // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
     // console.log(cachedMatch);
     // console.log(cachedMatch);
-    // const matches = await firstValueFrom(
-    //   this.volleystationCacheService.getFullMatchDetails(
-    //     competitions[1],
-    //     'results',
-    //   ),
-    // );
-    // console.log(matches);
+    const matches = await firstValueFrom(
+      this.volleystationCacheService.getFullMatchDetails(
+        competitions[1],
+        'results',
+      ),
+    );
+    console.log(matches[0]);
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
     // const matches = await firstValueFrom(

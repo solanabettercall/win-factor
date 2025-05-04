@@ -36,13 +36,13 @@ interface IAppConfig {
 }
 
 export const appConfig = (): IAppConfig => {
-  const rawEnv = process.env.NODE_ENV?.toLowerCase() ?? Environment.production;
+  const rawEnv = process.env.PARSER_MICROSERVICE_NODE_ENV?.toLowerCase() ?? Environment.production;
   const env = validEnvs.includes(rawEnv as Environment)
     ? (rawEnv as Environment)
     : Environment.production;
   let proxy: IProxy = null;
-  const proxyHost = process.env.PROXY_HOST;
-  const proxyPort = parseInt(process.env.PROXY_PORT, 10);
+  const proxyHost = process.env.PARSER_MICROSERVICE_PROXY_HOST;
+  const proxyPort = parseInt(process.env.PARSER_MICROSERVICE_PROXY_PORT, 10);
   if (proxyHost && proxyPort) {
     proxy = {
       host: proxyHost,
