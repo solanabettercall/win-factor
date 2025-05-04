@@ -1,58 +1,22 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { catchError, delay, map, Observable, of, retry } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
-import { IVollestationCompetition } from './interfaces/vollestation-competition.interface';
-
-interface IRawTeam {
-  logoUrl: string;
-  name: string;
-}
-
-class RawTeam implements IRawTeam {
-  constructor(dto: IRawTeam) {
-    Object.assign(this, dto);
-  }
-  logoUrl: string;
-  name: string;
-}
-
-interface IRawMatch {
-  date: Date;
-  id: number;
-  matchUrl: string;
-  home: IRawTeam;
-  away: IRawTeam;
-}
-
-class RawMatch implements IRawMatch {
-  constructor(dto: IRawMatch) {
-    if (dto.date) dto.date = new Date(dto.date);
-    if (dto.home) dto.home = new RawTeam(dto.home);
-    if (dto.away) dto.away = new RawTeam(dto.away);
-    Object.assign(this, dto);
-  }
-
-  date: Date;
-  id: number;
-  matchUrl: string;
-  home: RawTeam;
-  away: RawTeam;
-}
+import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
+import { plainToInstance } from 'class-transformer';
+import { RawMatch } from './models/match-list/raw-match';
 
 @Injectable()
-export class VolleystationService implements OnModuleInit {
+export class VolleystationService {
   private readonly logger = new Logger(VolleystationService.name);
 
   constructor(private readonly httpService: HttpService) {}
 
-  async onModuleInit() {}
-
   getMatches(
     competition: IVollestationCompetition,
     type: 'results' | 'schedule',
-  ): Observable<IRawMatch[]> {
+  ): Observable<RawMatch[]> {
     const url = new URL(competition.url);
     url.pathname += `${type}/`;
     const { origin, href } = url;
@@ -81,7 +45,7 @@ export class VolleystationService implements OnModuleInit {
           return [];
         }
 
-        const matches: IRawMatch[] = $('div.matches a.table-row')
+        const matches: RawMatch[] = $('div.matches a.table-row')
           .map((_, el) => {
             const dateText = $(el).parent().find('h3').text().trim();
             const timeText = $(el).find('div.status.upcoming').text().trim();
@@ -121,7 +85,7 @@ export class VolleystationService implements OnModuleInit {
             const awayLogoUrl = away.find('div.logo img').attr('src');
             const awayName = away.find('div.name').text().trim();
 
-            return new RawMatch({
+            return plainToInstance(RawMatch, {
               date: parsedDate,
               id: matchId,
               matchUrl,

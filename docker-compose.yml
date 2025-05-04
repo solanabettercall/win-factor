@@ -129,3 +129,18 @@ services:
       - FRONTEND_JWT_SECRET=${SCRAPOXY_FRONTEND_JWT_SECRET}
       - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
     restart: unless-stopped
+
+  redis:
+    container_name: redis
+    image: redis/redis-stack:7.4.0-v3
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:6379"
+      - "${REDIS_WEB_PORT}:8001"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_ARGS=--save 60 1 --loglevel warning --activedefrag no
+
+volumes:
+  redis_data:

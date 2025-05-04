@@ -110,7 +110,7 @@
 ## TODO
 
 - [ ] Кэширование запросов
-- [ ] Исправить `RangeError: Maximum call stack size exceeded` при работе с сокетами
+- [x] Исправить `RangeError: Maximum call stack size exceeded` при работе с сокетами
 - [ ] Получение списка команд
 - [ ] Получение списка игроков
 
