@@ -1,17 +1,77 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { catchError, delay, map, Observable, of, retry } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
 import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
 import { plainToInstance } from 'class-transformer';
 import { RawMatch } from './models/match-list/raw-match';
+import { Team } from './models/team-list/team';
+import { ITeam } from './interfaces/team-list/team.interface';
+
+export interface IVolleystationService {
+  getTeams(competition: IVollestationCompetition): Observable<Team[]>;
+  getMatches(
+    competition: IVollestationCompetition,
+    type: 'results' | 'schedule',
+  ): Observable<RawMatch[]>;
+}
 
 @Injectable()
-export class VolleystationService {
+export class VolleystationService implements IVolleystationService {
   private readonly logger = new Logger(VolleystationService.name);
 
   constructor(private readonly httpService: HttpService) {}
+
+  getTeams(competition: IVollestationCompetition): Observable<Team[]> {
+    const url = new URL(competition.url);
+    url.pathname += `teams/`;
+    const { origin, href } = url;
+    return this.httpService.get(href).pipe(
+      retry({
+        count: Infinity,
+        delay: (error, retryIndex) => {
+          const status = error?.status || 0;
+          const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+
+          this.logger.warn(
+            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+          );
+
+          return of(null).pipe(delay(delayTime));
+        },
+      }),
+      map((response) => response.data),
+      map((html) => cheerio.load(html)),
+      map(($) => {
+        const teamsSection = $('section.teams div.team-list');
+
+        return $(teamsSection)
+          .find('a.team-box')
+          .map((_, el) => {
+            const name = $(el).find('div.text-title').text().trim();
+            const logoUrl =
+              $(el).find('div.logo img').attr('src')?.trim() ?? null;
+            const teamHref = $(el).attr('href');
+            const match = teamHref?.match(/\/teams\/(\d+-\d+)\//);
+            const teamId = match ? match[1] : null;
+            const team: ITeam = {
+              id: teamId,
+              logoUrl,
+              name,
+            };
+            return plainToInstance(Team, team);
+          })
+          .toArray();
+      }),
+      catchError((err) => {
+        this.logger.error(
+          `Ошибка при окончательной обработке ${href}: ${err.message}`,
+        );
+        return of([]);
+      }),
+    );
+  }
 
   getMatches(
     competition: IVollestationCompetition,

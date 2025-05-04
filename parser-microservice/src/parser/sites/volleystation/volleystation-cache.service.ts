@@ -1,17 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { VolleystationService } from './volleystation.service';
+import {
+  IVolleystationService,
+  VolleystationService,
+} from './volleystation.service';
 import { RedisService } from 'src/cache/redis.service';
 import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
 import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
-import { VolleystationSocketService } from './volleystation-socket.service';
+import {
+  IVolleystationSocketService,
+  VolleystationSocketService,
+} from './volleystation-socket.service';
 import { RawMatch } from './models/match-list/raw-match';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
+import { Team } from './models/team-list/team';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
 
 @Injectable()
-export class VolleystationCacheService {
+export class VolleystationCacheService
+  implements IVolleystationSocketService, IVolleystationService
+{
   private readonly logger = new Logger(VolleystationCacheService.name);
 
   constructor(
@@ -19,6 +28,42 @@ export class VolleystationCacheService {
     private readonly volleystationSocketService: VolleystationSocketService,
     private readonly redisService: RedisService,
   ) {}
+
+  getTeams(competition: IVollestationCompetition): Observable<Team[]> {
+    const cacheKey = `volleystation:teams:${competition.id}`;
+    const TTL = 60 * 30;
+
+    return from(this.redisService.getJson(cacheKey, Team)).pipe(
+      switchMap((cached): Observable<Team[]> => {
+        if (Array.isArray(cached)) {
+          this.logger.debug(`Команды найдены в кэше: ${cacheKey}`);
+          return of(cached);
+        }
+
+        if (cached) {
+          this.logger.warn(
+            `Ожидался массив команд, но получен одиночный объект: ${cacheKey}`,
+          );
+          return of([cached]);
+        }
+
+        this.logger.debug(`Команды не найдены в кэше, загружаем: ${cacheKey}`);
+
+        return this.volleystationService.getTeams(competition).pipe(
+          tap(async (teams: Team[]) => {
+            try {
+              await this.redisService.setJson(cacheKey, teams, TTL);
+              this.logger.debug(`Команды сохранены в кэш: ${cacheKey}`);
+            } catch (error) {
+              this.logger.warn(
+                `Ошибка при сохранении команд в кэш: ${error.message}`,
+              );
+            }
+          }),
+        );
+      }),
+    );
+  }
 
   getMatches(
     competition: IVollestationCompetition,
@@ -58,40 +103,24 @@ export class VolleystationCacheService {
 
   getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
     const cacheKey = `volleystation:matchInfo:${matchId}`;
-    const TTL = 60 * 30; // Время жизни кэша - 30 минут
+    const TTL = 60 * 30;
 
     return from(this.redisService.getJson(cacheKey, PlayByPlayEvent)).pipe(
       switchMap((cached): Observable<PlayByPlayEvent | null> => {
         if (cached) {
-          // Если кэшированное значение — массив, берем первый элемент
-          if (Array.isArray(cached)) {
-            this.logger.debug(
-              `Данные для матча ${matchId} из кэша, массив, берем первый элемент`,
-            );
-            return of(cached[0] || null); // Возвращаем первый элемент массива или null, если массив пуст
-          }
-          // Если кэшированное значение одиночный объект
+          const data = Array.isArray(cached) ? cached[0] || null : cached;
           this.logger.debug(`Данные для матча ${matchId} найдены в кэше`);
-          return of(cached); // Возвращаем данные из кэша
+          return of(data);
         }
 
         this.logger.debug(
           `Данные не найдены в кэше, запрашиваем через сокет: ${cacheKey}`,
         );
 
-        // Если данных нет в кэше, запрашиваем через сокет
-        return from(this.volleystationSocketService.getMatchInfo(matchId)).pipe(
-          switchMap((matchInfo) => {
-            // Если сервер вернул массив, извлекаем первый элемент
-            if (Array.isArray(matchInfo)) {
-              return of(matchInfo[0] || null); // Возвращаем первый элемент или null
-            }
-            return of(matchInfo); // Если сервер вернул одиночный объект, возвращаем его
-          }),
+        return this.volleystationSocketService.getMatchInfo(matchId).pipe(
           tap(async (matchInfo) => {
             if (matchInfo) {
               try {
-                // Сохраняем полученные данные в кэш
                 await this.redisService.setJson(cacheKey, matchInfo, TTL);
                 this.logger.debug(
                   `Данные для матча ${matchId} сохранены в кэш`,
@@ -119,7 +148,6 @@ export class VolleystationCacheService {
       switchMap((cached): Observable<FullRawMatch[]> => {
         if (Array.isArray(cached)) {
           this.logger.debug(`Данные найдены в кэше: ${cacheKey}`);
-          // Приводим к типу FullRawMatch[] (при необходимости, можно добавить проверку)
           return of(cached.map((match) => ({ ...match }) as FullRawMatch));
         }
         if (cached) {

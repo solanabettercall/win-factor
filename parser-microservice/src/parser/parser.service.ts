@@ -12,28 +12,32 @@ export class ParserService implements OnApplicationBootstrap {
 
   constructor(
     private readonly volleynetSocketService: VolleystationSocketService,
-    private readonly volleynetService: VolleystationService,
+    private readonly volleystationService: VolleystationService,
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly redisService: RedisService,
   ) {}
 
   async onApplicationBootstrap() {
-    const matchId = 2167823;
-    const match = await firstValueFrom(
-      this.volleystationCacheService.getMatchInfo(matchId),
+    const competition = competitions[1];
+    const teams = await firstValueFrom(
+      this.volleystationCacheService.getTeams(competition),
     );
-    console.log(match);
+    console.log(teams);
+    // const matchId = 2163482;
+    // const match = await firstValueFrom(
+    //   this.volleystationCacheService.getMatchInfo(matchId),
+    // );
+    // console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
     // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
     // console.log(cachedMatch);
-    // console.log(cachedMatch);
-    const matches = await firstValueFrom(
-      this.volleystationCacheService.getFullMatchDetails(
-        competitions[1],
-        'results',
-      ),
-    );
-    console.log(matches[0]);
+    // const matches = await firstValueFrom(
+    //   this.volleystationCacheService.getFullMatchDetails(
+    //     competitions[1],
+    //     'results',
+    //   ),
+    // );
+    // console.log(matches[0]);
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
     // const matches = await firstValueFrom(

@@ -2,9 +2,16 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as io from 'socket.io-client';
 import { plainToInstance } from 'class-transformer';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
+import { Observable } from 'rxjs';
+
+export interface IVolleystationSocketService {
+  getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null>;
+}
 
 @Injectable()
-export class VolleystationSocketService implements OnModuleInit {
+export class VolleystationSocketService
+  implements OnModuleInit, IVolleystationSocketService
+{
   private readonly logger = new Logger(VolleystationSocketService.name);
   private socket: io.Socket;
 
@@ -88,8 +95,8 @@ export class VolleystationSocketService implements OnModuleInit {
     });
   }
 
-  public async getMatchInfo(matchId: number): Promise<PlayByPlayEvent | null> {
-    return new Promise((resolve, reject) => {
+  public getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
+    return new Observable((observer) => {
       this.socket.emit(
         'find',
         'widget/play-by-play',
@@ -100,12 +107,13 @@ export class VolleystationSocketService implements OnModuleInit {
         (err: Error, response: { data: PlayByPlayEvent[] }) => {
           if (err) {
             this.logger.warn(`Ошибка от сервера: ${err.message}`);
-            return reject(err);
+            observer.error(err);
+            return;
           }
 
           const event = response.data?.[0] ?? null;
-
-          resolve(event ? plainToInstance(PlayByPlayEvent, event) : null);
+          observer.next(event ? plainToInstance(PlayByPlayEvent, event) : null);
+          observer.complete();
         },
       );
     });
