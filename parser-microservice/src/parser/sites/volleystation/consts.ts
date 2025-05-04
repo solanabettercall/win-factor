@@ -1,4 +1,4 @@
-import { IVollestationCompetition } from './interfaces/vollestation-competition.interface';
+import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
 
 export const competitions: IVollestationCompetition[] = [
   {

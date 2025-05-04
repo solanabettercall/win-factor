@@ -1,12 +1,10 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import {
-  PlayByPlayEvent,
-  VolleystationSocketService,
-} from './sites/volleystation/volleystation-socket.service';
+import { VolleystationSocketService } from './sites/volleystation/volleystation-socket.service';
 import { VolleystationService } from './sites/volleystation/volleystation.service';
-import { firstValueFrom, retry } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { competitions } from './sites/volleystation/consts';
 import { RedisService } from 'src/cache/redis.service';
+import { VolleystationCacheService } from './sites/volleystation/volleystation-cache.service';
 
 @Injectable()
 export class ParserService implements OnApplicationBootstrap {
@@ -15,19 +13,28 @@ export class ParserService implements OnApplicationBootstrap {
   constructor(
     private readonly volleynetSocketService: VolleystationSocketService,
     private readonly volleynetService: VolleystationService,
+    private readonly volleystationCacheService: VolleystationCacheService,
     private readonly redisService: RedisService,
   ) {}
 
   async onApplicationBootstrap() {
-    const matchId = 2161023;
-    const key = `match:${matchId}`;
+    // const matchId = 2161023;
+    // const key = `match:${matchId}`;
     // const match = await this.volleynetSocketService.getMatchInfo(matchId);
-    // // console.log(match);
+    // console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
 
-    const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
-    console.log(cachedMatch);
+    // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
+    // console.log(cachedMatch);
+    // console.log(cachedMatch);
 
+    const matches = await firstValueFrom(
+      this.volleystationCacheService.getMatches(
+        competitions.find((c) => c.id === 320),
+        'schedule',
+      ),
+    );
+    console.log(matches[0]);
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
     // const matches = await firstValueFrom(

@@ -69,12 +69,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async getJson<T extends object>(
     key: string,
     cls: ClassConstructor<T>,
-  ): Promise<T | null> {
+  ): Promise<T | T[] | null> {
     const result = await this.client.call('JSON.GET', key);
     if (!result) return null;
 
     const plain = JSON.parse(result as string);
-    return plainToInstance(cls, plain);
+    if (Array.isArray(plain)) {
+      return plain.map((item) => plainToInstance(cls, item)) as T[];
+    }
+
+    return plainToInstance(cls, plain) as T;
   }
 
   async setJson<T extends object>(
