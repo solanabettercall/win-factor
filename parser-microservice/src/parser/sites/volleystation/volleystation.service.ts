@@ -1,5 +1,5 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { catchError, delay, map, Observable, of, retry } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
@@ -8,9 +8,21 @@ import { plainToInstance } from 'class-transformer';
 import { RawMatch } from './models/match-list/raw-match';
 import { Team } from './models/team-list/team';
 import { ITeam } from './interfaces/team-list/team.interface';
+import { TeamRoster } from './models/team-roster/team-roster';
+import { ITeamRoster } from './interfaces/team-roster/team-roster.interface';
+import { AnyNode } from 'domhandler';
+import { IBlock } from './interfaces/team-roster/block.interface';
+import { IReception } from './interfaces/team-roster/reception.interface';
+import { IServe } from './interfaces/team-roster/serve.interface';
+import { ISpike } from './interfaces/team-roster/spike.interface';
+import { IPlayer } from './interfaces/team-roster/player.interface';
 
 export interface IVolleystationService {
   getTeams(competition: IVollestationCompetition): Observable<Team[]>;
+  getTeamRoster(
+    competition: IVollestationCompetition,
+    teamId: string,
+  ): Observable<TeamRoster | null>;
   getMatches(
     competition: IVollestationCompetition,
     type: 'results' | 'schedule',
@@ -22,6 +34,177 @@ export class VolleystationService implements IVolleystationService {
   private readonly logger = new Logger(VolleystationService.name);
 
   constructor(private readonly httpService: HttpService) {}
+
+  getTeamRoster(
+    competition: IVollestationCompetition,
+    teamId: string,
+  ): Observable<TeamRoster | null> {
+    const url = new URL(competition.url);
+    url.pathname += `teams/${teamId}`;
+    const { origin, href } = url;
+    return this.httpService.get(href).pipe(
+      retry({
+        count: Infinity,
+        delay: (error, retryIndex) => {
+          const status = error?.status || 0;
+          const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+
+          this.logger.warn(
+            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+          );
+
+          return of(null).pipe(delay(delayTime));
+        },
+      }),
+      map((response) => response.data),
+      map((html) => cheerio.load(html)),
+      map(($) => {
+        const teamSection = $('section.team-detail');
+
+        const [playedMatches, wonMatches, lostMatches] = $(teamSection)
+          .find('div.stats-boxes div.box div.number')
+          .map((_, el) => {
+            return $(el).text()?.trim()
+              ? parseInt($(el).text()?.trim(), 10)
+              : 0;
+          });
+
+        const extractStatValue = (
+          element: cheerio.Cheerio<AnyNode>,
+          label: string,
+        ): number => {
+          const valueStr = element
+            .find('div.general-stats-table-row div.label')
+            .filter((_, el) => $(el).text().trim().toLowerCase() === label)
+            .closest('div.general-stats-table-row')
+            .find('div.value')
+            .text()
+            .trim();
+
+          return parseFloat(valueStr) || 0;
+        };
+
+        const statRows = $(teamSection)
+          .find('section#team-detail-general-stats-table div.row')
+          .children();
+
+        // Создадим объект для итоговой статистики, который потом заполним нужными данными
+        const stats: {
+          serve: IServe;
+          reception: IReception;
+          spike: ISpike;
+          block: IBlock;
+        } = {
+          block: { points: 0, pointsPerSet: 0 },
+          reception: {
+            errors: 0,
+            negative: 0,
+            percentPerfect: 0,
+            perfect: 0,
+            total: 0,
+          },
+          serve: { aces: 0, acesPerSet: 0, errors: 0, total: 0 },
+          spike: {
+            blocked: 0,
+            errors: 0,
+            percentPerfect: 0,
+            perfect: 0,
+            total: 0,
+          },
+        };
+
+        statRows.each((_, table) => {
+          const $table = $(table);
+          const title = $table.find('div.title').text().trim().toLowerCase();
+
+          // Для каждой статистической группы извлекаем нужные показатели.
+          switch (title) {
+            case 'serve':
+              stats.serve = {
+                total: extractStatValue($table, 'sum'),
+                aces: extractStatValue($table, 'aces'),
+                errors: extractStatValue($table, 'aces'),
+                acesPerSet: extractStatValue($table, 'aces per set'),
+              };
+              break;
+            case 'reception':
+              stats.reception = {
+                total: extractStatValue($table, 'sum'),
+                errors: extractStatValue($table, 'errors'),
+                negative: extractStatValue($table, 'negative'),
+                perfect: extractStatValue($table, 'perfect'),
+                percentPerfect: extractStatValue($table, '% perfect'),
+              };
+              break;
+            case 'spike':
+              stats.spike = {
+                total: extractStatValue($table, 'sum'),
+                errors: extractStatValue($table, 'errors'),
+                blocked: extractStatValue($table, 'blocked'),
+                perfect: extractStatValue($table, 'perfect'),
+                percentPerfect: extractStatValue($table, '% perfect'),
+              };
+              break;
+            case 'block':
+              stats.block = {
+                points: extractStatValue($table, 'points'),
+                pointsPerSet: extractStatValue($table, 'points per set'),
+              };
+              break;
+            default:
+              this.logger.warn(`Неизвестная категория статистики: ${title}`);
+          }
+        });
+
+        const players: IPlayer[] = $(teamSection)
+          .find('section#team-detail-squad a.player-box')
+          .map((_, el): IPlayer => {
+            const href = $(el).attr('href');
+            const { href: playerUrl } = new URL(href, origin);
+
+            const regex = /\/players\/(\d+)\//;
+            const match = href.match(regex);
+
+            const photoUrl = $(el).find('div.image-photo img').attr('src');
+            const number = parseInt(
+              $(el).find('div.number').text()?.trim() ?? '0',
+              10,
+            );
+            const name = $(el).find('div.text-name').text()?.trim();
+            const position = $(el).find('div.text-position').text()?.trim();
+
+            return match
+              ? {
+                  id: parseInt(match[1], 10),
+                  url: playerUrl,
+                  photoUrl,
+                  number,
+                  name,
+                  position,
+                }
+              : null; // Если ID не найден, возвращаем null
+          })
+          .get()
+          .filter(Boolean);
+
+        const teamRoster: ITeamRoster = {
+          playedMatches,
+          wonMatches,
+          lostMatches,
+          ...stats,
+          players: players,
+        };
+
+        return plainToInstance(TeamRoster, teamRoster);
+      }),
+      catchError((err) => {
+        this.logger.error(
+          `Ошибка при окончательной обработке ${href}: ${err.message}`,
+        );
+        return of(null);
+      }),
+    );
+  }
 
   getTeams(competition: IVollestationCompetition): Observable<Team[]> {
     const url = new URL(competition.url);
@@ -53,12 +236,14 @@ export class VolleystationService implements IVolleystationService {
             const logoUrl =
               $(el).find('div.logo img').attr('src')?.trim() ?? null;
             const teamHref = $(el).attr('href');
+            const { href: url } = new URL(teamHref, origin);
             const match = teamHref?.match(/\/teams\/(\d+-\d+)\//);
             const teamId = match ? match[1] : null;
             const team: ITeam = {
               id: teamId,
               logoUrl,
               name,
+              url,
             };
             return plainToInstance(Team, team);
           })

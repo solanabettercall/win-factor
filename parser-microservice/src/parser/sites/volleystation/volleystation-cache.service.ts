@@ -13,6 +13,7 @@ import {
 import { RawMatch } from './models/match-list/raw-match';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
 import { Team } from './models/team-list/team';
+import { TeamRoster } from './models/team-roster/team-roster';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -29,8 +30,52 @@ export class VolleystationCacheService
     private readonly redisService: RedisService,
   ) {}
 
+  getTeamRoster(
+    competition: IVollestationCompetition,
+    teamId: string,
+  ): Observable<TeamRoster | null> {
+    const cacheKey = `volleystation:${competition.id}:team-roster::${teamId}`;
+    const TTL = 60 * 30;
+
+    return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
+      switchMap((cached): Observable<TeamRoster | null> => {
+        if (cached && !Array.isArray(cached)) {
+          this.logger.debug(`Ростер найден в кэше: ${cacheKey}`);
+          return of(cached);
+        }
+
+        if (Array.isArray(cached)) {
+          this.logger.warn(
+            `Ожидался одиночный ростер, но получен массив: ${cacheKey}`,
+          );
+        }
+
+        this.logger.debug(`Ростер не найден в кэше, загружаем: ${cacheKey}`);
+
+        return this.volleystationService
+          .getTeamRoster(competition, teamId)
+          .pipe(
+            tap(async (roster: TeamRoster | null) => {
+              if (roster) {
+                try {
+                  await this.redisService.setJson(cacheKey, roster, TTL);
+                  this.logger.debug(`Ростер сохранён в кэш: ${cacheKey}`);
+                } catch (error) {
+                  this.logger.warn(
+                    `Ошибка при сохранении ростера в кэш: ${error.message}`,
+                  );
+                }
+              } else {
+                this.logger.warn(`Пустой ростер, не кэшируем: ${cacheKey}`);
+              }
+            }),
+          );
+      }),
+    );
+  }
+
   getTeams(competition: IVollestationCompetition): Observable<Team[]> {
-    const cacheKey = `volleystation:teams:${competition.id}`;
+    const cacheKey = `volleystation:${competition.id}:teams`;
     const TTL = 60 * 30;
 
     return from(this.redisService.getJson(cacheKey, Team)).pipe(
@@ -70,7 +115,7 @@ export class VolleystationCacheService
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]> {
     const TTL = 60 * 30;
-    const cacheKey = `volleystation:${competition.id}:${type}`;
+    const cacheKey = `volleystation:${competition.id}:matches:${type}`;
 
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
       switchMap((cached): Observable<RawMatch[]> => {
@@ -137,12 +182,12 @@ export class VolleystationCacheService
     );
   }
 
-  getFullMatchDetails(
+  getDetailedMatches(
     competition: IVollestationCompetition,
     type: 'results' | 'schedule',
   ): Observable<FullRawMatch[]> {
     const TTL = 60 * 30;
-    const cacheKey = `volleystation:fullMatchDetails:${competition.id}:${type}`;
+    const cacheKey = `volleystation:${competition.id}:detailedMatches:${type}`;
 
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
       switchMap((cached): Observable<FullRawMatch[]> => {
