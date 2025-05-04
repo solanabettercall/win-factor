@@ -44,7 +44,7 @@ export class VolleystationCacheService {
 
         this.logger.debug(`Данные не найдены в кэше, запрашиваем: ${cacheKey}`);
         return this.volleystationService.getMatches(competition, type).pipe(
-          tap(async (matches) => {
+          tap(async (matches: RawMatch[]) => {
             try {
               await this.redisService.setJson(cacheKey, matches, TTL);
               this.logger.debug(`Данные сохранены в кэш: ${cacheKey}`);

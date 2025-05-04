@@ -18,11 +18,11 @@ export class ParserService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    const matchId = 2161023;
+    const matchId = 2167823;
     const match = await firstValueFrom(
       this.volleystationCacheService.getMatchInfo(matchId),
     );
-    // console.log(match);
+    console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
     // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
     // console.log(cachedMatch);

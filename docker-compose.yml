@@ -139,6 +139,7 @@ services:
       - "${SCRAPOXY_WEB_PORT}:8890" # Web UI
     volumes:
       - ./scrapoxy:/cfg
+      - ./scrapoxy/healthcheck.sh:/app/healthcheck.sh:ro
     environment:
       - AUTH_LOCAL_USERNAME=${SCRAPOXY_AUTH_LOCAL_USERNAME}
       - AUTH_LOCAL_PASSWORD=${SCRAPOXY_AUTH_LOCAL_PASSWORD}
@@ -149,19 +150,14 @@ services:
       - PROBE_PORT=${SCRAPOXY_PROBE_PORT}
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "-q",
-          "--spider",
-          "http://localhost:${SCRAPOXY_PROBE_PORT}",
-        ]
-      interval: 2s
+      test: ["CMD", "sh", "healthcheck.sh"]
+      interval: 5s
       timeout: 5s
-      retries: 15
+      retries: 30
     expose:
       - ${SCRAPOXY_PORT}
+    env_file:
+      - .env
 
   redis:
     container_name: redis
