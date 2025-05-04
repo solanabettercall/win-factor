@@ -36,7 +36,9 @@ interface IAppConfig {
 }
 
 export const appConfig = (): IAppConfig => {
-  const rawEnv = process.env.PARSER_MICROSERVICE_NODE_ENV?.toLowerCase() ?? Environment.production;
+  const rawEnv =
+    process.env.PARSER_MICROSERVICE_NODE_ENV?.toLowerCase() ??
+    Environment.production;
   const env = validEnvs.includes(rawEnv as Environment)
     ? (rawEnv as Environment)
     : Environment.production;
@@ -63,7 +65,7 @@ export const appConfig = (): IAppConfig => {
       port: parseInt(process.env.REDIS_PORT, 10),
     },
   };
-  Logger.debug(config, 'AppConfig');
+
   return config;
 };
 

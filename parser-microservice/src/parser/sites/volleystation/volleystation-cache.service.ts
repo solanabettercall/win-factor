@@ -5,11 +5,10 @@ import { IVollestationCompetition } from './interfaces/match-list/vollestation-c
 import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
 import { VolleystationSocketService } from './volleystation-socket.service';
 import { RawMatch } from './models/match-list/raw-match';
-import { IPlayByPlayEvent } from './interfaces/match-details/play-by-play-event.interface';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
 
 // TODO: Сформировать что-то более подходящее
-type FullRawMatch = RawMatch & IPlayByPlayEvent;
+type FullRawMatch = RawMatch & PlayByPlayEvent;
 
 @Injectable()
 export class VolleystationCacheService {
