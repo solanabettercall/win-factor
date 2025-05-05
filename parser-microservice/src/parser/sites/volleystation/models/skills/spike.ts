@@ -1,4 +1,4 @@
-import { ISpike } from '../../interfaces/team-roster/spike.interface';
+import { ISpike } from '../../interfaces/skills/spike.interface';
 
 /**
  * Статистика атак.

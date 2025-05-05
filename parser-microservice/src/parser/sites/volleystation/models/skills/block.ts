@@ -1,4 +1,4 @@
-import { IBlock } from '../../interfaces/team-roster/block.interface';
+import { IBlock } from '../../interfaces/skills/block.interface';
 
 /**
  * Статистика блоков.

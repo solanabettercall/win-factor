@@ -1,8 +1,9 @@
-import { IBlock } from './block.interface';
+import { IBlock } from '../skills/block.interface';
 import { IPlayer } from './player.interface';
-import { IReception } from './reception.interface';
-import { IServe } from './serve.interface';
-import { ISpike } from './spike.interface';
+import { IReception } from '../skills/reception.interface';
+import { ISpike } from '../skills/spike.interface';
+import { IServe } from '../skills/serve.interface';
+import { ISkillStatistics } from '../skills/skill-statistics.interface';
 
 /**
  * Основная статистика команды по сыгранным матчам и техническим действиям.
@@ -23,25 +24,27 @@ export interface ITeamRoster {
    */
   lostMatches: number;
 
-  /**
-   * Статистика подач.
-   */
-  serve: IServe;
+  // /**
+  //  * Статистика подач.
+  //  */
+  // serve: IServe;
 
-  /**
-   * Статистика приёма подачи.
-   */
-  reception: IReception;
+  // /**
+  //  * Статистика приёма подачи.
+  //  */
+  // reception: IReception;
 
-  /**
-   * Статистика атак.
-   */
-  spike: ISpike;
+  // /**
+  //  * Статистика атак.
+  //  */
+  // spike: ISpike;
 
-  /**
-   * Статистика блоков.
-   */
-  block: IBlock;
+  // /**
+  //  * Статистика блоков.
+  //  */
+  // block: IBlock;
+
+  skills: ISkillStatistics;
 
   /** Состав команды */
   players: IPlayer[];

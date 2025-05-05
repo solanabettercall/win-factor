@@ -18,20 +18,21 @@ export class ParserService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    const competition = competitions[1];
+    const competition = competitions.find((c) => c.id === 223);
     // const teams = await firstValueFrom(
-    //   this.volleystationService.getTeams(competition),
+    //   this.volleystationCacheService.getTeams(competition),
     // );
     // console.log(teams);
 
     const teamRoster = await firstValueFrom(
       this.volleystationCacheService.getTeamRoster(
         competition,
-        '2100508-43511',
+        '2189548-3145048',
       ),
     );
     console.log(teamRoster);
 
+    // const matchId = 2163482;
     // const matchId = 2163482;
     // const match = await firstValueFrom(
     //   this.volleystationCacheService.getMatchInfo(matchId),

@@ -1,4 +1,4 @@
-import { IReception } from '../../interfaces/team-roster/reception.interface';
+import { IReception } from '../../interfaces/skills/reception.interface';
 
 /**
  * Статистика приёма подачи.

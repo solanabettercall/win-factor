@@ -1,6 +1,14 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger } from '@nestjs/common';
-import { catchError, delay, map, Observable, of, retry } from 'rxjs';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  catchError,
+  delay,
+  map,
+  Observable,
+  of,
+  retry,
+  throwError,
+} from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
 import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
@@ -11,11 +19,8 @@ import { ITeam } from './interfaces/team-list/team.interface';
 import { TeamRoster } from './models/team-roster/team-roster';
 import { ITeamRoster } from './interfaces/team-roster/team-roster.interface';
 import { AnyNode } from 'domhandler';
-import { IBlock } from './interfaces/team-roster/block.interface';
-import { IReception } from './interfaces/team-roster/reception.interface';
-import { IServe } from './interfaces/team-roster/serve.interface';
-import { ISpike } from './interfaces/team-roster/spike.interface';
 import { IPlayer } from './interfaces/team-roster/player.interface';
+import { ISkillStatistics } from './interfaces/skills/skill-statistics.interface';
 
 export interface IVolleystationService {
   getTeams(competition: IVollestationCompetition): Observable<Team[]>;
@@ -27,6 +32,8 @@ export interface IVolleystationService {
     competition: IVollestationCompetition,
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]>;
+
+  // getPlayer(): Observable<IPlayerProfile>();
 }
 
 @Injectable()
@@ -47,6 +54,7 @@ export class VolleystationService implements IVolleystationService {
         count: Infinity,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
+          if (status === 404) return throwError(() => new NotFoundException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
@@ -89,12 +97,7 @@ export class VolleystationService implements IVolleystationService {
           .children();
 
         // Создадим объект для итоговой статистики, который потом заполним нужными данными
-        const stats: {
-          serve: IServe;
-          reception: IReception;
-          spike: ISpike;
-          block: IBlock;
-        } = {
+        const skills: ISkillStatistics = {
           block: { points: 0, pointsPerSet: 0 },
           reception: {
             errors: 0,
@@ -120,7 +123,7 @@ export class VolleystationService implements IVolleystationService {
           // Для каждой статистической группы извлекаем нужные показатели.
           switch (title) {
             case 'serve':
-              stats.serve = {
+              skills.serve = {
                 total: extractStatValue($table, 'sum'),
                 aces: extractStatValue($table, 'aces'),
                 errors: extractStatValue($table, 'aces'),
@@ -128,7 +131,7 @@ export class VolleystationService implements IVolleystationService {
               };
               break;
             case 'reception':
-              stats.reception = {
+              skills.reception = {
                 total: extractStatValue($table, 'sum'),
                 errors: extractStatValue($table, 'errors'),
                 negative: extractStatValue($table, 'negative'),
@@ -137,7 +140,7 @@ export class VolleystationService implements IVolleystationService {
               };
               break;
             case 'spike':
-              stats.spike = {
+              skills.spike = {
                 total: extractStatValue($table, 'sum'),
                 errors: extractStatValue($table, 'errors'),
                 blocked: extractStatValue($table, 'blocked'),
@@ -146,7 +149,7 @@ export class VolleystationService implements IVolleystationService {
               };
               break;
             case 'block':
-              stats.block = {
+              skills.block = {
                 points: extractStatValue($table, 'points'),
                 pointsPerSet: extractStatValue($table, 'points per set'),
               };
@@ -191,13 +194,17 @@ export class VolleystationService implements IVolleystationService {
           playedMatches,
           wonMatches,
           lostMatches,
-          ...stats,
+          skills: skills,
           players: players,
         };
 
         return plainToInstance(TeamRoster, teamRoster);
       }),
       catchError((err) => {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(`Не найдено ${href}`);
+          return of(null);
+        }
         this.logger.error(
           `Ошибка при окончательной обработке ${href}: ${err.message}`,
         );
@@ -215,6 +222,8 @@ export class VolleystationService implements IVolleystationService {
         count: Infinity,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
+          if (status === 404) return throwError(() => new NotFoundException());
+
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
@@ -250,6 +259,10 @@ export class VolleystationService implements IVolleystationService {
           .toArray();
       }),
       catchError((err) => {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(`Не найдено ${href}`);
+          return of([]);
+        }
         this.logger.error(
           `Ошибка при окончательной обработке ${href}: ${err.message}`,
         );
@@ -271,6 +284,7 @@ export class VolleystationService implements IVolleystationService {
         count: Infinity,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
+          if (status === 404) return throwError(() => new NotFoundException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
@@ -349,6 +363,10 @@ export class VolleystationService implements IVolleystationService {
         return matches;
       }),
       catchError((err) => {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(`Не найдено ${href}`);
+          return of([]);
+        }
         this.logger.error(
           `Ошибка при окончательной обработке ${href}: ${err.message}`,
         );

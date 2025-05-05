@@ -1,4 +1,4 @@
-import { IServe } from '../../interfaces/team-roster/serve.interface';
+import { IServe } from '../../interfaces/skills/serve.interface';
 
 /**
  * Статистика подач.
