@@ -1,78 +1,9 @@
 services:
-  api_gateway:
-    container_name: api_gateway
-    build: ./http-api-gateway
-    ports:
-      - "3000:3000"
+  parser:
+    container_name: parser
+    build: ./parser
     volumes:
-      - ./http-api-gateway/src:/usr/src/app/src
-    command: yarn run start:dev
-    develop:
-      watch:
-        - action: sync
-          path: ./src
-          target: /app/src
-          ignore:
-            - node_modules/
-            - dist/
-        - action: sync
-          path: ./test
-          target: /app/test
-        - action: rebuild
-          path: package.json
-        - action: rebuild
-          path: yarn.lock
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 2s
-      timeout: 5s
-      retries: 15
-    environment:
-      - PORT=3000
-    depends_on:
-      nats:
-        condition: service_started
-      users_microservice:
-        condition: service_healthy
-      parser_microservice:
-        condition: service_healthy
-
-  users_microservice:
-    container_name: users_microservice
-    build: ./users-microservice
-    volumes:
-      - ./users-microservice/src:/usr/src/app/src
-    command: yarn run start:dev
-    develop:
-      watch:
-        - action: sync
-          path: ./src
-          target: /app/src
-          ignore:
-            - node_modules/
-            - dist/
-        - action: sync
-          path: ./test
-          target: /app/test
-        - action: rebuild
-          path: package.json
-        - action: rebuild
-          path: yarn.lock
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 15s
-      timeout: 3s
-      retries: 3
-    depends_on:
-      nats:
-        condition: service_started
-    restart: unless-stopped
-
-  parser_microservice:
-    container_name: parser_microservice
-    build: ./parser-microservice
-    volumes:
-      - ./parser-microservice/src:/usr/src/app/src
+      - ./parser/src:/usr/src/app/src
     command: yarn run start:dev
     develop:
       watch:
@@ -95,7 +26,7 @@ services:
           "CMD",
           "curl",
           "-f",
-          "http://localhost:${PARSER_MICROSERVICE_HEALTHCHECK_PORT}/health",
+          "http://localhost:${PARSER_HEALTHCHECK_PORT}/health",
         ]
       interval: 15s
       timeout: 3s

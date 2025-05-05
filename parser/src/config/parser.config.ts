@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import { config } from 'dotenv';
 
 config();
@@ -37,14 +36,13 @@ interface IAppConfig {
 
 export const appConfig = (): IAppConfig => {
   const rawEnv =
-    process.env.PARSER_MICROSERVICE_NODE_ENV?.toLowerCase() ??
-    Environment.production;
+    process.env.PARSER_NODE_ENV?.toLowerCase() ?? Environment.production;
   const env = validEnvs.includes(rawEnv as Environment)
     ? (rawEnv as Environment)
     : Environment.production;
   let proxy: IProxy = null;
-  const proxyHost = process.env.PARSER_MICROSERVICE_PROXY_HOST;
-  const proxyPort = parseInt(process.env.PARSER_MICROSERVICE_PROXY_PORT, 10);
+  const proxyHost = process.env.PARSER_PROXY_HOST;
+  const proxyPort = parseInt(process.env.PARSER_PROXY_PORT, 10);
   if (proxyHost && proxyPort) {
     proxy = {
       host: proxyHost,
@@ -53,8 +51,7 @@ export const appConfig = (): IAppConfig => {
   }
 
   const config = {
-    port:
-      parseInt(process.env.PARSER_MICROSERVICE_HEALTHCHECK_PORT, 10) || 3001,
+    port: parseInt(process.env.PARSER_HEALTHCHECK_PORT, 10) || 3001,
     env,
     isProduction: env === Environment.production,
     isDevelopment: env === Environment.development,
