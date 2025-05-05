@@ -14,6 +14,16 @@ export interface IPlayerProfile {
   number: number;
 
   /**
+   * Страна
+   */
+  country: string;
+
+  /**
+   * Позиция
+   */
+  position: string;
+
+  /**
    * Статистика
    */
   statistic: IPlayerSummaryStatistics;

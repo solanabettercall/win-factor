@@ -21,6 +21,9 @@ import { ITeamRoster } from './interfaces/team-roster/team-roster.interface';
 import { AnyNode } from 'domhandler';
 import { IPlayer } from './interfaces/team-roster/player.interface';
 import { ISkillStatistics } from './interfaces/skills/skill-statistics.interface';
+import { IPlayerProfile } from './interfaces/player-profile/player-profile.interface';
+import { IPlayerSummaryStatistics } from './interfaces/player-profile/player-summary-statistics.interface';
+import { PlayerProfile } from './models/player-profile/player-profile';
 
 export interface IVolleystationService {
   getTeams(competition: IVollestationCompetition): Observable<Team[]>;
@@ -33,7 +36,10 @@ export interface IVolleystationService {
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]>;
 
-  // getPlayer(): Observable<IPlayerProfile>();
+  getPlayer(
+    competition: IVollestationCompetition,
+    playerId: number,
+  ): Observable<IPlayerProfile>;
 }
 
 @Injectable()
@@ -41,6 +47,170 @@ export class VolleystationService implements IVolleystationService {
   private readonly logger = new Logger(VolleystationService.name);
 
   constructor(private readonly httpService: HttpService) {}
+
+  getPlayer(
+    competition: IVollestationCompetition,
+    playerId: number,
+  ): Observable<IPlayerProfile> {
+    const url = new URL(competition.url);
+    url.pathname += `players/${playerId}/`;
+    const { origin, href } = url;
+    return this.httpService.get(href).pipe(
+      retry({
+        count: Infinity,
+        delay: (error, retryIndex) => {
+          const status = error?.status || 0;
+          if (status === 404) return throwError(() => new NotFoundException());
+          const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+
+          this.logger.warn(
+            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+          );
+
+          return of(null).pipe(delay(delayTime));
+        },
+      }),
+      map((response) => response.data),
+      map((html) => cheerio.load(html)),
+      map(($) => {
+        const teamSection = $('section.player-detail');
+
+        const [
+          matchesPlayed,
+          setsPlayed,
+          pointsScored,
+          numberOfAces,
+          pointsByBlock,
+        ] = $(teamSection)
+          .find('div.stats-boxes div.box div.number')
+          .map((_, el) => {
+            return $(el).text()?.trim()
+              ? parseInt($(el).text()?.trim(), 10)
+              : 0;
+          });
+        const statistic: IPlayerSummaryStatistics = {
+          matchesPlayed,
+          setsPlayed,
+          pointsScored,
+          numberOfAces,
+          pointsByBlock,
+        };
+
+        const extractStatValue = (
+          element: cheerio.Cheerio<AnyNode>,
+          label: string,
+        ): number => {
+          const valueStr = element
+            .find('div.general-stats-table-row div.label')
+            .filter((_, el) => $(el).text().trim().toLowerCase() === label)
+            .closest('div.general-stats-table-row')
+            .find('div.value')
+            .text()
+            .trim();
+
+          return parseFloat(valueStr) || 0;
+        };
+
+        const statRows = $(teamSection)
+          .find('section#team-detail-general-stats-table div.row')
+          .children();
+
+        // Создадим объект для итоговой статистики, который потом заполним нужными данными
+        const skills: ISkillStatistics = {
+          block: { points: 0, pointsPerSet: 0 },
+          reception: {
+            errors: 0,
+            negative: 0,
+            percentPerfect: 0,
+            perfect: 0,
+            total: 0,
+          },
+          serve: { aces: 0, acesPerSet: 0, errors: 0, total: 0 },
+          spike: {
+            blocked: 0,
+            errors: 0,
+            percentPerfect: 0,
+            perfect: 0,
+            total: 0,
+          },
+        };
+
+        statRows.each((_, table) => {
+          const $table = $(table);
+          const title = $table.find('div.title').text().trim().toLowerCase();
+
+          // Для каждой статистической группы извлекаем нужные показатели.
+          switch (title) {
+            case 'serve':
+              skills.serve = {
+                total: extractStatValue($table, 'sum'),
+                aces: extractStatValue($table, 'aces'),
+                errors: extractStatValue($table, 'aces'),
+                acesPerSet: extractStatValue($table, 'aces per set'),
+              };
+              break;
+            case 'reception':
+              skills.reception = {
+                total: extractStatValue($table, 'sum'),
+                errors: extractStatValue($table, 'errors'),
+                negative: extractStatValue($table, 'negative'),
+                perfect: extractStatValue($table, 'perfect'),
+                percentPerfect: extractStatValue($table, '% perfect'),
+              };
+              break;
+            case 'spike':
+              skills.spike = {
+                total: extractStatValue($table, 'sum'),
+                errors: extractStatValue($table, 'errors'),
+                blocked: extractStatValue($table, 'blocked'),
+                perfect: extractStatValue($table, 'perfect'),
+                percentPerfect: extractStatValue($table, '% perfect'),
+              };
+              break;
+            case 'block':
+              skills.block = {
+                points: extractStatValue($table, 'points'),
+                pointsPerSet: extractStatValue($table, 'points per set'),
+              };
+              break;
+            default:
+              this.logger.warn(`Неизвестная категория статистики: ${title}`);
+          }
+        });
+
+        const number = parseInt(
+          $('div.player-detail-data-item.number').text()?.trim() ?? '0',
+        );
+        const name = $('h1.player-detail-data-item.name').text()?.trim();
+        const [country, position] = $('div.player-detail-data-item.detail')
+          .text()
+          ?.trim()
+          ?.split(' - ');
+
+        const playerProfile: IPlayerProfile = {
+          id: playerId,
+          country,
+          position,
+          name,
+          number,
+          statistic,
+          skills,
+        };
+
+        return plainToInstance(PlayerProfile, playerProfile);
+      }),
+      catchError((err) => {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(`Не найдено ${href}`);
+          return of(null);
+        }
+        this.logger.error(
+          `Ошибка при окончательной обработке ${href}: ${err.message}`,
+        );
+        return of(null);
+      }),
+    );
+  }
 
   getTeamRoster(
     competition: IVollestationCompetition,

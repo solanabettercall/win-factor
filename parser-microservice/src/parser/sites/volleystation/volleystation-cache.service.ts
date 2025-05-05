@@ -14,6 +14,8 @@ import { RawMatch } from './models/match-list/raw-match';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
 import { Team } from './models/team-list/team';
 import { TeamRoster } from './models/team-roster/team-roster';
+import { IPlayerProfile } from './interfaces/player-profile/player-profile.interface';
+import { PlayerProfile } from './models/player-profile/player-profile';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -30,11 +32,53 @@ export class VolleystationCacheService
     private readonly redisService: RedisService,
   ) {}
 
+  getPlayer(
+    competition: IVollestationCompetition,
+    playerId: number,
+  ): Observable<PlayerProfile> {
+    const cacheKey = `volleystation:${competition.id}:player:${playerId}`;
+    const TTL = 60 * 30;
+
+    return from(this.redisService.getJson(cacheKey, PlayerProfile)).pipe(
+      switchMap((cached): Observable<PlayerProfile | null> => {
+        if (cached && !Array.isArray(cached)) {
+          this.logger.debug(`Игрок найден в кэше: ${cacheKey}`);
+          return of(cached);
+        }
+
+        if (Array.isArray(cached)) {
+          this.logger.warn(
+            `Ожидался одиночный игрок, но получен массив: ${cacheKey}`,
+          );
+        }
+
+        this.logger.debug(`Игрок не найден в кэше, загружаем: ${cacheKey}`);
+
+        return this.volleystationService.getPlayer(competition, playerId).pipe(
+          tap(async (player: PlayerProfile | null) => {
+            if (player) {
+              try {
+                await this.redisService.setJson(cacheKey, player, TTL);
+                this.logger.debug(`Профиль игрока сохранён в кэш: ${cacheKey}`);
+              } catch (error) {
+                this.logger.warn(
+                  `Ошибка при сохранении профиля игрока в кэш: ${error.message}`,
+                );
+              }
+            } else {
+              this.logger.warn(`Пустой игрок, не кэшируем: ${cacheKey}`);
+            }
+          }),
+        );
+      }),
+    );
+  }
+
   getTeamRoster(
     competition: IVollestationCompetition,
     teamId: string,
   ): Observable<TeamRoster | null> {
-    const cacheKey = `volleystation:${competition.id}:team-roster::${teamId}`;
+    const cacheKey = `volleystation:${competition.id}:team:${teamId}`;
     const TTL = 60 * 30;
 
     return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
@@ -147,7 +191,7 @@ export class VolleystationCacheService
   }
 
   getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
-    const cacheKey = `volleystation:matchInfo:${matchId}`;
+    const cacheKey = `volleystation:match:${matchId}`;
     const TTL = 60 * 30;
 
     return from(this.redisService.getJson(cacheKey, PlayByPlayEvent)).pipe(
