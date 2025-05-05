@@ -47,7 +47,7 @@ export class VolleystationService implements IVolleystationService {
     teamId: string,
   ): Observable<TeamRoster | null> {
     const url = new URL(competition.url);
-    url.pathname += `teams/${teamId}`;
+    url.pathname += `teams/${teamId}/`;
     const { origin, href } = url;
     return this.httpService.get(href).pipe(
       retry({
