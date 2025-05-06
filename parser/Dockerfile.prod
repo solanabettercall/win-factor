@@ -1,0 +1,23 @@
+# Stage 1: Сборка приложения
+FROM node:23 AS builder
+WORKDIR /usr/src/app
+
+# Копируем файлы зависимости и устанавливаем
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+
+# Копируем все исходники и производим сборку (NestJS CLI должен быть настроен)
+COPY . .
+RUN yarn build
+
+# Stage 2: Рантайм образ
+FROM node:23-alpine
+WORKDIR /usr/src/app
+# Копируем только необходимые артефакты из builder
+COPY --from=builder /usr/src/app/package.json ./
+COPY --from=builder /usr/src/app/dist ./dist
+# Для продакшна можно установить только прод-зависимости (если используются dev-зависимости)
+RUN yarn install --production --frozen-lockfile
+
+# Запускаем приложение
+CMD ["node", "dist/main.js"]

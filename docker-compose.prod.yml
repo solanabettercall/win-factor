@@ -1,60 +1,31 @@
 services:
   parser:
     container_name: parser
-    build: ./parser
-    volumes:
-      - ./parser/src:/usr/src/app/src
-    command: yarn run start:dev
-    develop:
-      watch:
-        - action: sync
-          path: ./src
-          target: /app/src
-          ignore:
-            - node_modules/
-            - dist/
-        - action: sync
-          path: ./test
-          target: /app/test
-        - action: rebuild
-          path: package.json
-        - action: rebuild
-          path: yarn.lock
+    build:
+      context: ./parser
+      dockerfile: Dockerfile.prod
+    command: node dist/main.js
     healthcheck:
       test:
         [
-          "CMD",
-          "curl",
-          "-f",
-          "http://localhost:${PARSER_HEALTHCHECK_PORT}/health",
+          "CMD-SHELL",
+          "wget --spider -q http://localhost:${PARSER_HEALTHCHECK_PORT}/health || exit 1",
         ]
       interval: 15s
       timeout: 3s
       retries: 3
     depends_on:
-      nats:
+      cloudflare_proxy:
         condition: service_started
       redis:
         condition: service_healthy
-      cloudflare_proxy:
-        condition: service_started
     env_file:
       - .env
-
     restart: unless-stopped
-
-  nats:
-    container_name: nats
-    image: nats
-    ports:
-      - 4222:4222
-    restart: always
 
   cloudflare_proxy:
     container_name: cloudflare_proxy
     build: ./cloudscraper
-    # ports:
-    #   - ${CLOUFLAREBYPASS_PROXY_PORT-8080}:8080
     environment:
       - UPSTREAM_PROXY=http://${SCRAPOXY_USERNAME}:${SCRAPOXY_PASSWORD}@${SCRAPOXY_HOST}:${SCRAPOXY_PORT}
     depends_on:
@@ -62,6 +33,8 @@ services:
         condition: service_healthy
     expose:
       - ${CLOUFLAREBYPASS_PROXY_PORT}
+    env_file:
+      - .env
 
   scrapoxy:
     container_name: scrapoxy

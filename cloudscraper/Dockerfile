@@ -3,6 +3,7 @@ FROM python:3.13-slim
 # Устанавливаем системные зависимости (если нужны)
 RUN apt-get update && apt-get install -y \
     build-essential \
+    wget \
     && pip install --upgrade pip \
     && rm -rf /var/lib/apt/lists/*
 

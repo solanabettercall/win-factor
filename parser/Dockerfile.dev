@@ -1,0 +1,13 @@
+FROM node:23
+
+RUN useradd -ms /bin/sh -u 1001 app
+USER app
+
+WORKDIR /app
+
+# Установка зависимостей
+COPY . .
+RUN yarn install
+
+# Copy source files into application directory
+COPY --chown=app:app . /app

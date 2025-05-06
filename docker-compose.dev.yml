@@ -1,0 +1,102 @@
+services:
+  parser:
+    container_name: parser
+    build:
+      context: ./parser
+      dockerfile: Dockerfile.dev
+    develop:
+      watch:
+        - action: sync
+          path: ./parser/src
+          target: /app/src
+          ignore:
+            - node_modules/
+            - dist/
+        - action: sync
+          path: ./test
+          target: ./parser/test
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: yarn.lock
+    command: yarn run start:dev
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://localhost:${PARSER_HEALTHCHECK_PORT}/health || exit 1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      cloudflare_proxy:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  cloudflare_proxy:
+    container_name: cloudflare_proxy
+    build: ./cloudscraper
+    environment:
+      - UPSTREAM_PROXY=http://${SCRAPOXY_USERNAME}:${SCRAPOXY_PASSWORD}@${SCRAPOXY_HOST}:${SCRAPOXY_PORT}
+    depends_on:
+      scrapoxy:
+        condition: service_healthy
+    expose:
+      - ${CLOUFLAREBYPASS_PROXY_PORT}
+    env_file:
+      - .env
+
+  scrapoxy:
+    container_name: scrapoxy
+    image: scrapoxy/scrapoxy
+    ports:
+      - "${SCRAPOXY_WEB_PORT}:8890" # Web UI
+    volumes:
+      - ./scrapoxy:/cfg
+      - ./scrapoxy/healthcheck.sh:/app/healthcheck.sh:ro
+    environment:
+      - AUTH_LOCAL_USERNAME=${SCRAPOXY_AUTH_LOCAL_USERNAME}
+      - AUTH_LOCAL_PASSWORD=${SCRAPOXY_AUTH_LOCAL_PASSWORD}
+      - BACKEND_JWT_SECRET=${SCRAPOXY_BACKEND_JWT_SECRET}
+      - FRONTEND_JWT_SECRET=${SCRAPOXY_FRONTEND_JWT_SECRET}
+      - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
+      - MASTER_PORT=${SCRAPOXY_PORT}
+      - PROBE_PORT=${SCRAPOXY_PROBE_PORT}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "healthcheck.sh"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+    expose:
+      - ${SCRAPOXY_PORT}
+    env_file:
+      - .env
+
+  redis:
+    container_name: redis
+    image: redis/redis-stack:7.4.0-v3
+    restart: unless-stopped
+    ports:
+      - "${REDIS_WEB_PORT}:8001"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_ARGS=--port ${REDIS_PORT} --save 60 1 --loglevel warning --activedefrag no
+    healthcheck:
+      test:
+        ["CMD", "redis-cli", "-h", "localhost", "-p", "${REDIS_PORT}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    expose:
+      - ${REDIS_PORT}
+
+volumes:
+  redis_data:
