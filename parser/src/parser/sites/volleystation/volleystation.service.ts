@@ -11,7 +11,7 @@ import {
 } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
-import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
+import { ICompetition } from './interfaces/vollestation-competition.interface';
 import { plainToInstance } from 'class-transformer';
 import { RawMatch } from './models/match-list/raw-match';
 import { Team } from './models/team-list/team';
@@ -25,24 +25,26 @@ import { IPlayerProfile } from './interfaces/player-profile/player-profile.inter
 import { IPlayerSummaryStatistics } from './interfaces/player-profile/player-summary-statistics.interface';
 import { PlayerProfile } from './models/player-profile/player-profile';
 import { Player } from './models/team-roster/player';
+import { competitions } from './consts';
 
 export interface IVolleystationService {
-  getTeams(competition: IVollestationCompetition): Observable<Team[]>;
+  getTeams(competition: ICompetition): Observable<Team[]>;
   getTeamRoster(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     teamId: string,
   ): Observable<TeamRoster | null>;
   getMatches(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]>;
 
   getPlayer(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     playerId: number,
   ): Observable<IPlayerProfile>;
 
-  getPlayers(competition: IVollestationCompetition): Observable<IPlayer[]>;
+  getPlayers(competition: ICompetition): Observable<IPlayer[]>;
+  getCompetitions(): Observable<ICompetition[]>;
 }
 
 @Injectable()
@@ -51,7 +53,11 @@ export class VolleystationService implements IVolleystationService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  getPlayers(competition: IVollestationCompetition): Observable<IPlayer[]> {
+  getCompetitions(): Observable<ICompetition[]> {
+    return of(competitions);
+  }
+
+  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
     const url = new URL(competition.url);
     url.pathname += `players/`;
     const { origin, href } = url;
@@ -122,7 +128,7 @@ export class VolleystationService implements IVolleystationService {
   }
 
   getPlayer(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     playerId: number,
   ): Observable<IPlayerProfile> {
     const url = new URL(competition.url);
@@ -286,7 +292,7 @@ export class VolleystationService implements IVolleystationService {
   }
 
   getTeamRoster(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     teamId: string,
   ): Observable<TeamRoster | null> {
     const url = new URL(competition.url);
@@ -456,7 +462,7 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getTeams(competition: IVollestationCompetition): Observable<Team[]> {
+  getTeams(competition: ICompetition): Observable<Team[]> {
     const url = new URL(competition.url);
     url.pathname += `teams/`;
     const { origin, href } = url;
@@ -515,7 +521,7 @@ export class VolleystationService implements IVolleystationService {
   }
 
   getMatches(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]> {
     const url = new URL(competition.url);

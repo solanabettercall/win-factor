@@ -1,6 +1,6 @@
-import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
+import { ICompetition } from './interfaces/vollestation-competition.interface';
 
-export const competitions: IVollestationCompetition[] = [
+export const competitions: ICompetition[] = [
   {
     id: 118,
     url: 'https://panel.volleystation.com/website/118/en/',

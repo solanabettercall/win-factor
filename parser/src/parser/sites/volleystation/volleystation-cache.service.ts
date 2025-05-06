@@ -4,7 +4,7 @@ import {
   VolleystationService,
 } from './volleystation.service';
 import { RedisService } from 'src/cache/redis.service';
-import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
+import { ICompetition } from './interfaces/vollestation-competition.interface';
 import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
 import {
   IVolleystationSocketService,
@@ -17,6 +17,7 @@ import { TeamRoster } from './models/team-roster/team-roster';
 import { PlayerProfile } from './models/player-profile/player-profile';
 import { IPlayer } from './interfaces/team-roster/player.interface';
 import { Player } from './models/team-roster/player';
+import { Competition } from './models/vollestation-competition';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -33,7 +34,43 @@ export class VolleystationCacheService
     private readonly redisService: RedisService,
   ) {}
 
-  getPlayers(competition: IVollestationCompetition): Observable<IPlayer[]> {
+  getCompetitions(): Observable<ICompetition[]> {
+    const cacheKey = `volleystation:competitions`;
+    const TTL = 60 * 30;
+
+    return from(this.redisService.getJson(cacheKey, Competition)).pipe(
+      switchMap((cached): Observable<Competition[]> => {
+        if (Array.isArray(cached)) {
+          this.logger.debug(`Турниры найдены в кэше: ${cacheKey}`);
+          return of(cached);
+        }
+
+        if (cached) {
+          this.logger.warn(
+            `Ожидался массив турниров, но получен одиночный объект: ${cacheKey}`,
+          );
+          return of([cached]);
+        }
+
+        this.logger.debug(`Турниры не найдены в кэше, загружаем: ${cacheKey}`);
+
+        return this.volleystationService.getCompetitions().pipe(
+          tap(async (competitions: Competition[]) => {
+            try {
+              await this.redisService.setJson(cacheKey, competitions, TTL);
+              this.logger.debug(`Турниры сохранены в кэш: ${cacheKey}`);
+            } catch (error) {
+              this.logger.warn(
+                `Ошибка при сохранении турниров в кэш: ${error.message}`,
+              );
+            }
+          }),
+        );
+      }),
+    );
+  }
+
+  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
     const cacheKey = `volleystation:${competition.id}:players`;
     const TTL = 60 * 30;
 
@@ -70,7 +107,7 @@ export class VolleystationCacheService
   }
 
   getPlayer(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     playerId: number,
   ): Observable<PlayerProfile> {
     const cacheKey = `volleystation:${competition.id}:player:${playerId}`;
@@ -112,7 +149,7 @@ export class VolleystationCacheService
   }
 
   getTeamRoster(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     teamId: string,
   ): Observable<TeamRoster | null> {
     const cacheKey = `volleystation:${competition.id}:team:${teamId}`;
@@ -155,7 +192,7 @@ export class VolleystationCacheService
     );
   }
 
-  getTeams(competition: IVollestationCompetition): Observable<Team[]> {
+  getTeams(competition: ICompetition): Observable<Team[]> {
     const cacheKey = `volleystation:${competition.id}:teams`;
     const TTL = 60 * 30;
 
@@ -192,7 +229,7 @@ export class VolleystationCacheService
   }
 
   getMatches(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]> {
     const TTL = 60 * 30;
@@ -264,7 +301,7 @@ export class VolleystationCacheService
   }
 
   getDetailedMatches(
-    competition: IVollestationCompetition,
+    competition: ICompetition,
     type: 'results' | 'schedule',
   ): Observable<FullRawMatch[]> {
     const TTL = 60 * 30;
