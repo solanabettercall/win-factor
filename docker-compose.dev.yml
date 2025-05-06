@@ -16,9 +16,9 @@ services:
           path: ./test
           target: ./parser/test
         - action: rebuild
-          path: package.json
+          path: ./parser/package.json
         - action: rebuild
-          path: yarn.lock
+          path: ./parser/package.json
     command: yarn run start:dev
     healthcheck:
       test:
@@ -34,9 +34,11 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      mongodb:
+        condition: service_healthy
     env_file:
       - .env
-    restart: unless-stopped
+    restart: always
 
   cloudflare_proxy:
     container_name: cloudflare_proxy
@@ -50,6 +52,7 @@ services:
       - ${CLOUFLAREBYPASS_PROXY_PORT}
     env_file:
       - .env
+    restart: always
 
   scrapoxy:
     container_name: scrapoxy
@@ -67,7 +70,7 @@ services:
       - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
       - MASTER_PORT=${SCRAPOXY_PORT}
       - PROBE_PORT=${SCRAPOXY_PROBE_PORT}
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "sh", "healthcheck.sh"]
       interval: 3s
@@ -81,7 +84,7 @@ services:
   redis:
     container_name: redis
     image: redis/redis-stack:7.4.0-v3
-    restart: unless-stopped
+    restart: always
     ports:
       - "${REDIS_WEB_PORT}:8001"
     volumes:
@@ -98,5 +101,47 @@ services:
     expose:
       - ${REDIS_PORT}
 
+  mongodb:
+    image: mongo:8.0.9
+    container_name: mongodb
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    expose:
+      - ${MONGODB_POPT}
+    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "${MONGODB_USERNAME}",
+          "--password",
+          "${MONGODB_PASSWORD}",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  mongo-express:
+    image: mongo-express
+    restart: unless-stopped
+    ports:
+      - ${MONGODB_EXPRESS_PORT}:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_EXPRESS_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_EXPRESS_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_POPT}/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      mongodb:
+        condition: service_healthy
 volumes:
   redis_data:
+  mongo_data:
