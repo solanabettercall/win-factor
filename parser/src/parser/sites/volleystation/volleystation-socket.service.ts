@@ -42,7 +42,6 @@ export class VolleystationSocketService
 
   async onModuleInit() {
     this.socket = this.createSocket();
-
     this.setupListeners();
 
     try {
@@ -75,27 +74,27 @@ export class VolleystationSocketService
   }
 
   private setupListeners() {
-    this.socket.on('connect', () => {
+    this.socket.once('connect', () => {
       this.logger.log('Socket подключён.');
     });
 
-    this.socket.on('disconnect', (reason: string) => {
+    this.socket.once('disconnect', (reason: string) => {
       this.logger.warn(`Socket отключён: ${reason}`);
     });
 
-    this.socket.on('reconnect_attempt', (attempt: number) => {
+    this.socket.once('reconnect_attempt', (attempt: number) => {
       this.logger.log(`Попытка реконнекта #${attempt}`);
     });
 
-    this.socket.on('reconnect', (attempt: number) => {
+    this.socket.once('reconnect', (attempt: number) => {
       this.logger.log(`Успешный реконнект после #${attempt}`);
     });
 
-    this.socket.on('reconnect_error', (err) => {
+    this.socket.once('reconnect_error', (err) => {
       this.logger.warn(`Ошибка реконнекта: ${err.message}`);
     });
 
-    this.socket.on('reconnect_failed', () => {
+    this.socket.once('reconnect_failed', () => {
       this.logger.error('Реконнект не удался.');
     });
   }
@@ -130,9 +129,13 @@ export class VolleystationSocketService
   }
 
   async onModuleDestroy() {
-    if (this.socket && this.socket.connected) {
-      this.socket.close();
-      this.logger.log('Socket закрыт.');
+    if (this.socket) {
+      this.socket.removeAllListeners();
+
+      if (this.socket.connected) {
+        this.socket.close();
+        this.logger.log('Socket закрыт.');
+      }
     }
   }
 }
