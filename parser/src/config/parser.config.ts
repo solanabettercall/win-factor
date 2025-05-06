@@ -23,7 +23,13 @@ const validEnvs: Environment[] = [
   Environment.development,
   Environment.production,
 ];
-
+export interface IMongodbConfig {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database?: string;
+}
 interface IAppConfig {
   port: number;
   env: Environment;
@@ -32,6 +38,7 @@ interface IAppConfig {
   isLocal: boolean;
   proxy?: IProxy;
   redis: IRedisConfig;
+  mongodb: IMongodbConfig;
 }
 
 export const appConfig = (): IAppConfig => {
@@ -50,7 +57,7 @@ export const appConfig = (): IAppConfig => {
     };
   }
 
-  const config = {
+  const config: IAppConfig = {
     port: parseInt(process.env.PARSER_HEALTHCHECK_PORT, 10) || 3001,
     env,
     isProduction: env === Environment.production,
@@ -60,6 +67,13 @@ export const appConfig = (): IAppConfig => {
     redis: {
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT, 10),
+    },
+    mongodb: {
+      host: process.env.MONGODB_HOST,
+      port: parseInt(process.env.MONGODB_POPT, 10),
+      username: process.env.MONGODB_USERNAME,
+      password: process.env.MONGODB_PASSWORD,
+      database: process.env.MONGODB_DATABASE ?? 'monitoring',
     },
   };
 
