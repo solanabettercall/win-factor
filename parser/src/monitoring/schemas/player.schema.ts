@@ -16,3 +16,8 @@ export class Player {
 }
 
 export const PlayerSchema = SchemaFactory.createForClass(Player);
+
+PlayerSchema.index(
+  { playerId: 1, teamId: 1, tournamentId: 1 },
+  { unique: true },
+);

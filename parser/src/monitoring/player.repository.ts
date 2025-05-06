@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player, PlayerDocument } from './schemas/player.schema';
 import { Model } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerToMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
+import { EMPTY, from, map, mergeMap, Observable, of, tap } from 'rxjs';
 
 @Injectable()
 export class PlayerRepository implements IPlayerRepository {
@@ -14,49 +15,60 @@ export class PlayerRepository implements IPlayerRepository {
     @InjectModel(Player.name) private playerModel: Model<PlayerDocument>,
   ) {}
 
-  async addPlayerToMonitoring(dto: PlayerToMonitoringDto): Promise<void> {
-    const exists = await this.playerModel.exists({
-      playerId: dto.playerId,
-      teamId: dto.teamId,
-      tournamentId: dto.tournamentId,
-    });
-
-    if (!exists) {
-      await this.playerModel.create(dto);
-    }
+  addPlayerToMonitoring(dto: PlayerToMonitoringDto): Observable<void> {
+    this.logger.debug('addPlayerToMonitoring', dto);
+    return from(
+      this.playerModel
+        .updateOne(
+          {
+            playerId: dto.playerId,
+            teamId: dto.teamId,
+            tournamentId: dto.tournamentId,
+          },
+          { $setOnInsert: dto },
+          { upsert: true },
+        )
+        .exec(),
+    ).pipe(map(() => undefined));
   }
 
-  async removePlayerFromMonitoring(dto: PlayerToMonitoringDto): Promise<void> {
-    await this.playerModel
-      .deleteOne({
+  removePlayerFromMonitoring(dto: PlayerToMonitoringDto): Observable<void> {
+    this.logger.debug('removePlayerFromMonitoring', dto);
+    return from(
+      this.playerModel.deleteOne({
         playerId: dto.playerId,
         teamId: dto.teamId,
         tournamentId: dto.tournamentId,
-      })
-      .exec();
+      }),
+    ).pipe(
+      tap((data) => console.log(data)),
+      mergeMap((result: { deletedCount?: number }) => {
+        if (!result.deletedCount) {
+          const message = 'Игрок не найден';
+          this.logger.warn(message, dto);
+          // throw new NotFoundException('Игрок не найден');
+        }
+        return of(undefined);
+      }),
+    );
   }
 
-  async getMonitoredTournamentIds(): Promise<number[]> {
-    this.logger.debug('getMonitoredTournamentIds');
-    const result = await this.playerModel.distinct('tournamentId').exec();
-    return result;
+  getMonitoredTournamentIds(): Observable<number[]> {
+    return from(this.playerModel.distinct('tournamentId').exec());
   }
 
-  async getMonitoredTeamIds(tournamentId: number): Promise<string[]> {
-    const result = await this.playerModel
-      .find({ tournamentId })
-      .distinct('teamId')
-      .exec();
-    return result;
+  getMonitoredTeamIds(tournamentId: number): Observable<string[]> {
+    return from(
+      this.playerModel.find({ tournamentId }).distinct('teamId').exec(),
+    );
   }
 
-  async getMonitoredPlayerIds(
-    dto: GetMonitoredPlayerIdsDto,
-  ): Promise<number[]> {
-    const result = await this.playerModel
-      .find({ tournamentId: dto.tournamentId, teamId: dto.teamId })
-      .distinct('playerId')
-      .exec();
-    return result;
+  getMonitoredPlayerIds(dto: GetMonitoredPlayerIdsDto): Observable<number[]> {
+    return from(
+      this.playerModel
+        .find({ tournamentId: dto.tournamentId, teamId: dto.teamId })
+        .distinct('playerId')
+        .exec(),
+    );
   }
 }
