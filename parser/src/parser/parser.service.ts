@@ -18,23 +18,19 @@ export class ParserService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    const competition = competitions.find((c) => c.id === 294);
-
+    // const competition = competitions.find((c) => c.id === 294);
     // const player = await firstValueFrom(
     //   this.volleystationCacheService.getPlayer(competition, 2122868),
     // );
     // console.log(player);
-
-    const detailedMatches = await firstValueFrom(
-      this.volleystationCacheService.getDetailedMatches(competition, 'results'),
-    );
-    console.log(detailedMatches.map((dm) => dm.officials));
-
+    // const detailedMatches = await firstValueFrom(
+    //   this.volleystationCacheService.getDetailedMatches(competition, 'results'),
+    // );
+    // console.log(detailedMatches.map((dm) => dm.officials));
     // const teams = await firstValueFrom(
     //   this.volleystationCacheService.getTeams(competition),
     // );
     // console.log(teams);
-
     // const teamRoster = await firstValueFrom(
     //   this.volleystationCacheService.getTeamRoster(
     //     competition,
@@ -42,7 +38,6 @@ export class ParserService implements OnApplicationBootstrap {
     //   ),
     // );
     // console.log(teamRoster);
-
     // const matchId = 2163482;
     // const matchId = 2163482;
     // const match = await firstValueFrom(

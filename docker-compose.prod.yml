@@ -83,5 +83,33 @@ services:
     expose:
       - ${REDIS_PORT}
 
+  mongodb:
+    image: mongo:8.0.9
+    container_name: mongodb
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    expose:
+      - ${MONGODB_POPT}
+    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "${MONGODB_USERNAME}",
+          "--password",
+          "${MONGODB_PASSWORD}",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
 volumes:
   redis_data:
