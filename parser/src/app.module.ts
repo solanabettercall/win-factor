@@ -5,12 +5,14 @@ import { RedisModule } from './cache/redis.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { appConfig } from './config/parser.config';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     HealthModule,
     ParserModule,
     RedisModule,
+    ScheduleModule.forRoot(),
     MongooseModule.forRootAsync({
       useFactory: () => {
         const { host, password, port, username, database } =

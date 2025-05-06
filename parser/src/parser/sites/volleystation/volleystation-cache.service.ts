@@ -14,8 +14,9 @@ import { RawMatch } from './models/match-list/raw-match';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
 import { Team } from './models/team-list/team';
 import { TeamRoster } from './models/team-roster/team-roster';
-import { IPlayerProfile } from './interfaces/player-profile/player-profile.interface';
 import { PlayerProfile } from './models/player-profile/player-profile';
+import { IPlayer } from './interfaces/team-roster/player.interface';
+import { Player } from './models/team-roster/player';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -31,6 +32,42 @@ export class VolleystationCacheService
     private readonly volleystationSocketService: VolleystationSocketService,
     private readonly redisService: RedisService,
   ) {}
+
+  getPlayers(competition: IVollestationCompetition): Observable<IPlayer[]> {
+    const cacheKey = `volleystation:${competition.id}:players`;
+    const TTL = 60 * 30;
+
+    return from(this.redisService.getJson(cacheKey, Player)).pipe(
+      switchMap((cached): Observable<Player[]> => {
+        if (Array.isArray(cached)) {
+          this.logger.debug(`Игроки найдены в кэше: ${cacheKey}`);
+          return of(cached);
+        }
+
+        if (cached) {
+          this.logger.warn(
+            `Ожидался массив игроков, но получен одиночный объект: ${cacheKey}`,
+          );
+          return of([cached]);
+        }
+
+        this.logger.debug(`Игроки не найдены в кэше, загружаем: ${cacheKey}`);
+
+        return this.volleystationService.getPlayers(competition).pipe(
+          tap(async (players: Player[]) => {
+            try {
+              await this.redisService.setJson(cacheKey, players, TTL);
+              this.logger.debug(`Игроки сохранены в кэш: ${cacheKey}`);
+            } catch (error) {
+              this.logger.warn(
+                `Ошибка при сохранении игроков в кэш: ${error.message}`,
+              );
+            }
+          }),
+        );
+      }),
+    );
+  }
 
   getPlayer(
     competition: IVollestationCompetition,

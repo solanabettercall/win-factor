@@ -4,6 +4,7 @@ import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
 import { VolleystationSocketService } from './volleystation-socket.service';
 import { VolleystationCacheService } from './volleystation-cache.service';
+import { VolleystationCacheScraperService } from './volleystation-cache-scraper.service';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { VolleystationCacheService } from './volleystation-cache.service';
     VolleystationService,
     VolleystationSocketService,
     VolleystationCacheService,
+    VolleystationCacheScraperService,
   ],
   exports: [
     VolleystationService,

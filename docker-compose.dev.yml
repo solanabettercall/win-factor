@@ -12,13 +12,14 @@ services:
           ignore:
             - node_modules/
             - dist/
+
         - action: sync
           path: ./test
           target: ./parser/test
+
         - action: rebuild
-          path: ./parser/package.json
-        - action: rebuild
-          path: ./parser/package.json
+          path: ./parser/yarn.lock
+
     command: yarn run start:dev
     healthcheck:
       test:
