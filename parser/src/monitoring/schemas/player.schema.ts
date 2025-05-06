@@ -6,13 +6,13 @@ export type PlayerDocument = Player & Document;
 @Schema()
 export class Player {
   @Prop({ required: true })
-  playerId: string;
+  playerId: number;
 
   @Prop({ required: true })
   teamId: string;
 
   @Prop({ required: true })
-  tournamentId: string;
+  tournamentId: number;
 }
 
 export const PlayerSchema = SchemaFactory.createForClass(Player);

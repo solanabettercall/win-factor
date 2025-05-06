@@ -1,34 +1,35 @@
-import { Injectable } from '@nestjs/common';
-import { PlayerRepository } from './player.repository';
+import { Inject, Injectable } from '@nestjs/common';
+import { PlayerToMonitoringDto } from './dtos/player-to-monitoring-dto';
+import { IPlayerRepository } from './interfaces/player-repository.interface';
+import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
+import { PlayerRepositoryToken } from './player-repository.token';
 
 @Injectable()
 export class PlayerService {
-  constructor(private readonly playerRepository: PlayerRepository) {}
+  constructor(
+    @Inject(PlayerRepositoryToken)
+    private readonly playerRepository: IPlayerRepository,
+  ) {}
 
-  async create(playerData: {
-    playerId: string;
-    teamId: string;
-    tournamentId: string;
-  }) {
-    return this.playerRepository.create(playerData);
+  async addToMonitoring(dto: PlayerToMonitoringDto): Promise<void> {
+    await this.playerRepository.addPlayerToMonitoring(dto);
   }
 
-  async findAll() {
-    return this.playerRepository.findAll();
+  async removeFromMonitoring(dto: PlayerToMonitoringDto): Promise<void> {
+    await this.playerRepository.removePlayerFromMonitoring(dto);
   }
 
-  async findById(id: string) {
-    return this.playerRepository.findById(id);
+  async getMonitoredTournamentIds(): Promise<number[]> {
+    return this.playerRepository.getMonitoredTournamentIds();
   }
 
-  async update(
-    id: string,
-    updateData: { playerId?: string; teamId?: string; tournamentId?: string },
-  ) {
-    return this.playerRepository.update(id, updateData);
+  async getMonitoredTeamIds(tournamentId: number): Promise<string[]> {
+    return this.playerRepository.getMonitoredTeamIds(tournamentId);
   }
 
-  async delete(id: string) {
-    return this.playerRepository.delete(id);
+  async getMonitoredPlayerIds(
+    dto: GetMonitoredPlayerIdsDto,
+  ): Promise<number[]> {
+    return this.playerRepository.getMonitoredPlayerIds(dto);
   }
 }

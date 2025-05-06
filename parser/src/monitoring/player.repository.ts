@@ -1,46 +1,62 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player, PlayerDocument } from './schemas/player.schema';
 import { Model } from 'mongoose';
+import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
+import { PlayerToMonitoringDto } from './dtos/player-to-monitoring-dto';
+import { IPlayerRepository } from './interfaces/player-repository.interface';
 
 @Injectable()
-export class PlayerRepository {
+export class PlayerRepository implements IPlayerRepository {
+  private readonly logger = new Logger(PlayerRepository.name);
+
   constructor(
     @InjectModel(Player.name) private playerModel: Model<PlayerDocument>,
   ) {}
 
-  // Создание нового игрока
-  async create(playerData: {
-    playerId: string;
-    teamId: string;
-    tournamentId: string;
-  }) {
-    const newPlayer = new this.playerModel(playerData);
-    return newPlayer.save();
+  async addPlayerToMonitoring(dto: PlayerToMonitoringDto): Promise<void> {
+    const exists = await this.playerModel.exists({
+      playerId: dto.playerId,
+      teamId: dto.teamId,
+      tournamentId: dto.tournamentId,
+    });
+
+    if (!exists) {
+      await this.playerModel.create(dto);
+    }
   }
 
-  // Получение всех игроков
-  async findAll() {
-    return this.playerModel.find().exec();
-  }
-
-  // Поиск игрока по ID
-  async findById(id: string) {
-    return this.playerModel.findById(id).exec();
-  }
-
-  // Обновление игрока
-  async update(
-    id: string,
-    updateData: { playerId?: string; teamId?: string; tournamentId?: string },
-  ) {
-    return this.playerModel
-      .findByIdAndUpdate(id, updateData, { new: true })
+  async removePlayerFromMonitoring(dto: PlayerToMonitoringDto): Promise<void> {
+    await this.playerModel
+      .deleteOne({
+        playerId: dto.playerId,
+        teamId: dto.teamId,
+        tournamentId: dto.tournamentId,
+      })
       .exec();
   }
 
-  // Удаление игрока
-  async delete(id: string) {
-    return this.playerModel.findByIdAndDelete(id).exec();
+  async getMonitoredTournamentIds(): Promise<number[]> {
+    this.logger.debug('getMonitoredTournamentIds');
+    const result = await this.playerModel.distinct('tournamentId').exec();
+    return result;
+  }
+
+  async getMonitoredTeamIds(tournamentId: number): Promise<string[]> {
+    const result = await this.playerModel
+      .find({ tournamentId })
+      .distinct('teamId')
+      .exec();
+    return result;
+  }
+
+  async getMonitoredPlayerIds(
+    dto: GetMonitoredPlayerIdsDto,
+  ): Promise<number[]> {
+    const result = await this.playerModel
+      .find({ tournamentId: dto.tournamentId, teamId: dto.teamId })
+      .distinct('playerId')
+      .exec();
+    return result;
   }
 }
