@@ -38,7 +38,7 @@ services:
         condition: service_healthy
     env_file:
       - .env
-    restart: unless-stopped
+    restart: always
 
   cloudflare_proxy:
     container_name: cloudflare_proxy
@@ -52,6 +52,7 @@ services:
       - ${CLOUFLAREBYPASS_PROXY_PORT}
     env_file:
       - .env
+    restart: always
 
   scrapoxy:
     container_name: scrapoxy
@@ -69,7 +70,7 @@ services:
       - STORAGE_FILE_FILENAME=${SCRAPOXY_STORAGE_FILE_FILENAME}
       - MASTER_PORT=${SCRAPOXY_PORT}
       - PROBE_PORT=${SCRAPOXY_PROBE_PORT}
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "sh", "healthcheck.sh"]
       interval: 3s
@@ -83,7 +84,7 @@ services:
   redis:
     container_name: redis
     image: redis/redis-stack:7.4.0-v3
-    restart: unless-stopped
+    restart: always
     ports:
       - "${REDIS_WEB_PORT}:8001"
     volumes:
@@ -130,7 +131,7 @@ services:
 
   mongo-express:
     image: mongo-express
-    restart: always
+    restart: unless-stopped
     ports:
       - ${MONGODB_EXPRESS_PORT}:8081
     environment:
