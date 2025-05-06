@@ -21,18 +21,23 @@ export class VolleystationSocketService
     process.env.VS_SOCKET_TOKEN || 'PhodQuahof1ShmunWoifdedgasvuipki';
 
   private createSocket(): io.Socket {
-    return io(this.socketUrl, {
-      path: '/socket.io/',
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 2000,
-      query: { token: this.socketToken },
-      extraHeaders: {
-        Origin: 'https://widgets.volleystation.com',
-        Referer: 'https://widgets.volleystation.com',
-      },
-    });
+    try {
+      return io(this.socketUrl, {
+        path: '/socket.io/',
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 2000,
+        query: { token: this.socketToken },
+        extraHeaders: {
+          Origin: 'https://widgets.volleystation.com',
+          Referer: 'https://widgets.volleystation.com',
+        },
+      });
+    } catch (error) {
+      this.logger.error(`Ошибка создания сокета: ${error.message}`);
+      throw error;
+    }
   }
 
   async onModuleInit() {
@@ -97,6 +102,18 @@ export class VolleystationSocketService
 
   public getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
     return new Observable((observer) => {
+      const handler = (err: Error, response: { data: PlayByPlayEvent[] }) => {
+        if (err) {
+          this.logger.warn(`Ошибка от сервера: ${err.message}`);
+          observer.error(err);
+          return;
+        }
+
+        const event = response.data?.[0] ?? null;
+        observer.next(event ? plainToInstance(PlayByPlayEvent, event) : null);
+        observer.complete();
+      };
+
       this.socket.emit(
         'find',
         'widget/play-by-play',
@@ -104,18 +121,11 @@ export class VolleystationSocketService
           matchId,
           $limit: 1,
         },
-        (err: Error, response: { data: PlayByPlayEvent[] }) => {
-          if (err) {
-            this.logger.warn(`Ошибка от сервера: ${err.message}`);
-            observer.error(err);
-            return;
-          }
-
-          const event = response.data?.[0] ?? null;
-          observer.next(event ? plainToInstance(PlayByPlayEvent, event) : null);
-          observer.complete();
-        },
+        handler,
       );
+      return () => {
+        this.socket.off('find', handler);
+      };
     });
   }
 

@@ -20,10 +20,15 @@ export class ParserService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     const competition = competitions.find((c) => c.id === 294);
 
-    const player = await firstValueFrom(
-      this.volleystationCacheService.getPlayer(competition, 2122868),
+    // const player = await firstValueFrom(
+    //   this.volleystationCacheService.getPlayer(competition, 2122868),
+    // );
+    // console.log(player);
+
+    const detailedMatches = await firstValueFrom(
+      this.volleystationCacheService.getDetailedMatches(competition, 'results'),
     );
-    console.log(player);
+    console.log(detailedMatches.map((dm) => dm.officials));
 
     // const teams = await firstValueFrom(
     //   this.volleystationCacheService.getTeams(competition),
