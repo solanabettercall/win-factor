@@ -10,9 +10,27 @@ import {
   mergeMap,
   of,
 } from 'rxjs';
-import { competitions } from './consts';
+import { competitions, SCRAPER_QUEUE } from './consts';
 import { VolleystationService } from './volleystation.service';
 import { ICompetition } from './interfaces/vollestation-competition.interface';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+import { Competition } from './models/vollestation-competition';
+import { Team } from './models/team-list/team';
+import { Player } from './models/team-roster/player';
+import { RawMatch } from './models/match-list/raw-match';
+import { JobData, JobTask } from './types';
+
+export enum JobType {
+  COMPETITION = 'competition',
+  TEAM = 'team',
+  PLAYER = 'player',
+  MATCH = 'match',
+  SCHEDULED_MATCHES = 'scheduled_matches',
+  RESULTS_MATCHES = 'results_matches',
+  TEAMS = 'teams',
+  PLAYERS = 'players',
+}
 
 @Injectable()
 export class VolleystationCacheScraperService {
@@ -21,6 +39,9 @@ export class VolleystationCacheScraperService {
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly volleystationService: VolleystationService,
+
+    @InjectQueue(SCRAPER_QUEUE)
+    private cachScraperQueue: Queue<JobData>,
   ) {}
 
   async addToQueue(entity: unknown, priority?: number) {
@@ -35,72 +56,24 @@ export class VolleystationCacheScraperService {
   })
   async run() {
     this.logger.debug('VolleystationCacheScraperService.run');
-
-    // Получаем список турниров как Observable.
-    const competitions$ = this.volleystationCacheService.getCompetitions();
-
-    // Предположим, что getCompetitions() возвращает Observable<any[]>
-    competitions$
-      .pipe(
-        // Обрабатываем турниры последовательно (concurrency = 1). Это позволит позже регулировать параллельность.
-        mergeMap(
-          (competitions: ICompetition[]) =>
-            from(competitions).pipe(
-              mergeMap((competition) => {
-                // Запускаем параллельное получение данных для турнира.
-                return forkJoin({
-                  // Приоритет для команд = 1
-                  teams: this.volleystationCacheService
-                    .getTeams(competition)
-                    .pipe(catchError(() => of([]))),
-                  // Приоритет для игроков = 2
-                  players: this.volleystationCacheService
-                    .getPlayers(competition)
-                    .pipe(catchError(() => of([]))),
-                  // Приоритет для текущих матчей = 3
-                  scheduleMatches: this.volleystationCacheService
-                    .getMatches(competition, 'schedule')
-                    .pipe(catchError(() => of([]))),
-                  // Приоритет для прошедших матчей = 4
-                  resultsMatches: this.volleystationCacheService
-                    .getMatches(competition, 'results')
-                    .pipe(catchError(() => of([]))),
-                });
-              }, /* concurrency для турниров */ 1),
-            ),
-          1,
-        ),
-        // После получения данных для турнира добавляем сущности в очередь согласно приоритетам.
-        mergeMap(({ teams, players, scheduleMatches, resultsMatches }) => {
-          // Используем concat, чтобы гарантированно запускать добавление в нужном порядке
-          return concat(
-            // Команды – приоритет 1
-            from(teams).pipe(
-              mergeMap((team) => from(this.addToQueue(team, 1))),
-            ),
-            // Игроки – приоритет 2
-            from(players).pipe(
-              mergeMap((player) => from(this.addToQueue(player, 2))),
-            ),
-            // Текущие матчи – приоритет 3
-            from(scheduleMatches).pipe(
-              mergeMap((match) => from(this.addToQueue(match, 3))),
-            ),
-            // Прошедшие матчи – приоритет 4
-            from(resultsMatches).pipe(
-              mergeMap((match) => from(this.addToQueue(match, 4))),
-            ),
-          );
-        }),
-      )
-      // Подписываемся, чтобы запустить цепочку
-      .subscribe({
-        next: () => {},
-        error: (err) => this.logger.error('Ошибка в процессе парсинга', err),
-        complete: () => this.logger.debug('Парсинг завершён для всех турниров'),
-      });
   }
   async onApplicationBootstrap() {
-    // await this.run();
+    const competitions = await firstValueFrom(
+      this.volleystationCacheService.getCompetitions(),
+    );
+
+    await this.cachScraperQueue.addBulk(
+      competitions.map((competition) => {
+        const task: JobTask = {
+          name: JobType.COMPETITION,
+          data: competition,
+          opts: {
+            jobId: `${JobType.COMPETITION}:${competition.id}`,
+            priority: 1,
+          },
+        };
+        return task;
+      }),
+    );
   }
 }

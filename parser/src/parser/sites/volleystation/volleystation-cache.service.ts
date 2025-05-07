@@ -18,6 +18,8 @@ import { PlayerProfile } from './models/player-profile/player-profile';
 import { IPlayer } from './interfaces/team-roster/player.interface';
 import { Player } from './models/team-roster/player';
 import { Competition } from './models/vollestation-competition';
+import { randomInt } from 'crypto';
+import { addHours, isBefore } from 'date-fns';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -34,9 +36,10 @@ export class VolleystationCacheService
     private readonly redisService: RedisService,
   ) {}
 
-  getCompetitions(): Observable<ICompetition[]> {
+  getCompetitions(): Observable<Competition[]> {
+    return this.volleystationService.getCompetitions();
     const cacheKey = `volleystation:competitions`;
-    const TTL = 60 * 30;
+    const TTL = 60 * 24;
 
     return from(this.redisService.getJson(cacheKey, Competition)).pipe(
       switchMap((cached): Observable<Competition[]> => {
@@ -70,9 +73,9 @@ export class VolleystationCacheService
     );
   }
 
-  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
+  getPlayers(competition: ICompetition): Observable<Player[]> {
     const cacheKey = `volleystation:${competition.id}:players`;
-    const TTL = 60 * 30;
+    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, Player)).pipe(
       switchMap((cached): Observable<Player[]> => {
@@ -111,7 +114,7 @@ export class VolleystationCacheService
     playerId: number,
   ): Observable<PlayerProfile> {
     const cacheKey = `volleystation:${competition.id}:player:${playerId}`;
-    const TTL = 60 * 30;
+    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, PlayerProfile)).pipe(
       switchMap((cached): Observable<PlayerProfile | null> => {
@@ -153,7 +156,7 @@ export class VolleystationCacheService
     teamId: string,
   ): Observable<TeamRoster | null> {
     const cacheKey = `volleystation:${competition.id}:team:${teamId}`;
-    const TTL = 60 * 30;
+    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
       switchMap((cached): Observable<TeamRoster | null> => {
@@ -194,7 +197,7 @@ export class VolleystationCacheService
 
   getTeams(competition: ICompetition): Observable<Team[]> {
     const cacheKey = `volleystation:${competition.id}:teams`;
-    const TTL = 60 * 30;
+    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, Team)).pipe(
       switchMap((cached): Observable<Team[]> => {
@@ -232,7 +235,7 @@ export class VolleystationCacheService
     competition: ICompetition,
     type: 'results' | 'schedule',
   ): Observable<RawMatch[]> {
-    const TTL = 60 * 30;
+    const TTL = randomInt(1800, 3600);
     const cacheKey = `volleystation:${competition.id}:matches:${type}`;
 
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
@@ -266,7 +269,6 @@ export class VolleystationCacheService
 
   getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
     const cacheKey = `volleystation:match:${matchId}`;
-    const TTL = 60 * 30;
 
     return from(this.redisService.getJson(cacheKey, PlayByPlayEvent)).pipe(
       switchMap((cached): Observable<PlayByPlayEvent | null> => {
@@ -284,6 +286,13 @@ export class VolleystationCacheService
           tap(async (matchInfo) => {
             if (matchInfo) {
               try {
+                const isOldMatch = isBefore(
+                  addHours(matchInfo.startDate, 3),
+                  new Date(),
+                );
+                const TTL = isOldMatch
+                  ? randomInt(86400, 259200)
+                  : randomInt(5, 10);
                 await this.redisService.setJson(cacheKey, matchInfo, TTL);
                 this.logger.debug(
                   `Данные для матча ${matchId} сохранены в кэш`,
@@ -300,11 +309,14 @@ export class VolleystationCacheService
     );
   }
 
+  /**
+   * @deprecated
+   */
   getDetailedMatches(
     competition: ICompetition,
     type: 'results' | 'schedule',
   ): Observable<FullRawMatch[]> {
-    const TTL = 60 * 30;
+    const TTL = randomInt(600, 900);
     const cacheKey = `volleystation:${competition.id}:detailedMatches:${type}`;
 
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(

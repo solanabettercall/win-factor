@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { appConfig } from './config/parser.config';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule, BullRootModuleOptions } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -13,6 +14,25 @@ import { ScheduleModule } from '@nestjs/schedule';
     ParserModule,
     RedisModule,
     ScheduleModule.forRoot(),
+    BullModule.forRootAsync({
+      useFactory: () => {
+        const config = appConfig();
+        const options: BullRootModuleOptions = {
+          defaultJobOptions: {
+            attempts: 30,
+            backoff: {
+              type: 'fixed',
+              delay: 5000,
+            },
+          },
+          redis: {
+            host: config.redis.host,
+            port: config.redis.port,
+          },
+        };
+        return options;
+      },
+    }),
     MongooseModule.forRootAsync({
       useFactory: () => {
         const { host, password, port, username, database } =
