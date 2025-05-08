@@ -335,7 +335,6 @@ export class VolleystationService implements IVolleystationService {
           .find('section#team-detail-general-stats-table div.row')
           .children();
 
-        // Создадим объект для итоговой статистики, который потом заполним нужными данными
         const skills: ISkillStatistics = {
           block: { points: 0, pointsPerSet: 0 },
           reception: {

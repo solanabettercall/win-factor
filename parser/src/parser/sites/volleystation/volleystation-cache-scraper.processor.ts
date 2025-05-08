@@ -1,4 +1,10 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import {
+  InjectQueue,
+  OnQueueEvent,
+  OnWorkerEvent,
+  Processor,
+  WorkerHost,
+} from '@nestjs/bullmq';
 import { Competition } from './models/vollestation-competition';
 import { Logger } from '@nestjs/common';
 import { JobType } from './volleystation-cache-scraper.service';
@@ -7,24 +13,27 @@ import { Player } from './models/team-roster/player';
 import { RawMatch } from './models/match-list/raw-match';
 import { VolleystationCacheService } from './volleystation-cache.service';
 import { firstValueFrom } from 'rxjs';
-import { JobData, MatchListType } from './types';
+import { VolleyJobData, MatchListType } from './types';
 import { Job, Queue } from 'bullmq';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
 import { SCRAPER_QUEUE } from './consts/queue';
+import { ttl } from './consts/ttl';
+import { isToday } from 'date-fns';
 @Processor(SCRAPER_QUEUE)
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);
 
   constructor(
-    @InjectQueue(SCRAPER_QUEUE) private readonly cacheQueue: Queue<JobData>,
+    @InjectQueue(SCRAPER_QUEUE)
+    private readonly cacheQueue: Queue<VolleyJobData>,
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {
     super();
   }
 
-  async process(job: Job<JobData>): Promise<any> {
+  async process(job: Job<VolleyJobData>): Promise<any> {
     switch (job.name as JobType) {
       case JobType.COMPETITION:
         return this.handleCompetition(job as Job<Competition>);
@@ -58,9 +67,19 @@ export class CacheScraperProcessor extends WorkerHost {
         { competition, type: MatchListType.Results } as GetMatchesDto,
         {
           priority: 7,
+          // deduplication: {
+          //   id: `${JobType.RESULTS_MATCHES}:${competition.id}`,
+          //   ttl: 1000 * 60 * 5,
+          // },
+
           deduplication: {
             id: `${JobType.RESULTS_MATCHES}:${competition.id}`,
-            ttl: 1000 * 60 * 5,
+            ttl: ttl.resultsMatches.deduplication(),
+          },
+          repeat: {
+            every: ttl.resultsMatches.repeat(),
+            key: `${JobType.RESULTS_MATCHES}:${competition.id}`,
+            immediately: true,
           },
         },
       ),
@@ -69,24 +88,54 @@ export class CacheScraperProcessor extends WorkerHost {
         { competition, type: MatchListType.Schedule } as GetMatchesDto,
         {
           priority: 6,
+          // deduplication: {
+          //   id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
+          //   ttl: 1000 * 60 * 5,
+          // },
+
           deduplication: {
             id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
-            ttl: 1000 * 60 * 5,
+            ttl: ttl.resultsMatches.deduplication(),
+          },
+          repeat: {
+            every: ttl.resultsMatches.repeat(),
+            key: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
+            immediately: true,
           },
         },
       ),
       this.cacheQueue.add(JobType.PLAYERS, competition, {
         priority: 3,
+        // deduplication: {
+        //   id: `${JobType.PLAYERS}:${competition.id}`,
+        //   ttl: 1000 * 60 * 5,
+        // },
+
         deduplication: {
           id: `${JobType.PLAYERS}:${competition.id}`,
-          ttl: 1000 * 60 * 5,
+          ttl: ttl.players.deduplication(),
+        },
+        repeat: {
+          every: ttl.players.repeat(),
+          key: `${JobType.PLAYERS}:${competition.id}`,
+          immediately: true,
         },
       }),
       this.cacheQueue.add(JobType.TEAMS, competition, {
         priority: 2,
+        // deduplication: {
+        //   id: `${JobType.TEAMS}:${competition.id}`,
+        //   ttl: 1000 * 60 * 5,
+        // },
+
         deduplication: {
           id: `${JobType.TEAMS}:${competition.id}`,
-          ttl: 1000 * 60 * 5,
+          ttl: ttl.teams.deduplication(),
+        },
+        repeat: {
+          every: ttl.teams.repeat(),
+          key: `${JobType.TEAMS}:${competition.id}`,
+          immediately: true,
         },
       }),
     ]);
@@ -102,60 +151,115 @@ export class CacheScraperProcessor extends WorkerHost {
       this.volleystationCacheService.getMatches(dto),
     );
 
-    return this.cacheQueue.addBulk(
-      matches.map((m: RawMatch) => ({
-        name: JobType.MATCH,
-        data: m,
-        opts: {
-          priority: job.name === JobType.RESULTS_MATCHES ? 9 : 8,
-          deduplication: { id: `${JobType.MATCH}:${m.id}`, ttl: 60_000 },
+    // Собираем все промисы на добавление задач
+    const addPromises = matches.map((match) => {
+      let deduplicationTTL =
+        dto.type === MatchListType.Results
+          ? ttl.completedMatch.deduplication()
+          : ttl.scheduledMatch.deduplication();
+      let repeatTTL =
+        dto.type === MatchListType.Results
+          ? ttl.completedMatch.repeat()
+          : ttl.scheduledMatch.repeat();
+
+      if (isToday(match.date)) {
+        deduplicationTTL = ttl.onlineMatch.deduplication();
+        repeatTTL = ttl.onlineMatch.repeat();
+      }
+
+      return this.cacheQueue.add(JobType.MATCH, match, {
+        priority: dto.type === MatchListType.Results ? 9 : 8,
+        deduplication: {
+          id: `${JobType.MATCH}:${match.id}`,
+          ttl: deduplicationTTL,
         },
-      })),
-    );
+        repeat: {
+          every: repeatTTL,
+          key: `${JobType.MATCH}:${match.id}`,
+          immediately: true,
+        },
+      });
+    });
+
+    return Promise.all(addPromises);
   }
+
+  @OnWorkerEvent('failed')
+  onFail(data) {
+    this.logger.error('failed');
+    this.logger.error(JSON.stringify(data, null, 2));
+  }
+
+  @OnWorkerEvent('error')
+  onError(data) {
+    this.logger.error('error');
+    this.logger.error(JSON.stringify(data, null, 2));
+  }
+
+  // @OnWorkerEvent('completed')
+  // onCompleted(data) {
+  //   this.logger.log('completed');
+  //   this.logger.log(JSON.stringify(data, null, 2));
+  // }
 
   private async handleTeams(job: Job<Competition>) {
     const comp = job.data;
     this.logger.log(`Обработка команд: [${comp.id}]`);
+
     const teams = await firstValueFrom(
       this.volleystationCacheService.getTeams(comp),
     );
 
-    return this.cacheQueue.addBulk(
-      teams.map((t: Team) => ({
-        name: JobType.TEAM,
-        data: { teamId: t.id, competition: comp },
-        opts: {
+    const addPromises = teams.map((team) =>
+      this.cacheQueue.add(
+        JobType.TEAM,
+        { teamId: team.id, competition: comp },
+        {
           priority: 4,
           deduplication: {
-            id: `${comp.id}:${JobType.TEAMS}:${t.id}`,
-            ttl: 60_000,
+            id: `${comp.id}:${JobType.TEAMS}:${team.id}`,
+            ttl: ttl.team.deduplication(),
+          },
+          repeat: {
+            every: ttl.team.repeat(),
+            key: `${comp.id}:${JobType.TEAMS}:${team.id}`,
+            immediately: true,
           },
         },
-      })),
+      ),
     );
+
+    return Promise.all(addPromises);
   }
 
   private async handlePlayers(job: Job<Competition>) {
     const comp = job.data;
     this.logger.log(`Обработка игроков: [${comp.id}]`);
+
     const players = await firstValueFrom(
       this.volleystationCacheService.getPlayers(comp),
     );
 
-    return this.cacheQueue.addBulk(
-      players.map((p: Player) => ({
-        name: JobType.PLAYER,
-        data: { playerId: p.id, competition: comp },
-        opts: {
+    const addPromises = players.map((player) =>
+      this.cacheQueue.add(
+        JobType.PLAYER,
+        { playerId: player.id, competition: comp },
+        {
           priority: 5,
           deduplication: {
-            id: `${comp.id}:${JobType.PLAYERS}:${p.id}`,
-            ttl: 60_000,
+            id: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
+            ttl: ttl.player.deduplication(),
+          },
+          repeat: {
+            every: ttl.player.repeat(),
+            key: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
+            immediately: true,
           },
         },
-      })),
+      ),
     );
+
+    return Promise.all(addPromises);
   }
 
   private async handleTeam(job: Job<GetTeamDto>) {

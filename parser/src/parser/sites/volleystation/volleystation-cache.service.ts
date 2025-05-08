@@ -5,15 +5,7 @@ import {
 } from './volleystation.service';
 import { RedisService } from 'src/cache/redis.service';
 import { ICompetition } from './interfaces/vollestation-competition.interface';
-import {
-  firstValueFrom,
-  forkJoin,
-  from,
-  Observable,
-  of,
-  switchMap,
-  tap,
-} from 'rxjs';
+import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
 import {
   IVolleystationSocketService,
   VolleystationSocketService,
@@ -26,10 +18,12 @@ import { PlayerProfile } from './models/player-profile/player-profile';
 import { Player } from './models/team-roster/player';
 import { Competition } from './models/vollestation-competition';
 import { randomInt } from 'crypto';
-import { addHours, isBefore } from 'date-fns';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
+import { CachableEntityType, ttl } from './consts/ttl';
+import { MatchListType } from './types';
+import { MatchStatus } from './enums';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -85,7 +79,6 @@ export class VolleystationCacheService
 
   getPlayers(competition: ICompetition): Observable<Player[]> {
     const cacheKey = `volleystation:${competition.id}:players`;
-    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, Player)).pipe(
       switchMap((cached): Observable<Player[]> => {
@@ -106,6 +99,7 @@ export class VolleystationCacheService
         return this.volleystationService.getPlayers(competition).pipe(
           tap(async (players: Player[]) => {
             try {
+              const TTL = ttl.players.cache();
               await this.redisService.setJson(cacheKey, players, TTL);
               this.logger.debug(`Игроки сохранены в кэш: ${cacheKey}`);
             } catch (error) {
@@ -122,7 +116,6 @@ export class VolleystationCacheService
   getPlayer(dto: GetPlayerDto): Observable<PlayerProfile> {
     const { competition, playerId } = dto;
     const cacheKey = `volleystation:${competition.id}:player:${playerId}`;
-    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, PlayerProfile)).pipe(
       switchMap((cached): Observable<PlayerProfile | null> => {
@@ -143,6 +136,7 @@ export class VolleystationCacheService
           tap(async (player: PlayerProfile | null) => {
             if (player) {
               try {
+                const TTL = ttl.player.cache();
                 await this.redisService.setJson(cacheKey, player, TTL);
                 this.logger.debug(`Профиль игрока сохранён в кэш: ${cacheKey}`);
               } catch (error) {
@@ -162,7 +156,6 @@ export class VolleystationCacheService
   getTeam(dto: GetTeamDto): Observable<TeamRoster | null> {
     const { competition, teamId } = dto;
     const cacheKey = `volleystation:${competition.id}:team:${teamId}`;
-    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
       switchMap((cached): Observable<TeamRoster | null> => {
@@ -183,6 +176,8 @@ export class VolleystationCacheService
           tap(async (roster: TeamRoster | null) => {
             if (roster) {
               try {
+                const TTL = ttl.team.cache();
+
                 await this.redisService.setJson(cacheKey, roster, TTL);
                 this.logger.debug(`Команда сохранена в кэш: ${cacheKey}`);
               } catch (error) {
@@ -201,7 +196,6 @@ export class VolleystationCacheService
 
   getTeams(competition: ICompetition): Observable<Team[]> {
     const cacheKey = `volleystation:${competition.id}:teams`;
-    const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, Team)).pipe(
       switchMap((cached): Observable<Team[]> => {
@@ -222,6 +216,8 @@ export class VolleystationCacheService
         return this.volleystationService.getTeams(competition).pipe(
           tap(async (teams: Team[]) => {
             try {
+              const TTL = ttl.teams.cache();
+
               await this.redisService.setJson(cacheKey, teams, TTL);
               this.logger.debug(`Команды сохранены в кэш: ${cacheKey}`);
             } catch (error) {
@@ -237,7 +233,6 @@ export class VolleystationCacheService
 
   getMatches(dto: GetMatchesDto): Observable<RawMatch[]> {
     const { competition, type } = dto;
-    const TTL = randomInt(1800, 3600);
     const cacheKey = `volleystation:${competition.id}:matches:${type}`;
 
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
@@ -258,6 +253,11 @@ export class VolleystationCacheService
         return this.volleystationService.getMatches(dto).pipe(
           tap(async (matches: RawMatch[]) => {
             try {
+              const TTL =
+                dto.type === MatchListType.Results
+                  ? ttl.resultsMatches.cache()
+                  : ttl.scheduledMatches.cache();
+
               await this.redisService.setJson(cacheKey, matches, TTL);
               this.logger.debug(`Данные сохранены в кэш: ${cacheKey}`);
             } catch (error) {
@@ -288,13 +288,23 @@ export class VolleystationCacheService
           tap(async (matchInfo) => {
             if (matchInfo) {
               try {
-                const isOldMatch = isBefore(
-                  addHours(matchInfo.startDate, 3),
-                  new Date(),
-                );
-                const TTL = isOldMatch
-                  ? randomInt(86400, 259200)
-                  : randomInt(5, 10);
+                const matchStatus = matchInfo.status;
+
+                const matchStatusToCacheTypeMap: Record<
+                  MatchStatus,
+                  CachableEntityType
+                > = {
+                  [MatchStatus.Finished]: 'completedMatch',
+                  [MatchStatus.Live]: 'onlineMatch',
+                  [MatchStatus.Upcoming]: 'scheduledMatch',
+                };
+
+                const cacheType =
+                  matchStatusToCacheTypeMap[matchStatus] || 'scheduledMatch';
+
+                // Получаем TTL для выбранного типа кеша
+                const TTL = ttl[cacheType].cache();
+
                 await this.redisService.setJson(cacheKey, matchInfo, TTL);
                 this.logger.debug(
                   `Данные для матча ${matchId} сохранены в кэш`,

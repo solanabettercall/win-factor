@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VolleystationCacheService } from './volleystation-cache.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { InjectQueue } from '@nestjs/bullmq';
-import { JobData } from './types';
+import { VolleyJobData } from './types';
 import { Queue } from 'bullmq';
 import { SCRAPER_QUEUE } from './consts/queue';
+import { ttl } from './consts/ttl';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -26,14 +26,14 @@ export class VolleystationCacheScraperService {
     private readonly volleystationCacheService: VolleystationCacheService,
 
     @InjectQueue(SCRAPER_QUEUE)
-    private cachScraperQueue: Queue<JobData>,
+    private cachScraperQueue: Queue<VolleyJobData>,
   ) {}
 
-  @Cron(CronExpression.EVERY_10_SECONDS, {
-    name: `${VolleystationCacheScraperService.name}`,
-    waitForCompletion: true,
-    disabled: false,
-  })
+  // @Cron(CronExpression.EVERY_10_SECONDS, {
+  //   name: `${VolleystationCacheScraperService.name}`,
+  //   waitForCompletion: true,
+  //   disabled: false,
+  // })
   async run() {
     this.logger.log('Запуск наполнения кэша');
     const competitions = await firstValueFrom(
@@ -45,10 +45,17 @@ export class VolleystationCacheScraperService {
         priority: 1,
         deduplication: {
           id: `${JobType.COMPETITION}:${competition.id}`,
-          ttl: 1000 * 30,
+          ttl: ttl.competition.deduplication(),
+        },
+        repeat: {
+          every: ttl.competition.repeat(),
+          key: `${JobType.COMPETITION}:${competition.id}`,
+          immediately: true,
         },
       });
     }
   }
-  async onApplicationBootstrap() {}
+  async onApplicationBootstrap() {
+    await this.run();
+  }
 }

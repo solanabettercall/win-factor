@@ -34,11 +34,11 @@ import { SCRAPER_QUEUE } from './consts/queue';
 
     BullModule.registerQueue({
       name: SCRAPER_QUEUE,
-
-      // limiter: {
-      //   max: 50,
-      //   duration: 1,
-      // },
+      defaultJobOptions: {
+        removeOnComplete: {
+          age: 60,
+        },
+      },
     }),
   ],
   providers: [

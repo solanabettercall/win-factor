@@ -12,7 +12,7 @@ export enum MatchListType {
   Results = 'results',
 }
 
-export type JobData =
+export type VolleyJobData =
   | Competition
   | Team
   | Player
@@ -23,6 +23,6 @@ export type JobData =
 
 export type JobTask = {
   name?: string | undefined;
-  data: JobData;
+  data: VolleyJobData;
   opts?: JobsOptions;
 };
