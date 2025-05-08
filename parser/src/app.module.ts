@@ -6,7 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { appConfig } from './config/parser.config';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { BullModule, BullRootModuleOptions } from '@nestjs/bull';
+import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 
 @Module({
   imports: [
@@ -25,7 +25,7 @@ import { BullModule, BullRootModuleOptions } from '@nestjs/bull';
               delay: 5000,
             },
           },
-          redis: {
+          connection: {
             host: config.redis.host,
             port: config.redis.port,
           },

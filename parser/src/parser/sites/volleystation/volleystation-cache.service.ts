@@ -5,7 +5,15 @@ import {
 } from './volleystation.service';
 import { RedisService } from 'src/cache/redis.service';
 import { ICompetition } from './interfaces/vollestation-competition.interface';
-import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
+import {
+  firstValueFrom,
+  forkJoin,
+  from,
+  Observable,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import {
   IVolleystationSocketService,
   VolleystationSocketService,
@@ -20,6 +28,7 @@ import { Player } from './models/team-roster/player';
 import { Competition } from './models/vollestation-competition';
 import { randomInt } from 'crypto';
 import { addHours, isBefore } from 'date-fns';
+import { competitions } from './consts';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;

@@ -1,8 +1,14 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import {
   catchError,
   delay,
+  firstValueFrom,
   map,
   Observable,
   of,
@@ -495,7 +501,8 @@ export class VolleystationService implements IVolleystationService {
               $(el).find('div.logo img').attr('src')?.trim() ?? null;
             const teamHref = $(el).attr('href');
             const { href: url } = new URL(teamHref, origin);
-            const match = teamHref?.match(/\/teams\/(\d+-\d+)\//);
+            const match = teamHref?.match(/\/teams\/([\da-zA-Z-]+)\//);
+
             const teamId = match ? match[1] : null;
             const team: ITeam = {
               id: teamId,

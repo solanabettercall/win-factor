@@ -5,7 +5,7 @@ import { appConfig } from 'src/config/parser.config';
 import { VolleystationSocketService } from './volleystation-socket.service';
 import { VolleystationCacheService } from './volleystation-cache.service';
 import { VolleystationCacheScraperService } from './volleystation-cache-scraper.service';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { CacheScraperProcessor } from './volleystation-cache-scraper.processor';
 import { SCRAPER_QUEUE } from './consts';
 
@@ -34,10 +34,11 @@ import { SCRAPER_QUEUE } from './consts';
 
     BullModule.registerQueue({
       name: SCRAPER_QUEUE,
-      limiter: {
-        max: 25,
-        duration: 5,
-      },
+
+      // limiter: {
+      //   max: 50,
+      //   duration: 1,
+      // },
     }),
   ],
   providers: [

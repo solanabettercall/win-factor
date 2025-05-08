@@ -1,4 +1,4 @@
-import { JobOptions } from 'bull';
+import { JobsOptions } from 'bullmq';
 import { RawMatch } from './models/match-list/raw-match';
 import { Competition } from './models/vollestation-competition';
 import { Team } from './models/team-list/team';
@@ -15,5 +15,5 @@ export type JobData =
 export type JobTask = {
   name?: string | undefined;
   data: JobData;
-  opts?: Omit<JobOptions, 'repeat'> | undefined;
+  opts?: JobsOptions;
 };

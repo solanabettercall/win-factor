@@ -1,25 +1,12 @@
 import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { VolleystationCacheService } from './volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import {
-  catchError,
-  concat,
-  firstValueFrom,
-  forkJoin,
-  from,
-  mergeMap,
-  of,
-} from 'rxjs';
-import { competitions, SCRAPER_QUEUE } from './consts';
+import { firstValueFrom } from 'rxjs';
+import { SCRAPER_QUEUE } from './consts';
 import { VolleystationService } from './volleystation.service';
-import { ICompetition } from './interfaces/vollestation-competition.interface';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import { Competition } from './models/vollestation-competition';
-import { Team } from './models/team-list/team';
-import { Player } from './models/team-roster/player';
-import { RawMatch } from './models/match-list/raw-match';
-import { JobData, JobTask } from './types';
+import { InjectQueue } from '@nestjs/bullmq';
+import { JobData } from './types';
+import { Queue } from 'bullmq';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -44,36 +31,26 @@ export class VolleystationCacheScraperService {
     private cachScraperQueue: Queue<JobData>,
   ) {}
 
-  async addToQueue(entity: unknown, priority?: number) {
-    // Тут будет добавление в очередь bull. А он уже будет запрашивать каждую сущность
-    throw new NotImplementedException();
-  }
-
-  @Cron(CronExpression.EVERY_MINUTE, {
+  @Cron(CronExpression.EVERY_10_SECONDS, {
     name: `${VolleystationCacheScraperService.name}`,
     waitForCompletion: true,
-    disabled: true,
+    disabled: false,
   })
   async run() {
-    this.logger.debug('VolleystationCacheScraperService.run');
-  }
-  async onApplicationBootstrap() {
+    this.logger.log('Запуск наполнения кэша');
     const competitions = await firstValueFrom(
       this.volleystationCacheService.getCompetitions(),
     );
 
-    await this.cachScraperQueue.addBulk(
-      competitions.map((competition) => {
-        const task: JobTask = {
-          name: JobType.COMPETITION,
-          data: competition,
-          opts: {
-            jobId: `${JobType.COMPETITION}:${competition.id}`,
-            priority: 1,
-          },
-        };
-        return task;
-      }),
-    );
+    for (const competition of competitions) {
+      await this.cachScraperQueue.add(JobType.COMPETITION, competition, {
+        priority: 1,
+        deduplication: {
+          id: `${JobType.COMPETITION}:${competition.id}`,
+          ttl: 1000 * 30,
+        },
+      });
+    }
   }
+  async onApplicationBootstrap() {}
 }
