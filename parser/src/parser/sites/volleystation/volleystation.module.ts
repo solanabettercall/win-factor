@@ -7,7 +7,7 @@ import { VolleystationCacheService } from './volleystation-cache.service';
 import { VolleystationCacheScraperService } from './volleystation-cache-scraper.service';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheScraperProcessor } from './volleystation-cache-scraper.processor';
-import { SCRAPER_QUEUE } from './consts';
+import { SCRAPER_QUEUE } from './consts/queue';
 
 @Module({
   imports: [

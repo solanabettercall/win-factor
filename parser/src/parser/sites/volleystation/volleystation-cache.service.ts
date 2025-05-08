@@ -23,12 +23,13 @@ import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model
 import { Team } from './models/team-list/team';
 import { TeamRoster } from './models/team-roster/team-roster';
 import { PlayerProfile } from './models/player-profile/player-profile';
-import { IPlayer } from './interfaces/team-roster/player.interface';
 import { Player } from './models/team-roster/player';
 import { Competition } from './models/vollestation-competition';
 import { randomInt } from 'crypto';
 import { addHours, isBefore } from 'date-fns';
-import { competitions } from './consts';
+import { GetPlayerDto } from './dtos/get-player.dto';
+import { GetTeamDto } from './dtos/get-team.dto';
+import { GetMatchesDto } from './dtos/get-matches.dto';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -118,10 +119,8 @@ export class VolleystationCacheService
     );
   }
 
-  getPlayer(
-    competition: ICompetition,
-    playerId: number,
-  ): Observable<PlayerProfile> {
+  getPlayer(dto: GetPlayerDto): Observable<PlayerProfile> {
+    const { competition, playerId } = dto;
     const cacheKey = `volleystation:${competition.id}:player:${playerId}`;
     const TTL = randomInt(86400, 259200);
 
@@ -140,7 +139,7 @@ export class VolleystationCacheService
 
         this.logger.debug(`Игрок не найден в кэше, загружаем: ${cacheKey}`);
 
-        return this.volleystationService.getPlayer(competition, playerId).pipe(
+        return this.volleystationService.getPlayer(dto).pipe(
           tap(async (player: PlayerProfile | null) => {
             if (player) {
               try {
@@ -160,46 +159,42 @@ export class VolleystationCacheService
     );
   }
 
-  getTeamRoster(
-    competition: ICompetition,
-    teamId: string,
-  ): Observable<TeamRoster | null> {
+  getTeam(dto: GetTeamDto): Observable<TeamRoster | null> {
+    const { competition, teamId } = dto;
     const cacheKey = `volleystation:${competition.id}:team:${teamId}`;
     const TTL = randomInt(86400, 259200);
 
     return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
       switchMap((cached): Observable<TeamRoster | null> => {
         if (cached && !Array.isArray(cached)) {
-          this.logger.debug(`Ростер найден в кэше: ${cacheKey}`);
+          this.logger.debug(`Команда найдена в кэше: ${cacheKey}`);
           return of(cached);
         }
 
         if (Array.isArray(cached)) {
           this.logger.warn(
-            `Ожидался одиночный ростер, но получен массив: ${cacheKey}`,
+            `Ожидалась одиночная команда, но получен массив: ${cacheKey}`,
           );
         }
 
-        this.logger.debug(`Ростер не найден в кэше, загружаем: ${cacheKey}`);
+        this.logger.debug(`Команда не найдена в кэше, загружаем: ${cacheKey}`);
 
-        return this.volleystationService
-          .getTeamRoster(competition, teamId)
-          .pipe(
-            tap(async (roster: TeamRoster | null) => {
-              if (roster) {
-                try {
-                  await this.redisService.setJson(cacheKey, roster, TTL);
-                  this.logger.debug(`Ростер сохранён в кэш: ${cacheKey}`);
-                } catch (error) {
-                  this.logger.warn(
-                    `Ошибка при сохранении ростера в кэш: ${error.message}`,
-                  );
-                }
-              } else {
-                this.logger.warn(`Пустой ростер, не кэшируем: ${cacheKey}`);
+        return this.volleystationService.getTeam(dto).pipe(
+          tap(async (roster: TeamRoster | null) => {
+            if (roster) {
+              try {
+                await this.redisService.setJson(cacheKey, roster, TTL);
+                this.logger.debug(`Команда сохранена в кэш: ${cacheKey}`);
+              } catch (error) {
+                this.logger.warn(
+                  `Ошибка при сохранении команды в кэш: ${error.message}`,
+                );
               }
-            }),
-          );
+            } else {
+              this.logger.warn(`Пустая команда, не кэшируем: ${cacheKey}`);
+            }
+          }),
+        );
       }),
     );
   }
@@ -240,10 +235,8 @@ export class VolleystationCacheService
     );
   }
 
-  getMatches(
-    competition: ICompetition,
-    type: 'results' | 'schedule',
-  ): Observable<RawMatch[]> {
+  getMatches(dto: GetMatchesDto): Observable<RawMatch[]> {
+    const { competition, type } = dto;
     const TTL = randomInt(1800, 3600);
     const cacheKey = `volleystation:${competition.id}:matches:${type}`;
 
@@ -262,7 +255,7 @@ export class VolleystationCacheService
         }
 
         this.logger.debug(`Данные не найдены в кэше, запрашиваем: ${cacheKey}`);
-        return this.volleystationService.getMatches(competition, type).pipe(
+        return this.volleystationService.getMatches(dto).pipe(
           tap(async (matches: RawMatch[]) => {
             try {
               await this.redisService.setJson(cacheKey, matches, TTL);
@@ -321,10 +314,8 @@ export class VolleystationCacheService
   /**
    * @deprecated
    */
-  getDetailedMatches(
-    competition: ICompetition,
-    type: 'results' | 'schedule',
-  ): Observable<FullRawMatch[]> {
+  getDetailedMatches(dto: GetMatchesDto): Observable<FullRawMatch[]> {
+    const { competition, type } = dto;
     const TTL = randomInt(600, 900);
     const cacheKey = `volleystation:${competition.id}:detailedMatches:${type}`;
 
@@ -343,7 +334,7 @@ export class VolleystationCacheService
 
         this.logger.debug(`Данные не найдены в кэше, запрашиваем: ${cacheKey}`);
 
-        return this.getMatches(competition, type).pipe(
+        return this.getMatches(dto).pipe(
           switchMap((matches) => {
             const matchInfoRequests = matches.map((match) =>
               this.getMatchInfo(match.id).pipe(

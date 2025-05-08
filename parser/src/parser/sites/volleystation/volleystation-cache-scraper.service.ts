@@ -1,12 +1,11 @@
-import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { VolleystationCacheService } from './volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
-import { SCRAPER_QUEUE } from './consts';
-import { VolleystationService } from './volleystation.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { JobData } from './types';
 import { Queue } from 'bullmq';
+import { SCRAPER_QUEUE } from './consts/queue';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -25,7 +24,6 @@ export class VolleystationCacheScraperService {
 
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
-    private readonly volleystationService: VolleystationService,
 
     @InjectQueue(SCRAPER_QUEUE)
     private cachScraperQueue: Queue<JobData>,

@@ -1,8 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { VolleystationSocketService } from './sites/volleystation/volleystation-socket.service';
 import { VolleystationService } from './sites/volleystation/volleystation.service';
-import { firstValueFrom } from 'rxjs';
-import { competitions } from './sites/volleystation/consts';
 import { RedisService } from 'src/cache/redis.service';
 import { VolleystationCacheService } from './sites/volleystation/volleystation-cache.service';
 

@@ -1,4 +1,4 @@
-import { ICompetition } from './interfaces/vollestation-competition.interface';
+import { ICompetition } from '../interfaces/vollestation-competition.interface';
 
 export const competitions: ICompetition[] = [
   // {
@@ -313,5 +313,3 @@ export const competitions: ICompetition[] = [
   //   name: 'LOVB',
   // },
 ];
-
-export const SCRAPER_QUEUE = 'cache-scraper-queue';

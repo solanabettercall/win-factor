@@ -3,14 +3,23 @@ import { RawMatch } from './models/match-list/raw-match';
 import { Competition } from './models/vollestation-competition';
 import { Team } from './models/team-list/team';
 import { Player } from './models/team-roster/player';
+import { GetPlayerDto } from './dtos/get-player.dto';
+import { GetTeamDto } from './dtos/get-team.dto';
+import { GetMatchesDto } from './dtos/get-matches.dto';
+
+export enum MatchListType {
+  Schedule = 'schedule',
+  Results = 'results',
+}
 
 export type JobData =
   | Competition
   | Team
   | Player
   | RawMatch
-  | { team: Team; competition: Competition }
-  | { player: Player; competition: Competition };
+  | GetTeamDto
+  | GetPlayerDto
+  | GetMatchesDto;
 
 export type JobTask = {
   name?: string | undefined;

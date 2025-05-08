@@ -1,14 +1,8 @@
 import { HttpService } from '@nestjs/axios';
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   catchError,
   delay,
-  firstValueFrom,
   map,
   Observable,
   of,
@@ -31,23 +25,17 @@ import { IPlayerProfile } from './interfaces/player-profile/player-profile.inter
 import { IPlayerSummaryStatistics } from './interfaces/player-profile/player-summary-statistics.interface';
 import { PlayerProfile } from './models/player-profile/player-profile';
 import { Player } from './models/team-roster/player';
-import { competitions } from './consts';
+import { GetPlayerDto } from './dtos/get-player.dto';
+import { GetTeamDto } from './dtos/get-team.dto';
+import { GetMatchesDto } from './dtos/get-matches.dto';
+import { competitions } from './consts/competitions';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
-  getTeamRoster(
-    competition: ICompetition,
-    teamId: string,
-  ): Observable<TeamRoster | null>;
-  getMatches(
-    competition: ICompetition,
-    type: 'results' | 'schedule',
-  ): Observable<RawMatch[]>;
+  getTeam(dto: GetTeamDto): Observable<TeamRoster | null>;
+  getMatches(dto: GetMatchesDto): Observable<RawMatch[]>;
 
-  getPlayer(
-    competition: ICompetition,
-    playerId: number,
-  ): Observable<IPlayerProfile>;
+  getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile>;
 
   getPlayers(competition: ICompetition): Observable<IPlayer[]>;
   getCompetitions(): Observable<ICompetition[]>;
@@ -133,10 +121,8 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getPlayer(
-    competition: ICompetition,
-    playerId: number,
-  ): Observable<IPlayerProfile> {
+  getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile> {
+    const { competition, playerId } = dto;
     const url = new URL(competition.url);
     url.pathname += `players/${playerId}/`;
     const { origin, href } = url;
@@ -297,10 +283,8 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getTeamRoster(
-    competition: ICompetition,
-    teamId: string,
-  ): Observable<TeamRoster | null> {
+  getTeam(dto: GetTeamDto): Observable<TeamRoster | null> {
+    const { competition, teamId } = dto;
     const url = new URL(competition.url);
     url.pathname += `teams/${teamId}/`;
     const { origin, href } = url;
@@ -527,10 +511,8 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getMatches(
-    competition: ICompetition,
-    type: 'results' | 'schedule',
-  ): Observable<RawMatch[]> {
+  getMatches(dto: GetMatchesDto): Observable<RawMatch[]> {
+    const { competition, type } = dto;
     const url = new URL(competition.url);
     url.pathname += `${type}/`;
     const { origin, href } = url;
