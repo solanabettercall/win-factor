@@ -1,10 +1,9 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { VolleystationSocketService } from './sites/volleystation/volleystation-socket.service';
 import { VolleystationService } from './sites/volleystation/volleystation.service';
-import { firstValueFrom } from 'rxjs';
-import { competitions } from './sites/volleystation/consts';
 import { RedisService } from 'src/cache/redis.service';
 import { VolleystationCacheService } from './sites/volleystation/volleystation-cache.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ParserService implements OnApplicationBootstrap {
@@ -17,6 +16,7 @@ export class ParserService implements OnApplicationBootstrap {
     private readonly redisService: RedisService,
   ) {}
 
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async onApplicationBootstrap() {
     // const competition = competitions.find((c) => c.id === 294);
     // const player = await firstValueFrom(
@@ -39,9 +39,8 @@ export class ParserService implements OnApplicationBootstrap {
     // );
     // console.log(teamRoster);
     // const matchId = 2163482;
-    // const matchId = 2163482;
     // const match = await firstValueFrom(
-    //   this.volleystationCacheService.getMatchInfo(matchId),
+    //   this.volleystationCacheService.getMatchInfo(2224208),
     // );
     // console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);

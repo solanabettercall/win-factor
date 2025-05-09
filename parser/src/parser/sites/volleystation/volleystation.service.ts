@@ -11,7 +11,7 @@ import {
 } from 'rxjs';
 import * as cheerio from 'cheerio';
 import { isValid, parse } from 'date-fns';
-import { IVollestationCompetition } from './interfaces/match-list/vollestation-competition.interface';
+import { ICompetition } from './interfaces/vollestation-competition.interface';
 import { plainToInstance } from 'class-transformer';
 import { RawMatch } from './models/match-list/raw-match';
 import { Team } from './models/team-list/team';
@@ -24,22 +24,21 @@ import { ISkillStatistics } from './interfaces/skills/skill-statistics.interface
 import { IPlayerProfile } from './interfaces/player-profile/player-profile.interface';
 import { IPlayerSummaryStatistics } from './interfaces/player-profile/player-summary-statistics.interface';
 import { PlayerProfile } from './models/player-profile/player-profile';
+import { Player } from './models/team-roster/player';
+import { GetPlayerDto } from './dtos/get-player.dto';
+import { GetTeamDto } from './dtos/get-team.dto';
+import { GetMatchesDto } from './dtos/get-matches.dto';
+import { competitions } from './consts/competitions';
 
 export interface IVolleystationService {
-  getTeams(competition: IVollestationCompetition): Observable<Team[]>;
-  getTeamRoster(
-    competition: IVollestationCompetition,
-    teamId: string,
-  ): Observable<TeamRoster | null>;
-  getMatches(
-    competition: IVollestationCompetition,
-    type: 'results' | 'schedule',
-  ): Observable<RawMatch[]>;
+  getTeams(competition: ICompetition): Observable<Team[]>;
+  getTeam(dto: GetTeamDto): Observable<TeamRoster | null>;
+  getMatches(dto: GetMatchesDto): Observable<RawMatch[]>;
 
-  getPlayer(
-    competition: IVollestationCompetition,
-    playerId: number,
-  ): Observable<IPlayerProfile>;
+  getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile>;
+
+  getPlayers(competition: ICompetition): Observable<IPlayer[]>;
+  getCompetitions(): Observable<ICompetition[]>;
 }
 
 @Injectable()
@@ -48,10 +47,82 @@ export class VolleystationService implements IVolleystationService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  getPlayer(
-    competition: IVollestationCompetition,
-    playerId: number,
-  ): Observable<IPlayerProfile> {
+  getCompetitions(): Observable<ICompetition[]> {
+    return of(competitions);
+  }
+
+  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
+    const url = new URL(competition.url);
+    url.pathname += `players/`;
+    const { origin, href } = url;
+    return this.httpService.get(href).pipe(
+      retry({
+        count: Infinity,
+        delay: (error, retryIndex) => {
+          const status = error?.status || 0;
+          if (status === 404) return throwError(() => new NotFoundException());
+          const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+
+          this.logger.warn(
+            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+          );
+
+          return of(null).pipe(delay(delayTime));
+        },
+      }),
+      map((response) => response.data),
+      map((html) => cheerio.load(html)),
+      map(($) => {
+        const playerBoxes = $('a.player-box');
+
+        const players: Player[] = $(playerBoxes)
+          .map((_, el): Player => {
+            const href = $(el).attr('href');
+            const { href: playerUrl } = new URL(href, origin);
+
+            const regex = /\/players\/(\d+)\//;
+            const match = href.match(regex);
+
+            const photoUrl = $(el).find('div.image-photo img').attr('src');
+            const number = parseInt(
+              $(el).find('div.number').text()?.trim() ?? '0',
+              10,
+            );
+            const name = $(el).find('div.text-name').text()?.trim();
+            const position = $(el).find('div.text-position').text()?.trim();
+
+            const pl: IPlayer = match
+              ? {
+                  id: parseInt(match[1], 10),
+                  url: playerUrl,
+                  photoUrl,
+                  number,
+                  name,
+                  position,
+                }
+              : null;
+            return plainToInstance(Player, pl);
+          })
+          .get()
+          .filter(Boolean);
+
+        return plainToInstance(Player, players);
+      }),
+      catchError((err) => {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(`Не найдено ${href}`);
+          return of(null);
+        }
+        this.logger.error(
+          `Ошибка при окончательной обработке ${href}: ${err.message}`,
+        );
+        return of(null);
+      }),
+    );
+  }
+
+  getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile> {
+    const { competition, playerId } = dto;
     const url = new URL(competition.url);
     url.pathname += `players/${playerId}/`;
     const { origin, href } = url;
@@ -212,10 +283,8 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getTeamRoster(
-    competition: IVollestationCompetition,
-    teamId: string,
-  ): Observable<TeamRoster | null> {
+  getTeam(dto: GetTeamDto): Observable<TeamRoster | null> {
+    const { competition, teamId } = dto;
     const url = new URL(competition.url);
     url.pathname += `teams/${teamId}/`;
     const { origin, href } = url;
@@ -266,7 +335,6 @@ export class VolleystationService implements IVolleystationService {
           .find('section#team-detail-general-stats-table div.row')
           .children();
 
-        // Создадим объект для итоговой статистики, который потом заполним нужными данными
         const skills: ISkillStatistics = {
           block: { points: 0, pointsPerSet: 0 },
           reception: {
@@ -383,7 +451,7 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getTeams(competition: IVollestationCompetition): Observable<Team[]> {
+  getTeams(competition: ICompetition): Observable<Team[]> {
     const url = new URL(competition.url);
     url.pathname += `teams/`;
     const { origin, href } = url;
@@ -416,7 +484,8 @@ export class VolleystationService implements IVolleystationService {
               $(el).find('div.logo img').attr('src')?.trim() ?? null;
             const teamHref = $(el).attr('href');
             const { href: url } = new URL(teamHref, origin);
-            const match = teamHref?.match(/\/teams\/(\d+-\d+)\//);
+            const match = teamHref?.match(/\/teams\/([\da-zA-Z-]+)\//);
+
             const teamId = match ? match[1] : null;
             const team: ITeam = {
               id: teamId,
@@ -441,10 +510,8 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
-  getMatches(
-    competition: IVollestationCompetition,
-    type: 'results' | 'schedule',
-  ): Observable<RawMatch[]> {
+  getMatches(dto: GetMatchesDto): Observable<RawMatch[]> {
+    const { competition, type } = dto;
     const url = new URL(competition.url);
     url.pathname += `${type}/`;
     const { origin, href } = url;

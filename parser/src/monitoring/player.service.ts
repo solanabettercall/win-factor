@@ -3,24 +3,14 @@ import { PlayerToMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerRepositoryToken } from './player-repository.token';
-import { firstValueFrom, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 
 @Injectable()
 export class PlayerService {
   constructor(
     @Inject(PlayerRepositoryToken)
     private readonly playerRepository: IPlayerRepository,
-  ) {
-    const player = {
-      playerId: 1,
-      teamId: '123423-ABC',
-      tournamentId: 123,
-    };
-    // firstValueFrom(this.addToMonitoring(player)).then().catch();
-    firstValueFrom(this.removeFromMonitoring(player)).then().catch();
-
-    // this.removeFromMonitoring(player);
-  }
+  ) {}
 
   addToMonitoring(dto: PlayerToMonitoringDto): Observable<void> {
     return this.playerRepository.addPlayerToMonitoring(dto);
