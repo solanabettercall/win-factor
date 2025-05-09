@@ -21,6 +21,7 @@ import { GetMatchesDto } from './dtos/get-matches.dto';
 import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { isToday } from 'date-fns';
+import { priorities } from './consts/priorities';
 @Processor(SCRAPER_QUEUE)
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);
@@ -66,12 +67,7 @@ export class CacheScraperProcessor extends WorkerHost {
         JobType.RESULTS_MATCHES,
         { competition, type: MatchListType.Results } as GetMatchesDto,
         {
-          priority: 7,
-          // deduplication: {
-          //   id: `${JobType.RESULTS_MATCHES}:${competition.id}`,
-          //   ttl: 1000 * 60 * 5,
-          // },
-
+          priority: priorities.resultsMatches,
           deduplication: {
             id: `${JobType.RESULTS_MATCHES}:${competition.id}`,
             ttl: ttl.resultsMatches.deduplication(),
@@ -87,7 +83,7 @@ export class CacheScraperProcessor extends WorkerHost {
         JobType.SCHEDULED_MATCHES,
         { competition, type: MatchListType.Schedule } as GetMatchesDto,
         {
-          priority: 6,
+          priority: priorities.scheduledMatches,
           // deduplication: {
           //   id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
           //   ttl: 1000 * 60 * 5,
@@ -105,12 +101,7 @@ export class CacheScraperProcessor extends WorkerHost {
         },
       ),
       this.cacheQueue.add(JobType.PLAYERS, competition, {
-        priority: 3,
-        // deduplication: {
-        //   id: `${JobType.PLAYERS}:${competition.id}`,
-        //   ttl: 1000 * 60 * 5,
-        // },
-
+        priority: priorities.players,
         deduplication: {
           id: `${JobType.PLAYERS}:${competition.id}`,
           ttl: ttl.players.deduplication(),
@@ -122,7 +113,7 @@ export class CacheScraperProcessor extends WorkerHost {
         },
       }),
       this.cacheQueue.add(JobType.TEAMS, competition, {
-        priority: 2,
+        priority: priorities.teams,
         // deduplication: {
         //   id: `${JobType.TEAMS}:${competition.id}`,
         //   ttl: 1000 * 60 * 5,
@@ -152,23 +143,27 @@ export class CacheScraperProcessor extends WorkerHost {
     );
 
     // Собираем все промисы на добавление задач
-    const addPromises = matches.map((match) => {
-      let deduplicationTTL =
-        dto.type === MatchListType.Results
-          ? ttl.completedMatch.deduplication()
-          : ttl.scheduledMatch.deduplication();
-      let repeatTTL =
-        dto.type === MatchListType.Results
-          ? ttl.completedMatch.repeat()
-          : ttl.scheduledMatch.repeat();
-
-      if (isToday(match.date)) {
+    const addPromises = matches.map((match, index) => {
+      let deduplicationTTL = ttl.scheduledMatch.deduplication();
+      let repeatTTL = ttl.scheduledMatch.repeat();
+      let priority = priorities.scheduledMatch;
+      if (dto.type === MatchListType.Results) {
+        deduplicationTTL = ttl.completedMatch.deduplication();
+        repeatTTL = ttl.completedMatch.repeat();
+        priority = priorities.completedMatch;
+      } else if (dto.type === MatchListType.Schedule) {
+        deduplicationTTL = ttl.scheduledMatch.deduplication();
+        repeatTTL = ttl.scheduledMatch.repeat();
+        priority = priorities.scheduledMatch;
+      } else if (isToday(match.date) && index === 0) {
+        // TODO: По возможности сразу возвращать статус матча с парсера
         deduplicationTTL = ttl.onlineMatch.deduplication();
         repeatTTL = ttl.onlineMatch.repeat();
+        priority = priorities.onlineMatch;
       }
 
       return this.cacheQueue.add(JobType.MATCH, match, {
-        priority: dto.type === MatchListType.Results ? 9 : 8,
+        priority,
         deduplication: {
           id: `${JobType.MATCH}:${match.id}`,
           ttl: deduplicationTTL,
@@ -215,7 +210,7 @@ export class CacheScraperProcessor extends WorkerHost {
         JobType.TEAM,
         { teamId: team.id, competition: comp },
         {
-          priority: 4,
+          priority: priorities.team,
           deduplication: {
             id: `${comp.id}:${JobType.TEAMS}:${team.id}`,
             ttl: ttl.team.deduplication(),
@@ -245,7 +240,7 @@ export class CacheScraperProcessor extends WorkerHost {
         JobType.PLAYER,
         { playerId: player.id, competition: comp },
         {
-          priority: 5,
+          priority: priorities.player,
           deduplication: {
             id: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
             ttl: ttl.player.deduplication(),

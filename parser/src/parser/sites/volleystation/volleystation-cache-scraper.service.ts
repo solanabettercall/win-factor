@@ -6,6 +6,7 @@ import { VolleyJobData } from './types';
 import { Queue } from 'bullmq';
 import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
+import { priorities } from './consts/priorities';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -42,7 +43,7 @@ export class VolleystationCacheScraperService {
 
     for (const competition of competitions) {
       await this.cachScraperQueue.add(JobType.COMPETITION, competition, {
-        priority: 1,
+        priority: priorities.competition,
         deduplication: {
           id: `${JobType.COMPETITION}:${competition.id}`,
           ttl: ttl.competition.deduplication(),

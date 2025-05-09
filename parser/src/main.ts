@@ -25,7 +25,7 @@ async function bootstrap() {
   });
 
   await app.listen(port, () => {
-    logger.log(`Parser Microservice запущен на ${port} порту!123`);
+    logger.log(`Parser Microservice запущен на ${port} порту!`);
   });
 }
 bootstrap();
