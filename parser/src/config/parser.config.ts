@@ -30,6 +30,10 @@ export interface IMongodbConfig {
   password: string;
   database?: string;
 }
+export interface ITelegramConfig {
+  botToken: string;
+}
+
 interface IAppConfig {
   port: number;
   env: Environment;
@@ -39,6 +43,7 @@ interface IAppConfig {
   proxy?: IProxy;
   redis: IRedisConfig;
   mongodb: IMongodbConfig;
+  telegram: ITelegramConfig;
 }
 
 export const appConfig = (): IAppConfig => {
@@ -74,6 +79,9 @@ export const appConfig = (): IAppConfig => {
       username: process.env.MONGODB_USERNAME,
       password: process.env.MONGODB_PASSWORD,
       database: process.env.MONGODB_DATABASE ?? 'monitoring',
+    },
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN,
     },
   };
 
