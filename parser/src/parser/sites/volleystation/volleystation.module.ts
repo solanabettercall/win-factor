@@ -4,10 +4,6 @@ import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
 import { VolleystationSocketService } from './volleystation-socket.service';
 import { VolleystationCacheService } from './volleystation-cache.service';
-import { VolleystationCacheScraperService } from './volleystation-cache-scraper.service';
-import { BullModule } from '@nestjs/bullmq';
-import { CacheScraperProcessor } from './volleystation-cache-scraper.processor';
-import { SCRAPER_QUEUE } from './consts/queue';
 
 @Module({
   imports: [
@@ -31,27 +27,12 @@ import { SCRAPER_QUEUE } from './consts/queue';
         return options;
       },
     }),
-
-    BullModule.registerQueue({
-      name: SCRAPER_QUEUE,
-      defaultJobOptions: {
-        removeOnComplete: {
-          age: 60,
-        },
-      },
-    }),
   ],
   providers: [
-    CacheScraperProcessor,
-    VolleystationService,
-    VolleystationSocketService,
-    VolleystationCacheService,
-    VolleystationCacheScraperService,
-  ],
-  exports: [
     VolleystationService,
     VolleystationSocketService,
     VolleystationCacheService,
   ],
+  exports: [VolleystationService, VolleystationCacheService],
 })
 export class VolleystationModule {}
