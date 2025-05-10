@@ -1,27 +1,25 @@
 import {
   InjectQueue,
-  OnQueueEvent,
   OnWorkerEvent,
   Processor,
   WorkerHost,
 } from '@nestjs/bullmq';
-import { Competition } from './models/vollestation-competition';
+import { Competition } from '../sites/volleystation/models/vollestation-competition';
 import { Logger } from '@nestjs/common';
-import { JobType } from './volleystation-cache-scraper.service';
-import { Team } from './models/team-list/team';
-import { Player } from './models/team-roster/player';
-import { RawMatch } from './models/match-list/raw-match';
-import { VolleystationCacheService } from './volleystation-cache.service';
+import { JobType } from './cache-scraper.service';
+import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
+import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
 import { firstValueFrom } from 'rxjs';
-import { VolleyJobData, MatchListType } from './types';
+import { VolleyJobData, MatchListType } from '../sites/volleystation/types';
 import { Job, Queue } from 'bullmq';
-import { GetTeamDto } from './dtos/get-team.dto';
-import { GetPlayerDto } from './dtos/get-player.dto';
-import { GetMatchesDto } from './dtos/get-matches.dto';
+import { GetTeamDto } from '../sites/volleystation/dtos/get-team.dto';
+import { GetPlayerDto } from '../sites/volleystation/dtos/get-player.dto';
+import { GetMatchesDto } from '../sites/volleystation/dtos/get-matches.dto';
 import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
+
 @Processor(SCRAPER_QUEUE)
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);

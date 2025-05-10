@@ -10,8 +10,6 @@ export class ParserService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ParserService.name);
 
   constructor(
-    private readonly volleynetSocketService: VolleystationSocketService,
-    private readonly volleystationService: VolleystationService,
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly redisService: RedisService,
   ) {}

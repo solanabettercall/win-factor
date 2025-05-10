@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { VolleystationCacheService } from './volleystation-cache.service';
+import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
 import { firstValueFrom } from 'rxjs';
 import { InjectQueue } from '@nestjs/bullmq';
-import { VolleyJobData } from './types';
+import { VolleyJobData } from '../sites/volleystation/types';
 import { Queue } from 'bullmq';
 import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
@@ -20,8 +20,8 @@ export enum JobType {
 }
 
 @Injectable()
-export class VolleystationCacheScraperService {
-  private logger = new Logger(VolleystationCacheScraperService.name);
+export class CacheScraperService {
+  private logger = new Logger(CacheScraperService.name);
 
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
