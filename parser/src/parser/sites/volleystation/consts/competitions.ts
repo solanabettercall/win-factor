@@ -1,6 +1,7 @@
-import { ICompetition } from '../interfaces/vollestation-competition.interface';
+import { plainToInstance } from 'class-transformer';
+import { Competition } from '../models/vollestation-competition';
 
-export const competitions: ICompetition[] = [
+export const competitions: Competition[] = [
   {
     id: 118,
     url: 'https://panel.volleystation.com/website/118/en/',
@@ -312,4 +313,4 @@ export const competitions: ICompetition[] = [
     url: 'https://panel.volleystation.com/website/570/en/',
     name: 'LOVB',
   },
-];
+].map((c) => plainToInstance(Competition, c));

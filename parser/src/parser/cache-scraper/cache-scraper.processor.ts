@@ -20,7 +20,7 @@ import { ttl } from './consts/ttl';
 import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
 
-@Processor(SCRAPER_QUEUE)
+@Processor(SCRAPER_QUEUE, { concurrency: 5 })
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);
 
