@@ -17,6 +17,7 @@ async function bootstrap() {
       logger.warn('Socket.io: Maximum call stack size exceeded');
     } else {
       logger.error(`Uncaught Exception: ${err.message}`, err.stack);
+      logger.error(err);
     }
   });
 

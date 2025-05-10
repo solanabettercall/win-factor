@@ -7,6 +7,7 @@ import { Queue } from 'bullmq';
 import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { priorities } from './consts/priorities';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -28,13 +29,22 @@ export class CacheScraperService {
 
     @InjectQueue(SCRAPER_QUEUE)
     private cachScraperQueue: Queue<VolleyJobData>,
-  ) {}
+  ) {
+    this.cachScraperQueue.pause().then();
+  }
 
-  // @Cron(CronExpression.EVERY_10_SECONDS, {
-  //   name: `${VolleystationCacheScraperService.name}`,
-  //   waitForCompletion: true,
-  //   disabled: false,
-  // })
+  async onModuleInit() {}
+
+  @Cron(CronExpression.EVERY_5_SECONDS, {
+    waitForCompletion: true,
+    disabled: false,
+  })
+  async info() {
+    await this.cachScraperQueue.resume();
+    const activeJobsCount = await this.cachScraperQueue.getActiveCount();
+    this.logger.verbose(`Активных задач: ${activeJobsCount}`);
+  }
+
   async run() {
     this.logger.log('Запуск наполнения кэша');
     const competitions = await firstValueFrom(

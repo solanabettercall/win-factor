@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Player, PlayerDocument } from './schemas/player.schema';
 import { Model } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
-import { PlayerToMonitoringDto } from './dtos/player-to-monitoring-dto';
+import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
 import { EMPTY, from, map, mergeMap, Observable, of, tap } from 'rxjs';
 
@@ -15,7 +15,7 @@ export class PlayerRepository implements IPlayerRepository {
     @InjectModel(Player.name) private playerModel: Model<PlayerDocument>,
   ) {}
 
-  addPlayerToMonitoring(dto: PlayerToMonitoringDto): Observable<void> {
+  addPlayerToMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('addPlayerToMonitoring', dto);
     return from(
       this.playerModel
@@ -32,7 +32,7 @@ export class PlayerRepository implements IPlayerRepository {
     ).pipe(map(() => undefined));
   }
 
-  removePlayerFromMonitoring(dto: PlayerToMonitoringDto): Observable<void> {
+  removePlayerFromMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('removePlayerFromMonitoring', dto);
     return from(
       this.playerModel.deleteOne({
@@ -53,7 +53,7 @@ export class PlayerRepository implements IPlayerRepository {
     );
   }
 
-  getMonitoredTournamentIds(): Observable<number[]> {
+  getMonitoredCompetitionIds(): Observable<number[]> {
     return from(this.playerModel.distinct('tournamentId').exec());
   }
 
