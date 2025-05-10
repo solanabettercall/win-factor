@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
@@ -109,6 +109,36 @@ export class PlayerService {
 
   getCompetitions(): Observable<Competition[]> {
     return this.volleystationCacheService.getCompetitions();
+  }
+
+  getCompetitionById(id: number): Observable<Competition> {
+    return this.volleystationCacheService.getCompetitions().pipe(
+      map((competitions) => {
+        const c = competitions.find((c) => c.id === id);
+        if (!c) throw new NotFoundException(`Турнир ${id} не найден`);
+        return c;
+      }),
+    );
+  }
+
+  getTeamById(competition: Competition, id: string): Observable<Team> {
+    return this.volleystationCacheService.getTeams(competition).pipe(
+      map((teams) => {
+        const team = teams.find((team) => team.id === id);
+        if (!team) throw new NotFoundException(`Команда ${id} не найдена`);
+        return team;
+      }),
+    );
+  }
+
+  getPlayerById(competition: Competition, id: number): Observable<Player> {
+    return this.volleystationCacheService.getPlayers(competition).pipe(
+      map((players) => {
+        const player = players.find((player) => player.id === id);
+        if (!player) throw new NotFoundException(`Игрок ${id} не найден`);
+        return player;
+      }),
+    );
   }
 
   getTeams(competition: ICompetition): Observable<Team[]> {
