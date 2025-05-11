@@ -8,4 +8,5 @@ export interface IPlayerRepository {
   getMonitoredCompetitionIds(): Observable<number[]>;
   getMonitoredTeamIds(tournamentId: number): Observable<string[]>;
   getMonitoredPlayerIds(dto: GetMonitoredPlayerIdsDto): Observable<number[]>;
+  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean>;
 }

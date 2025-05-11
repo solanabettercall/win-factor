@@ -15,6 +15,7 @@ import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 import { plainToInstance } from 'class-transformer';
 
 interface SessionData {
+  bodyparts: Record<string, boolean>;
   page: number;
   selectedCompetition?: Competition;
   selectedTeam?: Team;
@@ -30,7 +31,10 @@ function getSessionKey(ctx: Context): string | undefined {
   return ctx.chat?.id.toString();
 }
 
-const initialSession = (): SessionData => ({ page: 1 });
+const initialSession = (): SessionData => ({
+  page: 1,
+  bodyparts: { '2342511': true },
+});
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -78,7 +82,7 @@ export class TelegramBotService implements OnModuleInit {
 
       return `Выбрана команда ${ctx.session.selectedTeam.name}`;
     });
-    teamMenu.choose('unique', {
+    teamMenu.select('unique', {
       choices: async (ctx) => {
         const competition = ctx.session.selectedCompetition;
         const team = ctx.session.selectedTeam;
@@ -95,12 +99,39 @@ export class TelegramBotService implements OnModuleInit {
             }, {})
         );
       },
-      do: async (ctx) => {
-        console.log('Выбран игрок', ctx.match);
-        await ctx.answerCallbackQuery('You hit a button in a submenu');
-        return false;
+      isSet: async (ctx, key) => {
+        const playerId = parseInt(key);
+        const isSelected = await firstValueFrom(
+          this.playerService.isPlayerMonitored({
+            tournamentId: ctx.session.selectedCompetition.id,
+            teamId: ctx.session.selectedTeam.id,
+            playerId,
+          }),
+        );
+        return isSelected;
       },
+      set: async (ctx, key, newState) => {
+        const playerId = parseInt(key);
+        if (newState) {
+          await firstValueFrom(
+            this.playerService.addToMonitoring({
+              playerId,
+              tournamentId: ctx.session.selectedCompetition.id,
+              teamId: ctx.session.selectedTeam.id,
+            }),
+          );
+        } else {
+          await firstValueFrom(
+            this.playerService.removeFromMonitoring({
+              playerId,
+              tournamentId: ctx.session.selectedCompetition.id,
+              teamId: ctx.session.selectedTeam.id,
+            }),
+          );
+        }
 
+        return true;
+      },
       columns: 2,
       getCurrentPage: async (ctx) => {
         const page = ctx.session.page;
@@ -110,6 +141,7 @@ export class TelegramBotService implements OnModuleInit {
       setPage: (ctx, pg) => {
         ctx.session.page = pg;
       },
+      showFalseEmoji: true,
     });
     teamMenu.manualRow(createBackMainMenuButtons('Назад', 'Меню'));
 

@@ -15,6 +15,17 @@ export class PlayerRepository implements IPlayerRepository {
     @InjectModel(Player.name) private playerModel: Model<PlayerDocument>,
   ) {}
 
+  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
+    this.logger.debug('isPlayerMonitored', dto);
+    return from(
+      this.playerModel.exists({
+        playerId: dto.playerId,
+        teamId: dto.teamId,
+        tournamentId: dto.tournamentId,
+      }),
+    ).pipe(map((result) => !!result));
+  }
+
   addPlayerToMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('addPlayerToMonitoring', dto);
     return from(

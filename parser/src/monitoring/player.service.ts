@@ -107,6 +107,10 @@ export class PlayerService {
   //   );
   // }
 
+  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
+    return this.playerRepository.isPlayerMonitored(dto);
+  }
+
   getCompetitions(): Observable<Competition[]> {
     return this.volleystationCacheService.getCompetitions();
   }
