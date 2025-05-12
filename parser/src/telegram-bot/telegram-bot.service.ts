@@ -305,7 +305,7 @@ export class TelegramBotService implements OnModuleInit {
 
     this.bot.use(middleware);
 
-    await this.bot.start();
+    this.bot.start();
   }
 
   private setupSessionTransformation(): void {

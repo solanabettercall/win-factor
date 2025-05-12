@@ -483,8 +483,11 @@ export class VolleystationService implements IVolleystationService {
             const logoUrl =
               $(el).find('div.logo img').attr('src')?.trim() ?? null;
             const teamHref = $(el).attr('href');
+            const decodedHref = decodeURI($(el).attr('href'));
+
             const { href: url } = new URL(teamHref, origin);
-            const match = teamHref?.match(/\/teams\/([\da-zA-Z-]+)\//);
+
+            const match = decodedHref?.match(/\/teams\/([^/]+)\//);
 
             const teamId = match ? match[1] : null;
             const team: ITeam = {
