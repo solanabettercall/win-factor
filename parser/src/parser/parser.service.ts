@@ -19,19 +19,19 @@ export class ParserService implements OnApplicationBootstrap {
 
   // @Cron(CronExpression.EVERY_10_SECONDS)
   async onApplicationBootstrap() {
-    const competition = competitions.find((c) => c.id === 43);
-    // const player = await firstValueFrom(
-    //   this.volleystationCacheService.getPlayer(competition, 2122868),
+    // const competition = competitions.find((c) => c.id === 43);
+    // // const player = await firstValueFrom(
+    // //   this.volleystationCacheService.getPlayer(competition, 2122868),
+    // // );
+    // // console.log(player);
+    // // const detailedMatches = await firstValueFrom(
+    // //   this.volleystationCacheService.getDetailedMatches(competition, 'results'),
+    // // );
+    // // console.log(detailedMatches.map((dm) => dm.officials));
+    // const teams = await firstValueFrom(
+    //   this.volleystationService.getTeams(competition),
     // );
-    // console.log(player);
-    // const detailedMatches = await firstValueFrom(
-    //   this.volleystationCacheService.getDetailedMatches(competition, 'results'),
-    // );
-    // console.log(detailedMatches.map((dm) => dm.officials));
-    const teams = await firstValueFrom(
-      this.volleystationService.getTeams(competition),
-    );
-    console.log(teams.find((t) => t.name === 'AZS OŚ Toruń'));
+    // console.log(teams.find((t) => t.name === 'AZS OŚ Toruń'));
     // const teamRoster = await firstValueFrom(
     //   this.volleystationCacheService.getTeamRoster(
     //     competition,

@@ -357,6 +357,11 @@
   resolved "https://registry.yarnpkg.com/@grammyjs/menu/-/menu-1.3.0.tgz#568c45c40df4f1a2b26c7bc0e53f5c0e14c44d99"
   integrity sha512-4T/xtNMJ25XD1BNWoQL4IProuvX5p1UGI6RS9vR7xaWn59/QxspqTGtT1orFRbCUjlOqkLJmpRSoQNxeO0Pdww==
 
+"@grammyjs/parse-mode@^1.11.1":
+  version "1.11.1"
+  resolved "https://registry.yarnpkg.com/@grammyjs/parse-mode/-/parse-mode-1.11.1.tgz#0287d43cce98290041d9bcec4ef679b7ba548fa7"
+  integrity sha512-7yEKVtXjNZsG8EX/AOtgR/7Af5QxcmAcTB31Nju+QELvL2uSQMJKlix5rkx695gqocUodLwWtuwCDGDoXGD2xg==
+
 "@grammyjs/storage-redis@^2.5.1":
   version "2.5.1"
   resolved "https://registry.yarnpkg.com/@grammyjs/storage-redis/-/storage-redis-2.5.1.tgz#08d1dbb9cc2dfbf2c01f3ae4fb6f8ab067497c68"
