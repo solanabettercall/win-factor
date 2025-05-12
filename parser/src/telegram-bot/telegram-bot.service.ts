@@ -209,7 +209,7 @@ export class TelegramBotService implements OnModuleInit {
             {},
           );
         },
-        columns: 2,
+        columns: 1,
         getCurrentPage: async (ctx) => ctx.session.page,
         setPage: (ctx, pg) => {
           ctx.session.page = pg;
@@ -239,7 +239,7 @@ export class TelegramBotService implements OnModuleInit {
             {},
           );
         },
-        columns: 2,
+        columns: 1,
         getCurrentPage: async (ctx) => ctx.session.page,
         setPage: (ctx, pg) => {
           ctx.session.page = pg;
