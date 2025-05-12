@@ -1,9 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
-import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerRepositoryToken } from './player-repository.token';
-import { firstValueFrom, map, Observable, of, switchMap } from 'rxjs';
+import { map, Observable, of, switchMap } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';

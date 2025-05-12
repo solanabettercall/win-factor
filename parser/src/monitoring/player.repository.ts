@@ -1,11 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player, PlayerDocument } from './schemas/player.schema';
 import { Model } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
-import { EMPTY, from, map, mergeMap, Observable, of, tap } from 'rxjs';
+import { from, map, mergeMap, Observable, of, tap } from 'rxjs';
 
 @Injectable()
 export class PlayerRepository implements IPlayerRepository {

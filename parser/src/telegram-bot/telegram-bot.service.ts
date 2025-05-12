@@ -15,7 +15,6 @@ import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 import { plainToInstance } from 'class-transformer';
 
 interface SessionData {
-  bodyparts: Record<string, boolean>;
   page: number;
   selectedCompetition?: Competition;
   selectedTeam?: Team;
@@ -33,8 +32,15 @@ function getSessionKey(ctx: Context): string | undefined {
 
 const initialSession = (): SessionData => ({
   page: 1,
-  bodyparts: { '2342511': true },
 });
+
+type MenuTemplateType =
+  | 'main'
+  | 'allCompetitions'
+  | 'competition'
+  | 'team'
+  | 'monitoredCompetitions'
+  | 'monitoredCompetition';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -48,20 +54,11 @@ export class TelegramBotService implements OnModuleInit {
     this.redis = new Redis(redis);
   }
 
-  async onModuleInit() {
-    this.bot.use(
-      session({
-        initial: initialSession,
-        storage: new RedisAdapter<SessionData>({ instance: this.redis }),
-        getSessionKey: getSessionKey,
-      }),
-    );
-
-    const menu = new MenuTemplate<MyCtx>(async (ctx) => {
+  private readonly templates: Record<MenuTemplateType, MenuTemplate<MyCtx>> = {
+    allCompetitions: new MenuTemplate<MyCtx>(async (ctx) => {
       return `Выбери соревнование`;
-    });
-
-    const competitionMenu = new MenuTemplate<MyCtx>(async (ctx) => {
+    }),
+    competition: new MenuTemplate<MyCtx>(async (ctx) => {
       const id = parseInt(ctx.match[1]);
       this.logger.verbose('Отрисовали список турниров');
 
@@ -71,9 +68,11 @@ export class TelegramBotService implements OnModuleInit {
 
       ctx.session.selectedCompetition = selectedCompetition;
       return `Выбран турнир ${ctx.session.selectedCompetition.name}`;
-    });
-
-    const teamMenu = new MenuTemplate<MyCtx>(async (ctx) => {
+    }),
+    main: new MenuTemplate<MyCtx>(async (ctx) => {
+      return `Выбери один из вариантов`;
+    }),
+    team: new MenuTemplate<MyCtx>(async (ctx) => {
       const id = ctx.match[2];
       const selectedTeam = await firstValueFrom(
         this.playerService.getTeamById(ctx.session.selectedCompetition, id),
@@ -81,8 +80,32 @@ export class TelegramBotService implements OnModuleInit {
       ctx.session.selectedTeam = selectedTeam;
 
       return `Выбрана команда ${ctx.session.selectedTeam.name}`;
+    }),
+    monitoredCompetitions: new MenuTemplate<MyCtx>(async (ctx) => {
+      return `Выбери соревнование в мониторинге`;
+    }),
+    monitoredCompetition: new MenuTemplate<MyCtx>(async (ctx) => {
+      const id = parseInt(ctx.match[1]);
+      this.logger.verbose('Отрисовали список турниров в мониторинге');
+
+      const selectedCompetition = await firstValueFrom(
+        this.playerService.getCompetitionById(id),
+      );
+
+      ctx.session.selectedCompetition = selectedCompetition;
+      return `Выбран турнир ${ctx.session.selectedCompetition.name}`;
+    }),
+  };
+
+  private buildTemplates() {
+    this.templates.main.submenu('ac', this.templates.allCompetitions, {
+      text: 'Все игроки',
     });
-    teamMenu.select('unique', {
+    this.templates.main.submenu('mcs', this.templates.monitoredCompetitions, {
+      text: 'Текущий мониторинг',
+    });
+
+    this.templates.team.select('player', {
       choices: async (ctx) => {
         const competition = ctx.session.selectedCompetition;
         const team = ctx.session.selectedTeam;
@@ -143,9 +166,9 @@ export class TelegramBotService implements OnModuleInit {
       },
       showFalseEmoji: true,
     });
-    teamMenu.manualRow(createBackMainMenuButtons('Назад', 'Меню'));
+    this.templates.team.manualRow(createBackMainMenuButtons('Назад', 'Меню'));
 
-    competitionMenu.chooseIntoSubmenu('unique', teamMenu, {
+    this.templates.competition.chooseIntoSubmenu('team', this.templates.team, {
       choices: async (ctx) => {
         const competition = ctx.session.selectedCompetition;
         const teams = await firstValueFrom(
@@ -166,37 +189,126 @@ export class TelegramBotService implements OnModuleInit {
         ctx.session.page = pg;
       },
     });
-    competitionMenu.manualRow(createBackMainMenuButtons('Назад', 'Меню'));
+    this.templates.competition.manualRow(
+      createBackMainMenuButtons('Назад', 'Меню'),
+    );
 
-    menu.chooseIntoSubmenu('unique', competitionMenu, {
-      choices: async () => {
-        const competitions = await firstValueFrom(
-          this.playerService.getCompetitions(),
-        );
-        return (
-          competitions
-            // .sort((a, b) => a.id - b.id)
-            .reduce<Record<string, string>>((acc, competition) => {
-              acc[competition.id.toString()] = competition.name;
-              return acc;
-            }, {})
-        );
+    this.templates.allCompetitions.chooseIntoSubmenu(
+      'competition',
+      this.templates.competition,
+      {
+        choices: async () => {
+          const competitions = await firstValueFrom(
+            this.playerService.getCompetitions(),
+          );
+          return (
+            competitions
+              // .sort((a, b) => a.id - b.id)
+              .reduce<Record<string, string>>((acc, competition) => {
+                acc[competition.id.toString()] = competition.name;
+                return acc;
+              }, {})
+          );
+        },
+        columns: 2,
+        getCurrentPage: async (ctx) => {
+          const page = ctx.session.page;
+          return page;
+        },
+        setPage: (ctx, pg) => {
+          ctx.session.page = pg;
+        },
       },
-      columns: 2,
-      getCurrentPage: async (ctx) => {
-        const page = ctx.session.page;
-        return page;
-      },
-      setPage: (ctx, pg) => {
-        ctx.session.page = pg;
-      },
-    });
+    );
+    this.templates.allCompetitions.manualRow(
+      createBackMainMenuButtons('Назад', 'Меню'),
+    );
 
-    const middleware = new MenuMiddleware<MyCtx>('/', menu);
+    this.templates.monitoredCompetitions.chooseIntoSubmenu(
+      'competition',
+      this.templates.monitoredCompetition,
+      {
+        choices: async () => {
+          const competitions = await firstValueFrom(
+            this.playerService.getMonitoredCompetitions(),
+          );
+          return (
+            competitions
+              // .sort((a, b) => a.id - b.id)
+              .reduce<Record<string, string>>((acc, competition) => {
+                acc[competition.id.toString()] = competition.name;
+                return acc;
+              }, {})
+          );
+        },
+        columns: 2,
+        getCurrentPage: async (ctx) => {
+          const page = ctx.session.page;
+          return page;
+        },
+        setPage: (ctx, pg) => {
+          ctx.session.page = pg;
+        },
+      },
+    );
+    this.templates.monitoredCompetitions.manualRow(
+      createBackMainMenuButtons('Назад', 'Меню'),
+    );
+
+    this.templates.monitoredCompetition.chooseIntoSubmenu(
+      'team',
+      this.templates.team,
+      {
+        choices: async (ctx) => {
+          const competition = ctx.session.selectedCompetition;
+          const teams = await firstValueFrom(
+            this.playerService.getMonitoredTeams(competition),
+          );
+          return teams.reduce<Record<string, string>>((acc, team) => {
+            acc[team.id.toString()] = team.name;
+            return acc;
+          }, {});
+        },
+        columns: 2,
+        getCurrentPage: async (ctx) => {
+          const page = ctx.session.page;
+          console.log(page);
+          return page;
+        },
+        setPage: (ctx, pg) => {
+          ctx.session.page = pg;
+        },
+      },
+    );
+    this.templates.monitoredCompetition.manualRow(
+      createBackMainMenuButtons('Назад', 'Меню'),
+    );
+  }
+
+  async onModuleInit() {
+    this.bot.use(
+      session({
+        initial: initialSession,
+        storage: new RedisAdapter<SessionData>({ instance: this.redis }),
+        getSessionKey: getSessionKey,
+      }),
+    );
+
+    this.buildTemplates();
+
+    const middleware = new MenuMiddleware<MyCtx>('/', this.templates.main);
     this.bot.command('start', (ctx) => {
       return middleware.replyToContext(ctx);
     });
 
+    this.setupSessionTransformation();
+
+    this.bot.use(middleware);
+
+    await this.bot.start();
+  }
+
+  private setupSessionTransformation(): void {
     this.bot.use(async (ctx, next) => {
       if (ctx.session?.selectedCompetition) {
         ctx.session.selectedCompetition = plainToInstance(
@@ -210,22 +322,7 @@ export class TelegramBotService implements OnModuleInit {
           ctx.session.selectedTeam,
         );
       }
-
       await next();
     });
-
-    this.bot.use(middleware);
-
-    await this.bot.start();
   }
-
-  // private fetchCompetitions(): Promise<Competition[]> {
-  //   // return firstValueFrom(of([]));
-  //   return firstValueFrom(this.playerService.getCompetitions());
-  // }
-
-  // private fetchTeams(): Promise<Team[]> {
-  //   return firstValueFrom(of([]));
-  //   // return firstValueFrom(this.playerService.getTeams());
-  // }
 }
