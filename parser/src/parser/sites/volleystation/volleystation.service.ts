@@ -29,6 +29,10 @@ import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
 import { competitions } from './consts/competitions';
+import { IBlock } from './interfaces/skills/block.interface';
+import { ISpike } from './interfaces/skills/spike.interface';
+import { IServe } from './interfaces/skills/serve.interface';
+import { IReception } from './interfaces/skills/reception.interface';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
@@ -336,11 +340,331 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
+  private parseTeamV1(
+    $: cheerio.CheerioAPI,
+    origin: string,
+  ): ITeamRoster | null {
+    const teamSection = $('section.team-detail');
+    if (teamSection.length === 0) {
+      return null;
+    }
+    const [playedMatches, wonMatches, lostMatches] = $(teamSection)
+      .find('div.stats-boxes div.box div.number')
+      .map((_, el) => {
+        return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
+      });
+
+    const extractStatValue = (
+      element: cheerio.Cheerio<AnyNode>,
+      label: string,
+    ): number => {
+      const valueStr = element
+        .find('div.general-stats-table-row div.label')
+        .filter((_, el) => $(el).text().trim().toLowerCase() === label)
+        .closest('div.general-stats-table-row')
+        .find('div.value')
+        .text()
+        .trim();
+
+      return parseFloat(valueStr) || 0;
+    };
+
+    const statRows = $(teamSection)
+      .find('section#team-detail-general-stats-table div.row')
+      .children();
+
+    const skills: ISkillStatistics = {
+      block: { points: 0, pointsPerSet: 0 },
+      reception: {
+        errors: 0,
+        negative: 0,
+        percentPerfect: 0,
+        perfect: 0,
+        total: 0,
+      },
+      serve: { aces: 0, acesPerSet: 0, errors: 0, total: 0 },
+      spike: {
+        blocked: 0,
+        errors: 0,
+        percentPerfect: 0,
+        perfect: 0,
+        total: 0,
+      },
+    };
+
+    statRows.each((_, table) => {
+      const $table = $(table);
+      const title = $table.find('div.title').text().trim().toLowerCase();
+
+      switch (title) {
+        case 'serve':
+          skills.serve = {
+            total: extractStatValue($table, 'sum'),
+            aces: extractStatValue($table, 'aces'),
+            errors: extractStatValue($table, 'aces'),
+            acesPerSet: extractStatValue($table, 'aces per set'),
+          };
+          break;
+        case 'reception':
+          skills.reception = {
+            total: extractStatValue($table, 'sum'),
+            errors: extractStatValue($table, 'errors'),
+            negative: extractStatValue($table, 'negative'),
+            perfect: extractStatValue($table, 'perfect'),
+            percentPerfect: extractStatValue($table, '% perfect'),
+          };
+          break;
+        case 'spike':
+          skills.spike = {
+            total: extractStatValue($table, 'sum'),
+            errors: extractStatValue($table, 'errors'),
+            blocked: extractStatValue($table, 'blocked'),
+            perfect: extractStatValue($table, 'perfect'),
+            percentPerfect: extractStatValue($table, '% perfect'),
+          };
+          break;
+        case 'block':
+          skills.block = {
+            points: extractStatValue($table, 'points'),
+            pointsPerSet: extractStatValue($table, 'points per set'),
+          };
+          break;
+        default:
+          this.logger.warn(`Неизвестная категория статистики: ${title}`);
+      }
+    });
+
+    const players: IPlayer[] = $(teamSection)
+      .find('section#team-detail-squad a.player-box')
+      .map((_, el): IPlayer => {
+        const href = $(el).attr('href');
+        const { href: playerUrl } = new URL(href, origin);
+        const match = href.match(/\/players\/(\d+)\//);
+
+        const photoUrl = $(el).find('div.image-photo img').attr('src');
+        const number = parseInt(
+          $(el).find('div.number').text()?.trim() ?? '0',
+          10,
+        );
+        const name = $(el).find('div.text-name').text()?.trim();
+        const position = $(el).find('div.text-position').text()?.trim();
+
+        return match
+          ? {
+              id: parseInt(match[1], 10),
+              url: playerUrl,
+              photoUrl,
+              number,
+              name,
+              position,
+            }
+          : null;
+      })
+      .get()
+      .filter(Boolean);
+
+    return {
+      playedMatches,
+      wonMatches,
+      lostMatches,
+      skills,
+      players,
+    };
+  }
+
+  private parseTeamV2(
+    $: cheerio.CheerioAPI,
+    origin: string,
+  ): ITeamRoster | null {
+    const wonMatches = parseInt($('div.won-box h5').text(), 10);
+    const lostMatches = parseInt($('div.lost-box h5').text(), 10);
+    const playedMatches = wonMatches || 0 + lostMatches || 0;
+
+    const spike: ISpike = (() => {
+      const box = $('div.attack-box');
+      const total = parseInt(
+        box
+          .find('div.stat-details .stat-row .label')
+          .filter((_, el) => $(el).text().trim().toLowerCase() === 'sum')
+          .siblings('.value')
+          .text()
+          .trim() || '0',
+        10,
+      );
+
+      const errors = parseInt(
+        box
+          .find('div.stat-details .stat-row .label')
+          .filter((_, el) => $(el).text().trim().toLowerCase() === 'errors')
+          .siblings('.value')
+          .text()
+          .trim() || '0',
+        10,
+      );
+
+      const blocked = parseInt(
+        box
+          .find('div.stat-details .stat-row .label')
+          .filter((_, el) => $(el).text().trim().toLowerCase() === 'blocked')
+          .siblings('.value')
+          .text()
+          .trim() || '0',
+        10,
+      );
+
+      const perfect = parseInt(
+        box.find('div.points-box .points-value').text().trim() || '0',
+        10,
+      );
+
+      const percentPerfect = parseFloat(
+        box.find('div.percentage-box .value').text().replace('%', '').trim() ||
+          '0',
+      );
+
+      return {
+        total,
+        errors,
+        blocked,
+        perfect,
+        percentPerfect,
+      };
+    })();
+
+    const block: IBlock = (() => {
+      const box = $('div.block-box');
+
+      const points = parseInt(
+        box.find('div.points-box .points-value').text().trim() || '0',
+        10,
+      );
+
+      const pointsPerSetStr = box
+        .find('div.stat-details .stat-row .label')
+        .filter(
+          (_, el) => $(el).text().trim().toLowerCase() === 'points per set',
+        )
+        .siblings('.value')
+        .text()
+        .trim();
+
+      const pointsPerSet =
+        pointsPerSetStr === '-' ? 0 : parseFloat(pointsPerSetStr) || 0;
+
+      return {
+        points,
+        pointsPerSet,
+      };
+    })();
+
+    const serve: IServe = (() => {
+      const box = $('div.serve-box');
+
+      const extractValue = (label: string): number => {
+        const value = box
+          .find('div.stat-details .stat-row .label')
+          .filter(
+            (_, el) =>
+              $(el).text().trim().toLowerCase() === label.toLowerCase(),
+          )
+          .siblings('.value')
+          .text()
+          .trim();
+
+        return value === '-' ? 0 : parseFloat(value) || 0;
+      };
+
+      return {
+        total: extractValue('Sum'),
+        errors: extractValue('Errors'),
+        aces: parseInt(
+          box.find('div.points-box .points-value').text().trim() || '0',
+          10,
+        ),
+        acesPerSet: extractValue('Aces per set'),
+      };
+    })();
+
+    const reception: IReception = (() => {
+      const box = $('div.reception-box');
+
+      const extractValue = (label: string): number => {
+        const value = box
+          .find('div.stat-row .label')
+          .filter(
+            (_, el) =>
+              $(el).text().trim().toLowerCase() === label.toLowerCase(),
+          )
+          .siblings('.value')
+          .text()
+          .trim();
+
+        return value === '-' ? 0 : parseFloat(value) || 0;
+      };
+
+      const total = extractValue('Sum');
+      const perfect = extractValue('Perfect');
+      const percentPerfect = total ? +((perfect / total) * 100).toFixed(2) : 0;
+
+      return {
+        total,
+        errors: extractValue('Errors'),
+        negative: extractValue('Negative'),
+        perfect,
+        percentPerfect,
+      };
+    })();
+
+    const skills: ISkillStatistics = {
+      block,
+      reception,
+      serve,
+      spike,
+    };
+
+    const players: IPlayer[] = $('a.player-personal-card')
+      .map((_, el) => {
+        const $el = $(el);
+        const href = $el.attr('href');
+        const match = href?.match(/\/players\/(\d+)\//);
+        if (!match) return null;
+
+        const id = parseInt(match[1], 10);
+        const url = new URL(href, origin).href;
+
+        const number =
+          parseInt($el.find('h5.shirt-number').text().trim(), 10) || 0;
+        const name = $el.find('h6.name').text().trim();
+        const position = $el.find('div.position').text().trim();
+        const photoUrl = $el.find('div.image img').attr('src') || null;
+
+        return {
+          id,
+          name,
+          position,
+          number,
+          url,
+          photoUrl,
+        };
+      })
+      .get()
+      .filter(Boolean);
+
+    return {
+      playedMatches,
+      wonMatches,
+      lostMatches,
+      skills,
+      players,
+    };
+  }
+
   getTeam(dto: GetTeamDto): Observable<TeamRoster | null> {
     const { competition, teamId } = dto;
     const url = new URL(competition.url);
     url.pathname += `teams/${teamId}/`;
     const { origin, href } = url;
+
     return this.httpService.get(href).pipe(
       retry({
         count: Infinity,
@@ -359,137 +683,26 @@ export class VolleystationService implements IVolleystationService {
       map((response) => response.data),
       map((html) => cheerio.load(html)),
       map(($) => {
-        const teamSection = $('section.team-detail');
+        let roster = this.parseTeamV1($, origin);
 
-        const [playedMatches, wonMatches, lostMatches] = $(teamSection)
-          .find('div.stats-boxes div.box div.number')
-          .map((_, el) => {
-            return $(el).text()?.trim()
-              ? parseInt($(el).text()?.trim(), 10)
-              : 0;
-          });
+        if (roster) {
+          this.logger.debug(
+            `Парсер V1 сработал: ${roster.players.length} игроков`,
+          );
+        } else {
+          this.logger.warn(`Парсер V1 не нашёл команду, пробуем V2: ${href}`);
+          roster = this.parseTeamV2($, origin);
 
-        const extractStatValue = (
-          element: cheerio.Cheerio<AnyNode>,
-          label: string,
-        ): number => {
-          const valueStr = element
-            .find('div.general-stats-table-row div.label')
-            .filter((_, el) => $(el).text().trim().toLowerCase() === label)
-            .closest('div.general-stats-table-row')
-            .find('div.value')
-            .text()
-            .trim();
-
-          return parseFloat(valueStr) || 0;
-        };
-
-        const statRows = $(teamSection)
-          .find('section#team-detail-general-stats-table div.row')
-          .children();
-
-        const skills: ISkillStatistics = {
-          block: { points: 0, pointsPerSet: 0 },
-          reception: {
-            errors: 0,
-            negative: 0,
-            percentPerfect: 0,
-            perfect: 0,
-            total: 0,
-          },
-          serve: { aces: 0, acesPerSet: 0, errors: 0, total: 0 },
-          spike: {
-            blocked: 0,
-            errors: 0,
-            percentPerfect: 0,
-            perfect: 0,
-            total: 0,
-          },
-        };
-
-        statRows.each((_, table) => {
-          const $table = $(table);
-          const title = $table.find('div.title').text().trim().toLowerCase();
-
-          // Для каждой статистической группы извлекаем нужные показатели.
-          switch (title) {
-            case 'serve':
-              skills.serve = {
-                total: extractStatValue($table, 'sum'),
-                aces: extractStatValue($table, 'aces'),
-                errors: extractStatValue($table, 'aces'),
-                acesPerSet: extractStatValue($table, 'aces per set'),
-              };
-              break;
-            case 'reception':
-              skills.reception = {
-                total: extractStatValue($table, 'sum'),
-                errors: extractStatValue($table, 'errors'),
-                negative: extractStatValue($table, 'negative'),
-                perfect: extractStatValue($table, 'perfect'),
-                percentPerfect: extractStatValue($table, '% perfect'),
-              };
-              break;
-            case 'spike':
-              skills.spike = {
-                total: extractStatValue($table, 'sum'),
-                errors: extractStatValue($table, 'errors'),
-                blocked: extractStatValue($table, 'blocked'),
-                perfect: extractStatValue($table, 'perfect'),
-                percentPerfect: extractStatValue($table, '% perfect'),
-              };
-              break;
-            case 'block':
-              skills.block = {
-                points: extractStatValue($table, 'points'),
-                pointsPerSet: extractStatValue($table, 'points per set'),
-              };
-              break;
-            default:
-              this.logger.warn(`Неизвестная категория статистики: ${title}`);
-          }
-        });
-
-        const players: IPlayer[] = $(teamSection)
-          .find('section#team-detail-squad a.player-box')
-          .map((_, el): IPlayer => {
-            const href = $(el).attr('href');
-            const { href: playerUrl } = new URL(href, origin);
-
-            const regex = /\/players\/(\d+)\//;
-            const match = href.match(regex);
-
-            const photoUrl = $(el).find('div.image-photo img').attr('src');
-            const number = parseInt(
-              $(el).find('div.number').text()?.trim() ?? '0',
-              10,
+          if (roster) {
+            this.logger.debug(
+              `Парсер V2 сработал: ${roster.players.length} игроков`,
             );
-            const name = $(el).find('div.text-name').text()?.trim();
-            const position = $(el).find('div.text-position').text()?.trim();
+          } else {
+            this.logger.warn(`Парсер V2 также не нашёл команду: ${href}`);
+          }
+        }
 
-            return match
-              ? {
-                  id: parseInt(match[1], 10),
-                  url: playerUrl,
-                  photoUrl,
-                  number,
-                  name,
-                  position,
-                }
-              : null; // Если ID не найден, возвращаем null
-          })
-          .get()
-          .filter(Boolean);
-
-        const teamRoster: ITeamRoster = {
-          playedMatches,
-          wonMatches,
-          lostMatches,
-          skills: skills,
-          players: players,
-        };
-
-        return plainToInstance(TeamRoster, teamRoster);
+        return roster ? plainToInstance(TeamRoster, roster) : null;
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {
