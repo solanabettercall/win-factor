@@ -293,11 +293,11 @@ export const competitions: Competition[] = [
     name: 'AXA SİGORTA KUPA VOLEY ERKEKLER',
   },
   // Интерфейс отличается, нужен отдельный парсер
-  //   {
-  //     id: 489,
-  //     url: 'https://sultanlar.volleystation.com/en/',
-  //     name: 'VODAFONE SULTANLAR LİGİ',
-  //   },
+  {
+    id: 489,
+    url: 'https://sultanlar.volleystation.com/en/',
+    name: 'VODAFONE SULTANLAR LİGİ',
+  },
   {
     id: 535,
     url: 'https://panel.volleystation.com/website/535/en/',

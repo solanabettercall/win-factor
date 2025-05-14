@@ -51,62 +51,115 @@ export class VolleystationService implements IVolleystationService {
     return of(competitions);
   }
 
-  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
+  // Первый парсер
+  private parsePlayersV1($: cheerio.CheerioAPI, origin: string): IPlayer[] {
+    return $('a.player-box')
+      .map((_, el): IPlayer => {
+        const href = $(el).attr('href');
+        const { href: playerUrl } = new URL(href, origin);
+        const match = href.match(/\/players\/(\d+)\//);
+        const photoUrl = $(el).find('div.image-photo img').attr('src');
+        const number = parseInt(
+          $(el).find('div.number').text()?.trim() ?? '0',
+          10,
+        );
+        const name = $(el).find('div.text-name').text()?.trim();
+        const position = $(el).find('div.text-position').text()?.trim();
+
+        return match
+          ? {
+              id: parseInt(match[1], 10),
+              url: playerUrl,
+              photoUrl,
+              number,
+              name,
+              position,
+            }
+          : null;
+      })
+      .get()
+      .filter(Boolean);
+  }
+
+  // Второй парсер
+  private parsePlayersV2($: cheerio.CheerioAPI, origin: string): IPlayer[] {
+    return $('a.player-personal-card')
+      .map((_, el): IPlayer => {
+        const href = $(el).attr('href');
+
+        const { href: playerUrl } = new URL(href, origin);
+        const match = href.match(/\/players\/(\d+)\//);
+        const photoUrl = $(el)
+          .find('div.personal-data-box div.image img')
+          .attr('src');
+        const number = parseInt(
+          $(el).find('h5.shirt-number').text()?.trim() ?? '0',
+          10,
+        );
+        const name = $(el).find('div.personal-data h6.name').text()?.trim();
+        const position = $(el)
+          .find('div.personal-data div.position')
+          .text()
+          ?.trim();
+
+        return match
+          ? {
+              id: parseInt(match[1], 10),
+              url: playerUrl,
+              photoUrl,
+              number,
+              name,
+              position,
+            }
+          : null;
+      })
+      .get()
+      .filter(Boolean);
+  }
+
+  getPlayers(competition: ICompetition): Observable<IPlayer[] | null> {
     const url = new URL(competition.url);
     url.pathname += `players/`;
     const { origin, href } = url;
+
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
-          if (status === 404) return throwError(() => new NotFoundException());
-          const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+
+          if (status === 404) {
+            return throwError(() => new NotFoundException());
+          }
+
+          const isRetryable = [500, 502, 503, 504, 429, 403].includes(status);
+          const baseDelay = isRetryable ? Math.pow(2, retryIndex) * 1000 : 0;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `Повторная попытка №${retryIndex + 1} через ${baseDelay / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
-          return of(null).pipe(delay(delayTime));
+          return of(null).pipe(delay(baseDelay));
         },
       }),
       map((response) => response.data),
       map((html) => cheerio.load(html)),
       map(($) => {
-        const playerBoxes = $('a.player-box');
+        let players = this.parsePlayersV1($, origin);
+        if (players.length) {
+          this.logger.debug(`Парсер V1 сработал: ${players.length} игроков`);
+        } else {
+          this.logger.warn(`Парсер V1 не нашёл игроков, пробуем V2: ${href}`);
+          players = this.parsePlayersV2($, origin);
 
-        const players: Player[] = $(playerBoxes)
-          .map((_, el): Player => {
-            const href = $(el).attr('href');
-            const { href: playerUrl } = new URL(href, origin);
+          if (players.length) {
+            this.logger.debug(`Парсер V2 сработал: ${players.length} игроков`);
+          } else {
+            this.logger.warn(`Парсер V2 также не нашёл игроков: ${href}`);
+          }
+        }
 
-            const regex = /\/players\/(\d+)\//;
-            const match = href.match(regex);
-
-            const photoUrl = $(el).find('div.image-photo img').attr('src');
-            const number = parseInt(
-              $(el).find('div.number').text()?.trim() ?? '0',
-              10,
-            );
-            const name = $(el).find('div.text-name').text()?.trim();
-            const position = $(el).find('div.text-position').text()?.trim();
-
-            const pl: IPlayer = match
-              ? {
-                  id: parseInt(match[1], 10),
-                  url: playerUrl,
-                  photoUrl,
-                  number,
-                  name,
-                  position,
-                }
-              : null;
-            return plainToInstance(Player, pl);
-          })
-          .get()
-          .filter(Boolean);
-
-        return plainToInstance(Player, players);
+        return players.length ? plainToInstance(Player, players) : null;
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {
