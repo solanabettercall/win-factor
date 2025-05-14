@@ -4,6 +4,8 @@ import { VolleystationService } from './sites/volleystation/volleystation.servic
 import { RedisService } from 'src/cache/redis.service';
 import { VolleystationCacheService } from './sites/volleystation/volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { competitions } from './sites/volleystation/consts/competitions';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class ParserService implements OnApplicationBootstrap {
@@ -11,24 +13,25 @@ export class ParserService implements OnApplicationBootstrap {
 
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
+    private readonly volleystationService: VolleystationService,
     private readonly redisService: RedisService,
   ) {}
 
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  // @Cron(CronExpression.EVERY_10_SECONDS)
   async onApplicationBootstrap() {
-    // const competition = competitions.find((c) => c.id === 294);
-    // const player = await firstValueFrom(
-    //   this.volleystationCacheService.getPlayer(competition, 2122868),
-    // );
-    // console.log(player);
-    // const detailedMatches = await firstValueFrom(
-    //   this.volleystationCacheService.getDetailedMatches(competition, 'results'),
-    // );
-    // console.log(detailedMatches.map((dm) => dm.officials));
+    // const competition = competitions.find((c) => c.id === 43);
+    // // const player = await firstValueFrom(
+    // //   this.volleystationCacheService.getPlayer(competition, 2122868),
+    // // );
+    // // console.log(player);
+    // // const detailedMatches = await firstValueFrom(
+    // //   this.volleystationCacheService.getDetailedMatches(competition, 'results'),
+    // // );
+    // // console.log(detailedMatches.map((dm) => dm.officials));
     // const teams = await firstValueFrom(
-    //   this.volleystationCacheService.getTeams(competition),
+    //   this.volleystationService.getTeams(competition),
     // );
-    // console.log(teams);
+    // console.log(teams.find((t) => t.name === 'AZS OŚ Toruń'));
     // const teamRoster = await firstValueFrom(
     //   this.volleystationCacheService.getTeamRoster(
     //     competition,

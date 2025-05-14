@@ -1,13 +1,13 @@
+# Базовый образ
 FROM node:23
 
 RUN useradd -ms /bin/sh -u 1001 app
-USER app
 
+USER app
 WORKDIR /app
 
-# Установка зависимостей
-COPY . .
-RUN yarn install
+COPY --chown=app:app package.json yarn.lock ./
 
-# Copy source files into application directory
-COPY --chown=app:app . /app
+RUN yarn install --frozen-lockfile
+
+COPY --chown=app:app . .

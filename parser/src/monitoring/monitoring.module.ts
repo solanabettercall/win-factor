@@ -19,6 +19,6 @@ import { VolleystationModule } from 'src/parser/sites/volleystation/volleystatio
       useExisting: PlayerRepository,
     },
   ],
-  exports: [],
+  exports: [PlayerService],
 })
 export class MonitoringModule {}

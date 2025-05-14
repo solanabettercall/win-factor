@@ -1,11 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Player, PlayerDocument } from './schemas/player.schema';
 import { Model } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
-import { EMPTY, from, map, mergeMap, Observable, of, tap } from 'rxjs';
+import { from, map, mergeMap, Observable, of, tap } from 'rxjs';
 
 @Injectable()
 export class PlayerRepository implements IPlayerRepository {
@@ -14,6 +14,17 @@ export class PlayerRepository implements IPlayerRepository {
   constructor(
     @InjectModel(Player.name) private playerModel: Model<PlayerDocument>,
   ) {}
+
+  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
+    this.logger.debug('isPlayerMonitored', dto);
+    return from(
+      this.playerModel.exists({
+        playerId: dto.playerId,
+        teamId: dto.teamId,
+        tournamentId: dto.tournamentId,
+      }),
+    ).pipe(map((result) => !!result));
+  }
 
   addPlayerToMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('addPlayerToMonitoring', dto);

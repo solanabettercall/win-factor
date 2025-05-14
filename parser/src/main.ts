@@ -10,15 +10,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   process.on('uncaughtException', (err) => {
-    if (
-      err?.stack?.includes('engine.io-client') &&
-      err.message.includes('RangeError: Maximum call stack size exceeded')
-    ) {
-      logger.warn('Socket.io: Maximum call stack size exceeded');
-    } else {
-      logger.error(`Uncaught Exception: ${err.message}`, err.stack);
-      logger.error(err);
+    if (err.message === 'RangeError: Maximum call stack size exceeded') {
+      return;
     }
+    logger.error(err);
   });
 
   process.on('unhandledRejection', (reason, promise) => {

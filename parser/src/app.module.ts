@@ -7,6 +7,7 @@ import { appConfig } from './config/parser.config';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
+import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
       },
     }),
     MonitoringModule,
+    TelegramBotModule,
   ],
   controllers: [],
   providers: [],

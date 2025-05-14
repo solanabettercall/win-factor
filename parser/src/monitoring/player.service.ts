@@ -1,9 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IPlayerRepository } from './interfaces/player-repository.interface';
-import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerRepositoryToken } from './player-repository.token';
-import { firstValueFrom, map, Observable, of, switchMap } from 'rxjs';
+import { map, Observable, of, switchMap } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
@@ -107,8 +106,42 @@ export class PlayerService {
   //   );
   // }
 
+  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
+    return this.playerRepository.isPlayerMonitored(dto);
+  }
+
   getCompetitions(): Observable<Competition[]> {
     return this.volleystationCacheService.getCompetitions();
+  }
+
+  getCompetitionById(id: number): Observable<Competition> {
+    return this.volleystationCacheService.getCompetitions().pipe(
+      map((competitions) => {
+        const c = competitions.find((c) => c.id === id);
+        if (!c) throw new NotFoundException(`Турнир ${id} не найден`);
+        return c;
+      }),
+    );
+  }
+
+  getTeamById(competition: Competition, id: string): Observable<Team> {
+    return this.volleystationCacheService.getTeams(competition).pipe(
+      map((teams) => {
+        const team = teams.find((team) => team.id === id);
+        if (!team) throw new NotFoundException(`Команда ${id} не найдена`);
+        return team;
+      }),
+    );
+  }
+
+  getPlayerById(competition: Competition, id: number): Observable<Player> {
+    return this.volleystationCacheService.getPlayers(competition).pipe(
+      map((players) => {
+        const player = players.find((player) => player.id === id);
+        if (!player) throw new NotFoundException(`Игрок ${id} не найден`);
+        return player;
+      }),
+    );
   }
 
   getTeams(competition: ICompetition): Observable<Team[]> {
