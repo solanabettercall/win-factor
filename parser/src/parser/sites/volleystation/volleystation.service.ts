@@ -504,10 +504,63 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
+  private parseTeamsV1($: cheerio.CheerioAPI, origin: string): ITeam[] {
+    const teamsSection = $('section.teams div.team-list');
+
+    return $(teamsSection)
+      .find('a.team-box')
+      .map((_, el) => {
+        const name = $(el).find('div.text-title').text().trim();
+        const logoUrl = $(el).find('div.logo img').attr('src')?.trim() ?? null;
+        const teamHref = $(el).attr('href');
+        const decodedHref = decodeURI(teamHref);
+
+        const { href: url } = new URL(teamHref, origin);
+        const match = decodedHref?.match(/\/teams\/([^/]+)\//);
+        const teamId = match ? match[1] : null;
+
+        return {
+          id: teamId,
+          logoUrl,
+          name,
+          url,
+        };
+      })
+      .get()
+      .filter((team) => !!team.id);
+  }
+
+  private parseTeamsV2($: cheerio.CheerioAPI, origin: string): ITeam[] {
+    const teamsSection = $('div.grid.team-grid');
+
+    return $(teamsSection)
+      .find('a')
+      .map((_, el) => {
+        const name = $(el).find('div.team-data h6').text().trim();
+        const logoUrl = $(el).find('div.badge img').attr('src')?.trim() ?? null;
+        const teamHref = $(el).attr('href');
+        const decodedHref = decodeURI(teamHref);
+
+        const { href: url } = new URL(teamHref, origin);
+        const match = decodedHref?.match(/\/teams\/([^/]+)\//);
+        const teamId = match ? match[1] : null;
+
+        return {
+          id: teamId,
+          logoUrl,
+          name,
+          url,
+        };
+      })
+      .get()
+      .filter((team) => !!team.id);
+  }
+
   getTeams(competition: ICompetition): Observable<Team[]> {
     const url = new URL(competition.url);
     url.pathname += `teams/`;
     const { origin, href } = url;
+
     return this.httpService.get(href).pipe(
       retry({
         count: Infinity,
@@ -527,31 +580,21 @@ export class VolleystationService implements IVolleystationService {
       map((response) => response.data),
       map((html) => cheerio.load(html)),
       map(($) => {
-        const teamsSection = $('section.teams div.team-list');
+        let teams = this.parseTeamsV1($, origin);
+        if (teams.length) {
+          this.logger.debug(`Парсер V1 сработал: ${teams.length} команд`);
+        } else {
+          this.logger.warn(`Парсер V1 не нашёл команды, пробуем V2: ${href}`);
+          teams = this.parseTeamsV2($, origin);
 
-        return $(teamsSection)
-          .find('a.team-box')
-          .map((_, el) => {
-            const name = $(el).find('div.text-title').text().trim();
-            const logoUrl =
-              $(el).find('div.logo img').attr('src')?.trim() ?? null;
-            const teamHref = $(el).attr('href');
-            const decodedHref = decodeURI($(el).attr('href'));
+          if (teams.length) {
+            this.logger.debug(`Парсер V2 сработал: ${teams.length} команд`);
+          } else {
+            this.logger.warn(`Парсер V2 также не нашёл команды: ${href}`);
+          }
+        }
 
-            const { href: url } = new URL(teamHref, origin);
-
-            const match = decodedHref?.match(/\/teams\/([^/]+)\//);
-
-            const teamId = match ? match[1] : null;
-            const team: ITeam = {
-              id: teamId,
-              logoUrl,
-              name,
-              url,
-            };
-            return plainToInstance(Team, team);
-          })
-          .toArray();
+        return plainToInstance(Team, teams);
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {

@@ -19,11 +19,12 @@ export class ParserService implements OnApplicationBootstrap {
 
   // @Cron(CronExpression.EVERY_10_SECONDS)
   async onApplicationBootstrap() {
+    // const competition = competitions.find((c) => c.id === 25);
     const competition = competitions.find((c) => c.id === 489);
-    const players = await firstValueFrom(
-      this.volleystationService.getPlayers(competition),
+    const teams = await firstValueFrom(
+      this.volleystationService.getTeams(competition),
     );
-    console.log(players);
+    console.log(teams);
     // // const player = await firstValueFrom(
     // //   this.volleystationCacheService.getPlayer(competition, 2122868),
     // // );
