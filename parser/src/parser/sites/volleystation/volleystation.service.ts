@@ -178,11 +178,307 @@ export class VolleystationService implements IVolleystationService {
     );
   }
 
+  private parsePlayerV1(
+    $: cheerio.CheerioAPI,
+    playerId: number,
+  ): IPlayerProfile | null {
+    this.logger.debug('parsePlayerV1');
+    const teamSection = $('section.player-detail');
+    if (teamSection.length === 0) return null;
+
+    const [
+      matchesPlayed,
+      setsPlayed,
+      pointsScored,
+      numberOfAces,
+      pointsByBlock,
+    ] = $(teamSection)
+      .find('div.stats-boxes div.box div.number')
+      .map((_, el) => {
+        return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
+      });
+
+    const statistic: IPlayerSummaryStatistics = {
+      matchesPlayed,
+      setsPlayed,
+      pointsScored,
+      numberOfAces,
+      pointsByBlock,
+    };
+
+    const extractStatValue = (
+      element: cheerio.Cheerio<AnyNode>,
+      label: string,
+    ): number => {
+      const valueStr = element
+        .find('div.general-stats-table-row div.label')
+        .filter((_, el) => $(el).text().trim().toLowerCase() === label)
+        .closest('div.general-stats-table-row')
+        .find('div.value')
+        .text()
+        .trim();
+
+      return parseFloat(valueStr) || 0;
+    };
+
+    const statRows = $(teamSection)
+      .find('section#team-detail-general-stats-table div.row')
+      .children();
+
+    const skills: ISkillStatistics = {
+      block: { points: 0, pointsPerSet: 0 },
+      reception: {
+        errors: 0,
+        negative: 0,
+        percentPerfect: 0,
+        perfect: 0,
+        total: 0,
+      },
+      serve: { aces: 0, acesPerSet: 0, errors: 0, total: 0 },
+      spike: {
+        blocked: 0,
+        errors: 0,
+        percentPerfect: 0,
+        perfect: 0,
+        total: 0,
+      },
+    };
+
+    statRows.each((_, table) => {
+      const $table = $(table);
+      const title = $table.find('div.title').text().trim().toLowerCase();
+
+      switch (title) {
+        case 'serve':
+          skills.serve = {
+            total: extractStatValue($table, 'sum'),
+            aces: extractStatValue($table, 'aces'),
+            errors: extractStatValue($table, 'aces'),
+            acesPerSet: extractStatValue($table, 'aces per set'),
+          };
+          break;
+        case 'reception':
+          skills.reception = {
+            total: extractStatValue($table, 'sum'),
+            errors: extractStatValue($table, 'errors'),
+            negative: extractStatValue($table, 'negative'),
+            perfect: extractStatValue($table, 'perfect'),
+            percentPerfect: extractStatValue($table, '% perfect'),
+          };
+          break;
+        case 'spike':
+          skills.spike = {
+            total: extractStatValue($table, 'sum'),
+            errors: extractStatValue($table, 'errors'),
+            blocked: extractStatValue($table, 'blocked'),
+            perfect: extractStatValue($table, 'perfect'),
+            percentPerfect: extractStatValue($table, '% perfect'),
+          };
+          break;
+        case 'block':
+          skills.block = {
+            points: extractStatValue($table, 'points'),
+            pointsPerSet: extractStatValue($table, 'points per set'),
+          };
+          break;
+        default:
+          this.logger.warn(`Неизвестная категория статистики: ${title}`);
+      }
+    });
+
+    const number = parseInt(
+      $('div.player-detail-data-item.number').text()?.trim() ?? '0',
+    );
+    const name = $('h1.player-detail-data-item.name').text()?.trim();
+    const [country, position] = $('div.player-detail-data-item.detail')
+      .text()
+      ?.trim()
+      ?.split(' - ');
+
+    return {
+      id: playerId,
+      country,
+      position,
+      name,
+      number,
+      statistic,
+      skills,
+    };
+  }
+
+  private parsePlayerV2(
+    $: cheerio.CheerioAPI,
+    playerId: number,
+  ): IPlayerProfile | null {
+    this.logger.debug('parsePlayerV2');
+    const teamSection = $('div.player-details');
+    if (teamSection.length === 0) return null;
+
+    const spike: ISpike = (() => {
+      const box = $('div.attack-box');
+      const total = parseInt(
+        box
+          .find('div.stat-details .stat-row .label')
+          .filter((_, el) => $(el).text().trim().toLowerCase() === 'sum')
+          .siblings('.value')
+          .text()
+          .trim() || '0',
+        10,
+      );
+
+      const errors = parseInt(
+        box
+          .find('div.stat-details .stat-row .label')
+          .filter((_, el) => $(el).text().trim().toLowerCase() === 'errors')
+          .siblings('.value')
+          .text()
+          .trim() || '0',
+        10,
+      );
+
+      const blocked = parseInt(
+        box
+          .find('div.stat-details .stat-row .label')
+          .filter((_, el) => $(el).text().trim().toLowerCase() === 'blocked')
+          .siblings('.value')
+          .text()
+          .trim() || '0',
+        10,
+      );
+
+      const perfect = parseInt(
+        box.find('div.points-box .points-value').text().trim() || '0',
+        10,
+      );
+
+      const percentPerfect = parseFloat(
+        box.find('div.percentage-box .value').text().replace('%', '').trim() ||
+          '0',
+      );
+
+      return {
+        total,
+        errors,
+        blocked,
+        perfect,
+        percentPerfect,
+      };
+    })();
+
+    const block: IBlock = (() => {
+      const box = $('div.block-box');
+
+      const points = parseInt(
+        box.find('div.points-box .points-value').text().trim() || '0',
+        10,
+      );
+
+      const pointsPerSetStr = box
+        .find('div.stat-details .stat-row .label')
+        .filter(
+          (_, el) => $(el).text().trim().toLowerCase() === 'points per set',
+        )
+        .siblings('.value')
+        .text()
+        .trim();
+
+      const pointsPerSet =
+        pointsPerSetStr === '-' ? 0 : parseFloat(pointsPerSetStr) || 0;
+
+      return {
+        points,
+        pointsPerSet,
+      };
+    })();
+
+    const serve: IServe = (() => {
+      const box = $('div.serve-box');
+
+      const extractValue = (label: string): number => {
+        const value = box
+          .find('div.stat-details .stat-row .label')
+          .filter(
+            (_, el) =>
+              $(el).text().trim().toLowerCase() === label.toLowerCase(),
+          )
+          .siblings('.value')
+          .text()
+          .trim();
+
+        return value === '-' ? 0 : parseFloat(value) || 0;
+      };
+
+      return {
+        total: extractValue('Sum'),
+        errors: extractValue('Errors'),
+        aces: parseInt(
+          box.find('div.points-box .points-value').text().trim() || '0',
+          10,
+        ),
+        acesPerSet: extractValue('Aces per set'),
+      };
+    })();
+
+    const reception: IReception = (() => {
+      const box = $('div.reception-box');
+
+      const extractValue = (label: string): number => {
+        const value = box
+          .find('div.stat-row .label')
+          .filter(
+            (_, el) =>
+              $(el).text().trim().toLowerCase() === label.toLowerCase(),
+          )
+          .siblings('.value')
+          .text()
+          .trim();
+
+        return value === '-' ? 0 : parseFloat(value) || 0;
+      };
+
+      const total = extractValue('Sum');
+      const perfect = extractValue('Perfect');
+      const percentPerfect = total ? +((perfect / total) * 100).toFixed(2) : 0;
+
+      return {
+        total,
+        errors: extractValue('Errors'),
+        negative: extractValue('Negative'),
+        perfect,
+        percentPerfect,
+      };
+    })();
+
+    const skills: ISkillStatistics = {
+      block,
+      reception,
+      serve,
+      spike,
+    };
+
+    const number = parseInt(
+      $('div.number-name div.shirt-number').text()?.trim() ?? '0',
+    );
+    const position = $('div.position-team div.position').text().trim();
+    const firstName = $('.name-box .first-name').text().trim();
+    const lastName = $('.name-box .last-name').text().trim();
+    const name = [firstName, lastName].filter(Boolean).join(' ') || null;
+
+    return {
+      id: playerId,
+      position,
+      name,
+      number,
+      skills,
+    };
+  }
+
   getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile> {
     const { competition, playerId } = dto;
     const url = new URL(competition.url);
     url.pathname += `players/${playerId}/`;
     const { origin, href } = url;
+
     return this.httpService.get(href).pipe(
       retry({
         count: Infinity,
@@ -201,131 +497,22 @@ export class VolleystationService implements IVolleystationService {
       map((response) => response.data),
       map((html) => cheerio.load(html)),
       map(($) => {
-        const teamSection = $('section.player-detail');
+        let player = this.parsePlayerV1($, playerId);
 
-        const [
-          matchesPlayed,
-          setsPlayed,
-          pointsScored,
-          numberOfAces,
-          pointsByBlock,
-        ] = $(teamSection)
-          .find('div.stats-boxes div.box div.number')
-          .map((_, el) => {
-            return $(el).text()?.trim()
-              ? parseInt($(el).text()?.trim(), 10)
-              : 0;
-          });
-        const statistic: IPlayerSummaryStatistics = {
-          matchesPlayed,
-          setsPlayed,
-          pointsScored,
-          numberOfAces,
-          pointsByBlock,
-        };
+        if (player) {
+          this.logger.debug(`Парсер V1 сработал: ${player.name}`);
+        } else {
+          this.logger.warn(`Парсер V1 не сработал, пробуем V2: ${href}`);
+          player = this.parsePlayerV2($, playerId);
 
-        const extractStatValue = (
-          element: cheerio.Cheerio<AnyNode>,
-          label: string,
-        ): number => {
-          const valueStr = element
-            .find('div.general-stats-table-row div.label')
-            .filter((_, el) => $(el).text().trim().toLowerCase() === label)
-            .closest('div.general-stats-table-row')
-            .find('div.value')
-            .text()
-            .trim();
-
-          return parseFloat(valueStr) || 0;
-        };
-
-        const statRows = $(teamSection)
-          .find('section#team-detail-general-stats-table div.row')
-          .children();
-
-        // Создадим объект для итоговой статистики, который потом заполним нужными данными
-        const skills: ISkillStatistics = {
-          block: { points: 0, pointsPerSet: 0 },
-          reception: {
-            errors: 0,
-            negative: 0,
-            percentPerfect: 0,
-            perfect: 0,
-            total: 0,
-          },
-          serve: { aces: 0, acesPerSet: 0, errors: 0, total: 0 },
-          spike: {
-            blocked: 0,
-            errors: 0,
-            percentPerfect: 0,
-            perfect: 0,
-            total: 0,
-          },
-        };
-
-        statRows.each((_, table) => {
-          const $table = $(table);
-          const title = $table.find('div.title').text().trim().toLowerCase();
-
-          // Для каждой статистической группы извлекаем нужные показатели.
-          switch (title) {
-            case 'serve':
-              skills.serve = {
-                total: extractStatValue($table, 'sum'),
-                aces: extractStatValue($table, 'aces'),
-                errors: extractStatValue($table, 'aces'),
-                acesPerSet: extractStatValue($table, 'aces per set'),
-              };
-              break;
-            case 'reception':
-              skills.reception = {
-                total: extractStatValue($table, 'sum'),
-                errors: extractStatValue($table, 'errors'),
-                negative: extractStatValue($table, 'negative'),
-                perfect: extractStatValue($table, 'perfect'),
-                percentPerfect: extractStatValue($table, '% perfect'),
-              };
-              break;
-            case 'spike':
-              skills.spike = {
-                total: extractStatValue($table, 'sum'),
-                errors: extractStatValue($table, 'errors'),
-                blocked: extractStatValue($table, 'blocked'),
-                perfect: extractStatValue($table, 'perfect'),
-                percentPerfect: extractStatValue($table, '% perfect'),
-              };
-              break;
-            case 'block':
-              skills.block = {
-                points: extractStatValue($table, 'points'),
-                pointsPerSet: extractStatValue($table, 'points per set'),
-              };
-              break;
-            default:
-              this.logger.warn(`Неизвестная категория статистики: ${title}`);
+          if (player) {
+            this.logger.debug(`Парсер V2 сработал: ${player.name}`);
+          } else {
+            this.logger.warn(`Парсер V2 также не сработал: ${href}`);
           }
-        });
+        }
 
-        const number = parseInt(
-          $('div.player-detail-data-item.number').text()?.trim() ?? '0',
-        );
-        const name = $('h1.player-detail-data-item.name').text()?.trim();
-        const [country, position] = $('div.player-detail-data-item.detail')
-          .text()
-          ?.trim()
-          ?.split(' - ');
-
-        const playerProfile: IPlayerProfile = {
-          id: playerId,
-          country,
-          position,
-          name,
-          number,
-          statistic,
-          skills,
-        };
-
-        return plainToInstance(PlayerProfile, playerProfile);
+        return player ? plainToInstance(PlayerProfile, player) : null;
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {

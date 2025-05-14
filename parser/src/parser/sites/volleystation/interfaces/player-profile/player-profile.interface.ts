@@ -16,7 +16,7 @@ export interface IPlayerProfile {
   /**
    * Страна
    */
-  country: string;
+  country?: string;
 
   /**
    * Позиция
@@ -26,7 +26,7 @@ export interface IPlayerProfile {
   /**
    * Статистика
    */
-  statistic: IPlayerSummaryStatistics;
+  statistic?: IPlayerSummaryStatistics;
 
   /**
    * Статистика навыков
