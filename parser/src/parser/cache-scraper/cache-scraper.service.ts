@@ -37,7 +37,7 @@ export class CacheScraperService {
 
   @Cron(CronExpression.EVERY_5_SECONDS, {
     waitForCompletion: true,
-    disabled: false,
+    disabled: true,
   })
   async info() {
     await this.cachScraperQueue.resume();

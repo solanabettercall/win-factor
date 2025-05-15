@@ -5,7 +5,17 @@ import { RedisService } from 'src/cache/redis.service';
 import { VolleystationCacheService } from './sites/volleystation/volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { competitions } from './sites/volleystation/consts/competitions';
-import { firstValueFrom } from 'rxjs';
+import {
+  firstValueFrom,
+  forkJoin,
+  from,
+  last,
+  map,
+  mergeMap,
+  takeWhile,
+  tap,
+} from 'rxjs';
+import { MatchListType } from './sites/volleystation/types';
 
 @Injectable()
 export class ParserService implements OnApplicationBootstrap {
@@ -19,7 +29,30 @@ export class ParserService implements OnApplicationBootstrap {
 
   // @Cron(CronExpression.EVERY_10_SECONDS)
   async onApplicationBootstrap() {
-    // const competition = competitions.find((c) => c.id === 43);
+    // const competition = competitions.find((c) => c.id === 25);
+    // const competition = competitions.find((c) => c.id === 489);
+    const competition = competitions.find((c) => c.id === 222);
+
+    // const teams = await firstValueFrom(
+    //   this.volleystationService.getTeams(competition),
+    // );
+
+    const matches = await firstValueFrom(
+      this.volleystationService.getMatches({
+        competition,
+        type: MatchListType.Schedule,
+      }),
+    );
+    console.log(matches[0]);
+
+    // const player = await firstValueFrom(
+    //   this.volleystationService.getPlayer({
+    //     competition,
+    //     playerId: 2205610,
+    //   }),
+    // );
+
+    // console.log(player);
     // // const player = await firstValueFrom(
     // //   this.volleystationCacheService.getPlayer(competition, 2122868),
     // // );
@@ -47,13 +80,47 @@ export class ParserService implements OnApplicationBootstrap {
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
     // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
     // console.log(cachedMatch);
-    // const matches = await firstValueFrom(
-    //   this.volleystationCacheService.getFullMatchDetails(
-    //     competitions[1],
-    //     'results',
-    //   ),
-    // );
-    // console.log(matches[0]);
+    // from(competitions)
+    //   .pipe(
+    //     mergeMap(
+    //       (competition) => {
+    //         const results$ = this.volleystationCacheService.getMatches({
+    //           competition,
+    //           type: MatchListType.Results,
+    //         });
+    //         const schedules$ = this.volleystationCacheService.getMatches({
+    //           competition,
+    //           type: MatchListType.Schedule,
+    //         });
+
+    //         return forkJoin([results$, schedules$]).pipe(
+    //           map(([resultsMatches, schedulesMatches]) => ({
+    //             competition,
+    //             resultsMatches,
+    //             schedulesMatches,
+    //           })),
+    //         );
+    //       },
+    //       5, // 🔁 параллельно максимум 5 запросов
+    //     ),
+    //     tap(({ competition, resultsMatches, schedulesMatches }) => {
+    //       if (resultsMatches.length === 0 && schedulesMatches.length > 0) {
+    //         this.logger.verbose(`Нашли: ${competition.url}`);
+    //       } else {
+    //         this.logger.debug(
+    //           `Скип[${competition.id}]: ${resultsMatches.length} ${schedulesMatches.length}`,
+    //         );
+    //       }
+    //     }),
+    //     takeWhile(
+    //       ({ resultsMatches, schedulesMatches }) =>
+    //         !(resultsMatches.length === 0 && schedulesMatches.length > 0),
+    //       true, // ✅ включить значение, на котором прерываемся
+    //     ),
+    //     last(), // получим последний competition перед break
+    //   )
+    //   .subscribe();
+
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
     // const matches = await firstValueFrom(
