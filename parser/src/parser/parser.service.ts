@@ -4,7 +4,6 @@ import { VolleystationService } from './sites/volleystation/volleystation.servic
 import { RedisService } from 'src/cache/redis.service';
 import { VolleystationCacheService } from './sites/volleystation/volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { competitions } from './sites/volleystation/consts/competitions';
 import {
   firstValueFrom,
   forkJoin,

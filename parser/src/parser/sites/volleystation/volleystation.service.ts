@@ -28,7 +28,6 @@ import { Player } from './models/team-roster/player';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
-import { competitions } from './consts/competitions';
 import { IBlock } from './interfaces/skills/block.interface';
 import { ISpike } from './interfaces/skills/spike.interface';
 import { IServe } from './interfaces/skills/serve.interface';
