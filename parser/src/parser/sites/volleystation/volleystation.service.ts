@@ -66,7 +66,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 200,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());

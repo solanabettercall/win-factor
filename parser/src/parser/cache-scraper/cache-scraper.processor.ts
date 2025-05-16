@@ -10,7 +10,11 @@ import { JobType } from './cache-scraper.service';
 import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
 import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
 import { firstValueFrom } from 'rxjs';
-import { VolleyJobData, MatchListType } from '../sites/volleystation/types';
+import {
+  VolleyJobData,
+  MatchListType,
+  GetCompetitionByIdDto,
+} from '../sites/volleystation/types';
 import { Job, Queue } from 'bullmq';
 import { GetTeamDto } from '../sites/volleystation/dtos/get-team.dto';
 import { GetPlayerDto } from '../sites/volleystation/dtos/get-player.dto';
@@ -19,8 +23,9 @@ import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
+import { GetCompeitionDto } from '../sites/volleystation/dtos/get-competition.dto';
 
-@Processor(SCRAPER_QUEUE, { concurrency: 5 })
+@Processor(SCRAPER_QUEUE, { concurrency: 3 })
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);
 
@@ -36,6 +41,8 @@ export class CacheScraperProcessor extends WorkerHost {
     switch (job.name as JobType) {
       case JobType.COMPETITION:
         return this.handleCompetition(job as Job<Competition>);
+      case JobType.COMPETITION_INFO:
+        return this.handleCompetitionInfo(job as Job<GetCompetitionByIdDto>);
       case JobType.RESULTS_MATCHES:
       case JobType.SCHEDULED_MATCHES:
         return this.handleMatchList(job as Job<GetMatchesDto>);
@@ -276,5 +283,11 @@ export class CacheScraperProcessor extends WorkerHost {
     return firstValueFrom(
       this.volleystationCacheService.getMatchInfo(job.data.id),
     );
+  }
+
+  private async handleCompetitionInfo(job: Job<GetCompetitionByIdDto>) {
+    const { id } = job.data;
+    this.logger.log(`Обработка турнира для проверки: [${id}]`);
+    return firstValueFrom(this.volleystationCacheService.getCompetition(id));
   }
 }
