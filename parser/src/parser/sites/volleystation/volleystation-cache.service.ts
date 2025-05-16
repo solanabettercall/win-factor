@@ -12,6 +12,7 @@ import {
   first,
   forkJoin,
   from,
+  map,
   mergeMap,
   Observable,
   of,
@@ -129,34 +130,51 @@ export class VolleystationCacheService implements IVolleystationSocketService {
   }
 
   getCompetitions(): Observable<Competition[]> {
-    return this.volleystationService.getCompetitions();
-    const cacheKey = `volleystation:competitions`;
-    const TTL = 60 * 24;
+    const ttlValue = ttl.competition.cache();
+    const cacheKey = 'volleystation:competitions:all';
 
     return from(this.redisService.getJson(cacheKey, Competition)).pipe(
-      switchMap((cached): Observable<Competition[]> => {
+      switchMap((cached) => {
         if (Array.isArray(cached)) {
           this.logger.debug(`Турниры найдены в кэше: ${cacheKey}`);
           return of(cached);
         }
-
         if (cached) {
           this.logger.warn(
             `Ожидался массив турниров, но получен одиночный объект: ${cacheKey}`,
           );
           return of([cached]);
         }
+        this.logger.debug(
+          `Кэша всех турниров нет, сканим Redis по паттернам...`,
+        );
 
-        this.logger.debug(`Турниры не найдены в кэше, загружаем: ${cacheKey}`);
+        // Сразу два паттерна: v1 и v2
+        const patterns: string[] = [
+          'volleystation:compeition:*:v1',
+          'volleystation:compeition:*:v2',
+        ];
 
-        return this.volleystationService.getCompetitions().pipe(
-          tap(async (competitions: Competition[]) => {
+        // Параллельно сканим оба паттерна и получаем массив турниров
+        return forkJoin(
+          patterns.map((p) =>
+            from(this.redisService.getJsonByPattern(p, Competition)),
+          ),
+        ).pipe(
+          map((arrays) => arrays.flat()), // сливаем v1+v2
+          map((all) => {
+            // удаляем дубликаты по id
+            const uniq = new Map<number, Competition>();
+            all.forEach((c) => uniq.set(c.id, c));
+            return Array.from(uniq.values());
+          }),
+          tap(async (competitions) => {
             try {
-              await this.redisService.setJson(cacheKey, competitions, TTL);
-              this.logger.debug(`Турниры сохранены в кэш: ${cacheKey}`);
-            } catch (error) {
+              await this.redisService.setJson(cacheKey, competitions, ttlValue);
+              this.logger.debug(`Список турниров закэширован: ${cacheKey}`);
+            } catch (e) {
               this.logger.warn(
-                `Ошибка при сохранении турниров в кэш: ${error.message}`,
+                `Ошибка кэширования списка турниров: ${e.message}`,
               );
             }
           }),

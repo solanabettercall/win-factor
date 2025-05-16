@@ -45,7 +45,7 @@ export interface IVolleystationService {
   getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile>;
 
   getPlayers(competition: ICompetition): Observable<IPlayer[]>;
-  getCompetitions(): Observable<ICompetition[]>;
+  // getCompetitions(): Observable<ICompetition[]>;
   getCompetition(dto: GetCompeitionDto): Observable<ICompetition | null>;
 }
 
@@ -55,9 +55,9 @@ export class VolleystationService implements IVolleystationService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  getCompetitions(): Observable<ICompetition[]> {
-    return of(competitions);
-  }
+  // getCompetitions(): Observable<ICompetition[]> {
+  //   return of(competitions);
+  // }
 
   getCompetition(dto: GetCompeitionDto): Observable<Competition | null> {
     const { id, version } = dto;
