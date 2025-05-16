@@ -5,7 +5,19 @@ import {
 } from './volleystation.service';
 import { RedisService } from 'src/cache/redis.service';
 import { ICompetition } from './interfaces/vollestation-competition.interface';
-import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
+import {
+  catchError,
+  concat,
+  defer,
+  first,
+  forkJoin,
+  from,
+  mergeMap,
+  Observable,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import {
   IVolleystationSocketService,
   VolleystationSocketService,
@@ -30,9 +42,7 @@ import { GetCompeitionDto } from './dtos/get-competition.dto';
 type FullRawMatch = RawMatch & PlayByPlayEvent;
 
 @Injectable()
-export class VolleystationCacheService
-  implements IVolleystationSocketService, IVolleystationService
-{
+export class VolleystationCacheService implements IVolleystationSocketService {
   private readonly logger = new Logger(VolleystationCacheService.name);
 
   constructor(
@@ -41,65 +51,81 @@ export class VolleystationCacheService
     private readonly redisService: RedisService,
   ) {}
 
-  getCompetition(dto: GetCompeitionDto): Observable<ICompetition | null> {
-    const { id, version } = dto;
-    const cacheKey = `volleystation:compeition:${id}:${version}`;
+  getCompetition(id: number): Observable<ICompetition | null> {
+    const ttlValue = ttl.competition.cache();
 
-    return from(this.redisService.isNegativeCached(cacheKey)).pipe(
-      switchMap((isNegative): Observable<ICompetition | null> => {
-        if (isNegative) {
-          this.logger.debug(
-            `Турнир известен как отсутствующий (negative cache): ${cacheKey}`,
+    const loadVersion = (version: 'v1' | 'v2') => {
+      const cacheKey = `volleystation:compeition:${id}:${version}`;
+
+      return from(this.redisService.isNegativeCached(cacheKey)).pipe(
+        mergeMap((isNegative) => {
+          if (isNegative) {
+            this.logger.debug(`Negative cache: ${cacheKey}`);
+            return of(null);
+          }
+
+          return from(this.redisService.getJson(cacheKey, Competition)).pipe(
+            mergeMap((cached) => {
+              if (cached && !Array.isArray(cached)) {
+                this.logger.debug(`Кэш найден: ${cacheKey}`);
+                return of(cached);
+              }
+
+              if (Array.isArray(cached)) {
+                this.logger.warn(
+                  `Ожидался объект, но получен массив: ${cacheKey}`,
+                );
+              }
+
+              this.logger.debug(`Кэш пуст, парсим: ${cacheKey}`);
+
+              return this.volleystationService
+                .getCompetition({ id, version })
+                .pipe(
+                  tap(async (competition) => {
+                    try {
+                      if (competition) {
+                        await this.redisService.setJson(
+                          cacheKey,
+                          competition,
+                          ttlValue,
+                        );
+                        this.logger.debug(`Турнир сохранён: ${cacheKey}`);
+                      } else {
+                        await this.redisService.setNegativeCache(
+                          cacheKey,
+                          ttlValue,
+                        );
+                        this.logger.debug(
+                          `Negative cache установлен: ${cacheKey}`,
+                        );
+                      }
+                    } catch (e) {
+                      this.logger.warn(`Ошибка кэширования: ${e.message}`);
+                    }
+                  }),
+                  catchError((err) => {
+                    this.logger.warn(
+                      `Ошибка загрузки версии ${version}: ${err.message}`,
+                    );
+                    return of(null);
+                  }),
+                );
+            }),
           );
-          return of(null);
-        }
+        }),
+      );
+    };
 
-        return from(this.redisService.getJson(cacheKey, Competition)).pipe(
-          switchMap((cached): Observable<ICompetition | null> => {
-            if (cached && !Array.isArray(cached)) {
-              this.logger.debug(`Турнир найден в кэше: ${cacheKey}`);
-              return of(cached);
-            }
-
-            if (Array.isArray(cached)) {
-              this.logger.warn(
-                `Ожидался одиночный турнир, но получен массив: ${cacheKey}`,
-              );
-            }
-
-            this.logger.debug(
-              `Турнир не найден в кэше, загружаем: ${cacheKey}`,
-            );
-
-            return this.volleystationService.getCompetition(dto).pipe(
-              tap(async (competition) => {
-                try {
-                  const ttlValue = ttl.player.cache();
-                  if (competition) {
-                    await this.redisService.setJson(
-                      cacheKey,
-                      competition,
-                      ttlValue,
-                    );
-                    this.logger.debug(`Турнир сохранён в кэш: ${cacheKey}`);
-                  } else {
-                    await this.redisService.setNegativeCache(
-                      cacheKey,
-                      ttlValue,
-                    );
-                    this.logger.debug(
-                      `Отсутствие турнира закэшировано: ${cacheKey}`,
-                    );
-                  }
-                } catch (e) {
-                  this.logger.warn(`Ошибка кэширования: ${e.message}`);
-                }
-              }),
-            );
-          }),
+    return concat(
+      loadVersion('v1'),
+      defer(() => {
+        this.logger.debug(
+          `v1 не дал результата, пробуем v2: competition ${id}`,
         );
+        return loadVersion('v2');
       }),
-    );
+    ).pipe(first((v): v is ICompetition => !!v, null));
   }
 
   getCompetitions(): Observable<Competition[]> {

@@ -70,6 +70,7 @@ export class VolleystationService implements IVolleystationService {
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403) return of(null);
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(

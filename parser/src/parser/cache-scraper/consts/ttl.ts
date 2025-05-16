@@ -80,7 +80,7 @@ export const ttl: Record<CachableEntityType, ICacheOption> = {
   },
 
   competition: {
-    cache: () => 0,
+    cache: () => randomInt(86400, 259200),
     repeat: () => randomInt(30_000, 40_000),
     deduplication: () => randomInt(30_000, 40_000),
   },
