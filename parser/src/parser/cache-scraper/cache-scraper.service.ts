@@ -35,7 +35,7 @@ export class CacheScraperService {
 
   async onModuleInit() {}
 
-  @Cron(CronExpression.EVERY_5_SECONDS, {
+  @Cron(CronExpression.EVERY_30_SECONDS, {
     waitForCompletion: true,
     disabled: true,
   })

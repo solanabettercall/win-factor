@@ -24,6 +24,7 @@ import { GetMatchesDto } from './dtos/get-matches.dto';
 import { CachableEntityType, ttl } from '../../cache-scraper/consts/ttl';
 import { MatchListType } from './types';
 import { MatchStatus } from './enums';
+import { GetCompeitionDto } from './dtos/get-competition.dto';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -39,6 +40,67 @@ export class VolleystationCacheService
     private readonly volleystationSocketService: VolleystationSocketService,
     private readonly redisService: RedisService,
   ) {}
+
+  getCompetition(dto: GetCompeitionDto): Observable<ICompetition | null> {
+    const { id, version } = dto;
+    const cacheKey = `volleystation:compeition:${id}:${version}`;
+
+    return from(this.redisService.isNegativeCached(cacheKey)).pipe(
+      switchMap((isNegative): Observable<ICompetition | null> => {
+        if (isNegative) {
+          this.logger.debug(
+            `Турнир известен как отсутствующий (negative cache): ${cacheKey}`,
+          );
+          return of(null);
+        }
+
+        return from(this.redisService.getJson(cacheKey, Competition)).pipe(
+          switchMap((cached): Observable<ICompetition | null> => {
+            if (cached && !Array.isArray(cached)) {
+              this.logger.debug(`Турнир найден в кэше: ${cacheKey}`);
+              return of(cached);
+            }
+
+            if (Array.isArray(cached)) {
+              this.logger.warn(
+                `Ожидался одиночный турнир, но получен массив: ${cacheKey}`,
+              );
+            }
+
+            this.logger.debug(
+              `Турнир не найден в кэше, загружаем: ${cacheKey}`,
+            );
+
+            return this.volleystationService.getCompetition(dto).pipe(
+              tap(async (competition) => {
+                try {
+                  const ttlValue = ttl.player.cache();
+                  if (competition) {
+                    await this.redisService.setJson(
+                      cacheKey,
+                      competition,
+                      ttlValue,
+                    );
+                    this.logger.debug(`Турнир сохранён в кэш: ${cacheKey}`);
+                  } else {
+                    await this.redisService.setNegativeCache(
+                      cacheKey,
+                      ttlValue,
+                    );
+                    this.logger.debug(
+                      `Отсутствие турнира закэшировано: ${cacheKey}`,
+                    );
+                  }
+                } catch (e) {
+                  this.logger.warn(`Ошибка кэширования: ${e.message}`);
+                }
+              }),
+            );
+          }),
+        );
+      }),
+    );
+  }
 
   getCompetitions(): Observable<Competition[]> {
     return this.volleystationService.getCompetitions();

@@ -19,6 +19,21 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   private readonly config = appConfig().redis;
 
+  private getNegativeKey(key: string): string {
+    return `${key}:negative`;
+  }
+
+  async isNegativeCached(originalKey: string): Promise<boolean> {
+    const negativeKey = this.getNegativeKey(originalKey);
+    const exists = await this.exists(negativeKey);
+    return exists;
+  }
+
+  async setNegativeCache(originalKey: string, ttl: number): Promise<void> {
+    const negativeKey = this.getNegativeKey(originalKey);
+    await this.set(negativeKey, '1', ttl);
+  }
+
   async onModuleInit() {
     this.client = new Redis({
       host: this.config.host,

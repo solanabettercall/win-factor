@@ -31,27 +31,35 @@ export class ParserService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     // const competition = competitions.find((c) => c.id === 25);
     // const competition = competitions.find((c) => c.id === 489);
-    const competition = competitions.find((c) => c.id === 222);
-
+    // const competition = competitions.find((c) => c.id === 125);
     // const teams = await firstValueFrom(
     //   this.volleystationService.getTeams(competition),
     // );
-
-    const matches = await firstValueFrom(
-      this.volleystationService.getMatches({
-        competition,
-        type: MatchListType.Schedule,
+    // console.log(teams);
+    const competition = await firstValueFrom(
+      this.volleystationCacheService.getCompetition({
+        id: 1337,
+        version: 'v2',
       }),
     );
-    console.log(matches[0]);
-
+    console.log(competition);
+    // const title = await firstValueFrom(
+    //   this.volleystationService.getCompetition(25, 'v1'),
+    // );
+    // console.log(title);
+    // const matches = await firstValueFrom(
+    //   this.volleystationService.getMatches({
+    //     competition,
+    //     type: MatchListType.Results,
+    //   }),
+    // );
+    // console.log(matches[0]);
     // const player = await firstValueFrom(
     //   this.volleystationService.getPlayer({
     //     competition,
     //     playerId: 2205610,
     //   }),
     // );
-
     // console.log(player);
     // // const player = await firstValueFrom(
     // //   this.volleystationCacheService.getPlayer(competition, 2122868),
@@ -92,7 +100,6 @@ export class ParserService implements OnApplicationBootstrap {
     //           competition,
     //           type: MatchListType.Schedule,
     //         });
-
     //         return forkJoin([results$, schedules$]).pipe(
     //           map(([resultsMatches, schedulesMatches]) => ({
     //             competition,
@@ -120,7 +127,6 @@ export class ParserService implements OnApplicationBootstrap {
     //     last(), // получим последний competition перед break
     //   )
     //   .subscribe();
-
     // console.log(`home: ${match.teams.home.name}`);
     // console.log(`away: ${match.teams.away.name}`);
     // const matches = await firstValueFrom(

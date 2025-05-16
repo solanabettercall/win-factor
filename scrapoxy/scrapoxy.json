@@ -26,7 +26,7 @@
             "id": "e6f51d01-3e23-4811-83e8-37103b2e544f",
             "name": "Win Factor",
             "status": "HOT",
-            "connectorDefaultId": "33b4ed2a-29aa-432a-913d-d648fc3e24da",
+            "connectorDefaultId": "40d07dd3-1d78-4819-9d52-626124e992bc",
             "token": "dmw4cnN3c2h4czg5dnM4OWFjNzFvOnU2cjdyMnFxbWZoMHNrOTVrNTJwZA==",
             "autoRotate": {
                 "enabled": false,
@@ -58,7 +58,7 @@
                     "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
                     "name": "Proxy List Connector",
                     "type": "freeproxies",
-                    "active": true,
+                    "active": false,
                     "proxiesMax": 1000,
                     "proxiesTimeoutDisconnected": 5000,
                     "proxiesTimeoutUnreachable": {
@@ -6183,6 +6183,225 @@
                             "address": {
                                 "hostname": "185.93.89.146",
                                 "port": 4395
+                            },
+                            "auth": null
+                        }
+                    ]
+                },
+                {
+                    "id": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                    "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                    "name": "Only Valid",
+                    "type": "freeproxies",
+                    "active": true,
+                    "proxiesMax": 1000,
+                    "proxiesTimeoutDisconnected": 5000,
+                    "proxiesTimeoutUnreachable": {
+                        "enabled": true,
+                        "value": 600000
+                    },
+                    "error": null,
+                    "certificateEndAt": null,
+                    "credentialId": "99033fc1-02d1-4962-ac8d-ab06b919461e",
+                    "config": {
+                        "freeproxiesTimeoutDisconnected": 5000,
+                        "freeproxiesTimeoutUnreachable": {
+                            "enabled": false,
+                            "value": 600000
+                        }
+                    },
+                    "certificate": null,
+                    "sources": [],
+                    "freeproxies": [
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:212.55.99.157#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "212.55.99.157#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "212.55.99.157",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:27.79.128.58#17000",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "27.79.128.58#17000",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "27.79.128.58",
+                                "port": 17000
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:27.79.160.255#17000",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "27.79.160.255#17000",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "27.79.160.255",
+                                "port": 17000
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:91.122.176.71#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "91.122.176.71#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "91.122.176.71",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:212.124.22.245#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "212.124.22.245#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "212.124.22.245",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:185.23.81.5#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "185.23.81.5#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "185.23.81.5",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:64.226.85.75#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "64.226.85.75#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "64.226.85.75",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:51.210.111.216#56241",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "51.210.111.216#56241",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "51.210.111.216",
+                                "port": 56241
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:176.226.244.28#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "176.226.244.28#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "176.226.244.28",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:206.189.57.182#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "206.189.57.182#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "206.189.57.182",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:212.237.125.216#6969",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "212.237.125.216#6969",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "212.237.125.216",
+                                "port": 6969
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:27.79.227.26#17000",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "27.79.227.26#17000",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "27.79.227.26",
+                                "port": 17000
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:46.8.216.172#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "46.8.216.172#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "46.8.216.172",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:103.138.123.242#8082",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "103.138.123.242#8082",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "103.138.123.242",
+                                "port": 8082
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:217.173.31.28#1080",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "217.173.31.28#1080",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "217.173.31.28",
+                                "port": 1080
+                            },
+                            "auth": null
+                        },
+                        {
+                            "id": "40d07dd3-1d78-4819-9d52-626124e992bc:47.76.42.140#8888",
+                            "projectId": "e6f51d01-3e23-4811-83e8-37103b2e544f",
+                            "connectorId": "40d07dd3-1d78-4819-9d52-626124e992bc",
+                            "key": "47.76.42.140#8888",
+                            "type": "socks5",
+                            "address": {
+                                "hostname": "47.76.42.140",
+                                "port": 8888
                             },
                             "auth": null
                         }

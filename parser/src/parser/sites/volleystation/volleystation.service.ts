@@ -34,6 +34,8 @@ import { ISpike } from './interfaces/skills/spike.interface';
 import { IServe } from './interfaces/skills/serve.interface';
 import { IReception } from './interfaces/skills/reception.interface';
 import { MatchListType } from './types';
+import { GetCompeitionDto } from './dtos/get-competition.dto';
+import { Competition } from './models/vollestation-competition';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
@@ -44,6 +46,7 @@ export interface IVolleystationService {
 
   getPlayers(competition: ICompetition): Observable<IPlayer[]>;
   getCompetitions(): Observable<ICompetition[]>;
+  getCompetition(dto: GetCompeitionDto): Observable<ICompetition | null>;
 }
 
 @Injectable()
@@ -54,6 +57,50 @@ export class VolleystationService implements IVolleystationService {
 
   getCompetitions(): Observable<ICompetition[]> {
     return of(competitions);
+  }
+
+  getCompetition(dto: GetCompeitionDto): Observable<Competition | null> {
+    const { id, version } = dto;
+    const website = version === 'v1' ? 'website' : 'website2';
+    const href = `https://panel.volleystation.com/${website}/${id}/en/`;
+
+    return this.httpService.get(href).pipe(
+      retry({
+        count: 200,
+        delay: (error, retryIndex) => {
+          const status = error?.status || 0;
+          if (status === 404) return throwError(() => new NotFoundException());
+          const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+
+          this.logger.warn(
+            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+          );
+
+          return of(null).pipe(delay(delayTime));
+        },
+      }),
+      map((response) => response.data),
+      map((html) => cheerio.load(html)),
+      map(($) => {
+        const name = $('title')
+          .text()
+          .trim()
+          .replaceAll('\n', '')
+          .replace('Homepage - ', '');
+        const competition: ICompetition = { id, name, url: href };
+        return competition;
+      }),
+      catchError((err) => {
+        if (err instanceof NotFoundException) {
+          this.logger.warn(`Не найдено ${href}`);
+          return of(null);
+        }
+        this.logger.error(
+          `Ошибка при окончательной обработке ${href}: ${err.message}`,
+        );
+        return of(null);
+      }),
+    );
   }
 
   // Первый парсер
