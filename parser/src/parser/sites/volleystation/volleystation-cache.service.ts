@@ -42,6 +42,34 @@ import { GetCompeitionDto } from './dtos/get-competition.dto';
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
 
+function MeasureExecutionTime() {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (...args: any[]) {
+      const startTime = performance.now();
+      const result = originalMethod.apply(this, args);
+      if (result instanceof Observable) {
+        return result.pipe(
+          tap(() => {
+            const endTime = performance.now();
+            const executionTime = endTime - startTime;
+            const logger = new Logger(target.constructor.name);
+            logger.debug(
+              `Время выполнения метода ${propertyKey}: ${executionTime.toFixed(2)} мс`,
+            );
+          }),
+        );
+      }
+      return result;
+    };
+    return descriptor;
+  };
+}
+
 @Injectable()
 export class VolleystationCacheService implements IVolleystationSocketService {
   private readonly logger = new Logger(VolleystationCacheService.name);
@@ -129,8 +157,9 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     ).pipe(first((v): v is ICompetition => !!v, null));
   }
 
+  @MeasureExecutionTime()
   getCompetitions(): Observable<Competition[]> {
-    const ttlValue = ttl.competition.cache();
+    const ttlValue = ttl.competitions.cache();
     const cacheKey = 'volleystation:competitions:all';
 
     return from(this.redisService.getJson(cacheKey, Competition)).pipe(

@@ -28,7 +28,8 @@ export type CachableEntityType =
   | 'onlineMatch'
   | 'scheduledMatch'
   | 'completedMatch'
-  | 'competition';
+  | 'competition'
+  | 'competitions';
 
 export const ttl: Record<CachableEntityType, ICacheOption> = {
   player: {
@@ -81,7 +82,12 @@ export const ttl: Record<CachableEntityType, ICacheOption> = {
 
   competition: {
     cache: () => randomInt(86400, 259200),
-    repeat: () => randomInt(30_000, 40_000),
-    deduplication: () => randomInt(30_000, 40_000),
+    repeat: () => randomInt(300_000, 600_000),
+    deduplication: () => randomInt(300_000, 600_000),
+  },
+  competitions: {
+    cache: () => randomInt(60, 120),
+    repeat: () => randomInt(60_000, 120_000),
+    deduplication: () => randomInt(60_000, 120_000),
   },
 };

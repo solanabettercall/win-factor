@@ -43,7 +43,7 @@ export class ParserService implements OnApplicationBootstrap {
     const competitions = await firstValueFrom(
       this.volleystationCacheService.getCompetitions(),
     );
-    console.log(competitions[10]);
+    console.log(competitions.length);
 
     // const title = await firstValueFrom(
     //   this.volleystationService.getCompetition(25, 'v1'),

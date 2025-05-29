@@ -48,7 +48,7 @@ export class CacheScraperService {
   }
 
   async processCompetitions() {
-    // await this.cachScraperQueue.resume();
+    await this.cachScraperQueue.resume();
     this.logger.log('Запуск поиска турниров');
     for (let id = 1; id <= 2000; id++) {
       const data: Pick<GetCompeitionDto, 'id'> = {

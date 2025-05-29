@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { bold, fmt, FormattedString } from '@grammyjs/parse-mode';
+import { bold, fmt, FormattedString, link } from '@grammyjs/parse-mode';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
 import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 
@@ -18,7 +18,7 @@ export class FormattingService {
   }
 
   competitionTitle(competition: Competition): FormattedString {
-    return fmt`🏆 ${bold(competition.name)}\n\nВыбери команду ⬇️`;
+    return fmt`🏆 ${link(competition.name, competition.url)}\n\nВыбери команду ⬇️`;
   }
 
   teamTitle(competition: Competition, team: Team): FormattedString {

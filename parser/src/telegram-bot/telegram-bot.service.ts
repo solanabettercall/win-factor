@@ -65,9 +65,13 @@ export class TelegramBotService implements OnModuleInit {
         this.playerService.getCompetitionById(id),
       );
       ctx.session.selectedCompetition = selectedCompetition;
-      return this.formattingService.competitionTitle(
+      const competitionTitle = this.formattingService.competitionTitle(
         ctx.session.selectedCompetition,
       );
+      return {
+        disable_web_page_preview: true,
+        ...competitionTitle,
+      };
     }),
     main: new MenuTemplate<MyCtx>(() => {
       return this.formattingService.mainMenuTitle();
