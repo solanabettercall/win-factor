@@ -8,6 +8,7 @@ import { ICompetition } from './interfaces/vollestation-competition.interface';
 import {
   catchError,
   concat,
+  defaultIfEmpty,
   defer,
   first,
   forkJoin,
@@ -244,6 +245,7 @@ export class VolleystationCacheService implements IVolleystationSocketService {
           }),
         );
       }),
+      defaultIfEmpty([]),
     );
   }
 

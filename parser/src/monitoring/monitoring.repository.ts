@@ -5,9 +5,19 @@ import { Model, Types } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IMonitoringRepository } from './interfaces/monitoring-repository.interface';
-import { defer, from, map, mergeMap, Observable, of, switchMap } from 'rxjs';
+import {
+  defer,
+  from,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  switchMap,
+  throwError,
+} from 'rxjs';
 import { Competition, CompetitionDocument } from './schemas/competition.schema';
 import { Team, TeamDocument } from './schemas/team.schema';
+import { Player, PlayerDocument } from './schemas/player.schema';
 
 @Injectable()
 export class MonitoringRepository implements IMonitoringRepository {
@@ -20,6 +30,8 @@ export class MonitoringRepository implements IMonitoringRepository {
     private competitionModel: Model<CompetitionDocument>,
     @InjectModel(Team.name)
     private teamModel: Model<TeamDocument>,
+    @InjectModel(Player.name)
+    private playerModel: Model<PlayerDocument>,
   ) {}
 
   isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
@@ -29,15 +41,16 @@ export class MonitoringRepository implements IMonitoringRepository {
       Promise.all([
         this.competitionModel.findOne({ id: dto.competitionId }).exec(),
         this.teamModel.findOne({ id: dto.teamId }).exec(),
+        this.playerModel.findOne({ id: dto.playerId }).exec(),
       ]),
     ).pipe(
-      mergeMap(([competitionDoc, teamDoc]) => {
-        if (!competitionDoc || !teamDoc) {
+      mergeMap(([competitionDoc, teamDoc, playerDoc]) => {
+        if (!competitionDoc || !teamDoc || !playerDoc) {
           return of(false);
         }
         return from(
           this.monitoringModel.exists({
-            playerId: dto.playerId,
+            player: playerDoc._id,
             team: teamDoc._id,
             competition: competitionDoc._id,
           }),
@@ -53,27 +66,40 @@ export class MonitoringRepository implements IMonitoringRepository {
       Promise.all([
         this.competitionModel.findOne({ id: dto.competitionId }).exec(),
         this.teamModel.findOne({ id: dto.teamId }).exec(),
+        this.playerModel.findOne({ id: dto.playerId }).exec(),
       ]),
     ).pipe(
-      mergeMap(([competitionDoc, teamDoc]) => {
+      mergeMap(([competitionDoc, teamDoc, playerDoc]) => {
+        // Если какой-то документ не найден, возвращаем Observable с ошибкой
         if (!competitionDoc) {
-          throw new NotFoundException(`Турнир ${dto.competitionId} не найден`);
+          return throwError(
+            () =>
+              new NotFoundException(`Турнир ${dto.competitionId} не найден`),
+          );
         }
         if (!teamDoc) {
-          throw new NotFoundException(`Команда ${dto.teamId} не найдена`);
+          return throwError(
+            () => new NotFoundException(`Команда ${dto.teamId} не найдена`),
+          );
+        }
+        if (!playerDoc) {
+          return throwError(
+            () => new NotFoundException(`Игрок ${dto.playerId} не найден`),
+          );
         }
 
+        // Все три документа существуют → можем безопасно выполнять upsert
         return from(
           this.monitoringModel
             .updateOne(
               {
-                playerId: dto.playerId,
+                player: playerDoc._id,
                 team: teamDoc._id,
                 competition: competitionDoc._id,
               },
               {
                 $setOnInsert: {
-                  playerId: dto.playerId,
+                  player: playerDoc._id,
                   team: teamDoc._id,
                   competition: competitionDoc._id,
                 },
@@ -93,16 +119,17 @@ export class MonitoringRepository implements IMonitoringRepository {
       Promise.all([
         this.competitionModel.findOne({ id: dto.competitionId }).exec(),
         this.teamModel.findOne({ id: dto.teamId }).exec(),
+        this.playerModel.findOne({ id: dto.playerId }).exec(),
       ]),
     ).pipe(
-      mergeMap(([competitionDoc, teamDoc]) => {
-        if (!competitionDoc || !teamDoc) {
+      mergeMap(([competitionDoc, teamDoc, playerDoc]) => {
+        if (!competitionDoc || !teamDoc || !playerDoc) {
           return of(undefined);
         }
 
         return from(
           this.monitoringModel.deleteOne({
-            playerId: dto.playerId,
+            player: playerDoc._id,
             team: teamDoc._id,
             competition: competitionDoc._id,
           }),

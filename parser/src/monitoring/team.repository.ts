@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { from, Observable } from 'rxjs';
+import { from, map, Observable } from 'rxjs';
 import { ITeamRepository } from './interfaces/team-repository.interface';
 import { Team, TeamDocument } from './schemas/team.schema';
 
@@ -26,11 +26,36 @@ export class TeamRepository implements ITeamRepository {
     );
   }
 
-  findAll(): Observable<Team[]> {
-    return from(this.teamModel.find().exec());
+  //   findAll(): Observable<Team[]> {
+  //     return from(this.teamModel.find().exec());
+  //   }
+
+  //   findById(id: number): Observable<Team | null> {
+  //     return from(this.teamModel.findOne({ id }).exec());
+  //   }
+  // }
+
+  findAll(competitionId: number): Observable<Team[]> {
+    return from(
+      this.teamModel
+        .find()
+        .populate({
+          path: 'competition',
+          match: { id: competitionId },
+        })
+        .exec(),
+    ).pipe(map((teams) => teams.filter((p) => !!p.competition)));
   }
 
-  findById(id: number): Observable<Team | null> {
-    return from(this.teamModel.findOne({ id }).exec());
+  findById(competitionId: number, id: string): Observable<Team | null> {
+    return from(
+      this.teamModel
+        .findOne({ id })
+        .populate({
+          path: 'competition',
+          match: { id: competitionId },
+        })
+        .exec(),
+    ).pipe(map((team) => (team && team.competition ? team : null)));
   }
 }

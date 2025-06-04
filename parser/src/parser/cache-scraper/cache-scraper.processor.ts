@@ -14,6 +14,8 @@ import {
   EMPTY,
   filter,
   firstValueFrom,
+  from,
+  mergeMap,
   switchMap,
   take,
   tap,
@@ -34,10 +36,10 @@ import { priorities } from './consts/priorities';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
 import { TeamService } from 'src/monitoring/team.service';
-import { ITeam } from '../sites/volleystation/interfaces/team-list/team.interface';
 import { TeamRoster } from '../sites/volleystation/models/team-roster/team-roster';
 import { PlayerService } from 'src/monitoring/player.service';
 import { Player } from 'src/monitoring/schemas/player.schema';
+import { Team } from 'src/monitoring/schemas/team.schema';
 
 @Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
@@ -219,122 +221,138 @@ export class CacheScraperProcessor extends WorkerHost {
   //   this.logger.log(JSON.stringify(data, null, 2));
   // }
 
-  private async handleTeams(job: Job<Competition>) {
+  private handleTeams(job: Job<Competition>): void {
     const comp = job.data;
-    this.logger.log(`Обработка команд: [${comp.id}]`);
+    this.logger.log(`Старт обработки команд для турнира [${comp.id}]`);
 
-    const teams = await firstValueFrom(
-      this.volleystationCacheService.getTeams(comp),
-    );
+    this.volleystationCacheService
+      .getTeams(comp)
+      .pipe(
+        take(1),
+        switchMap((teams: Team[]) => {
+          if (!teams || teams.length === 0) {
+            this.logger.debug(`Для турнира [${comp.id}] нет команд`);
+            return EMPTY;
+          }
+          // Преобразуем массив teams в поток отдельных команд
+          return from(teams);
+        }),
 
-    const addPromises = teams.map((team) => {
-      this.logger.log(`Обработка команды: [${team.id}] турнира ${comp.id}`);
-
-      this.teamService
-        .getTeamById(comp, team.id)
-        .pipe(
-          take(1),
-          filter((t: ITeam | null): t is ITeam => t !== null),
-          switchMap((team: ITeam) =>
-            this.teamService.createTeam(team).pipe(
-              tap((created) =>
-                this.logger.log(`Команда сохранена в БД: ${created.id}`),
+        // Для каждой команды: сразу upsert (createTeam)
+        mergeMap((team: Team) =>
+          this.teamService.createTeam(team).pipe(
+            tap((created: Team) =>
+              this.logger.log(
+                `Команда [${created.id}] сохранена в БД для турнира [${comp.id}]`,
               ),
-              catchError((err) => {
-                this.logger.error(
-                  `Не удалось сохранить команду ${team.id}: ${err.message}`,
-                );
-                return EMPTY;
-              }),
             ),
+            catchError((err) => {
+              this.logger.error(
+                `Не удалось сохранить команду [${team.id}] турнира [${comp.id}]: ${err.message}`,
+              );
+              return EMPTY;
+            }),
+            // После того, как команда либо успешно создана, либо упала на ошибке, добавляем задачу в очередь
+            tap((createdOrEmpty) => {
+              // Если createTeam выпал в catchError, т.е. вернул EMPTY, то createdOrEmpty = undefined
+              // Тем не менее добавляем задачу в очередь для попытки обновления/обработки
+              this.cacheQueue.add(
+                JobType.TEAM,
+                { teamId: team.id, competition: comp },
+                {
+                  priority: priorities.team,
+                  deduplication: {
+                    id: `${comp.id}:${JobType.TEAMS}:${team.id}`,
+                    ttl: ttl.team.deduplication(),
+                  },
+                  repeat: {
+                    every: ttl.team.repeat(),
+                    key: `${comp.id}:${JobType.TEAMS}:${team.id}`,
+                    immediately: true,
+                  },
+                },
+              );
+            }),
           ),
-        )
-        .subscribe({
-          complete: () => {
-            this.logger.debug(`handleTeams for [${team.id}] completed`);
-          },
-          error: (err) => {
-            this.logger.error(`Непредвиденная ошибка в handleTeams: ${err}`);
-          },
-        });
-
-      this.cacheQueue.add(
-        JobType.TEAM,
-        { teamId: team.id, competition: comp },
-        {
-          priority: priorities.team,
-          deduplication: {
-            id: `${comp.id}:${JobType.TEAMS}:${team.id}`,
-            ttl: ttl.team.deduplication(),
-          },
-          repeat: {
-            every: ttl.team.repeat(),
-            key: `${comp.id}:${JobType.TEAMS}:${team.id}`,
-            immediately: true,
-          },
+        ),
+      )
+      .subscribe({
+        complete: () => {
+          this.logger.debug(`handleTeams для турнира [${comp.id}] завершён`);
         },
-      );
-    });
-
-    return Promise.all(addPromises);
+        error: (err) => {
+          this.logger.error(
+            `Непредвиденная ошибка в handleTeams для турнира [${comp.id}]: ${err}`,
+          );
+        },
+      });
   }
 
-  private async handlePlayers(job: Job<Competition>) {
+  private handlePlayers(job: Job<Competition>): void {
     const comp = job.data;
-    this.logger.log(`Обработка игроков: [${comp.id}]`);
+    this.logger.log(`Старт обработки игроков для турнира [${comp.id}]`);
 
-    const players = await firstValueFrom(
-      this.volleystationCacheService.getPlayers(comp),
-    );
+    this.volleystationCacheService
+      .getPlayers(comp) // Observable<Player[]>
+      .pipe(
+        take(1), // один раз получить весь массив игроков и завершиться
+        switchMap((players: Player[]) => {
+          if (!players || players.length === 0) {
+            this.logger.debug(`В турнире [${comp.id}] нет игроков`);
+            return EMPTY;
+          }
+          // Разворачиваем массив игроков в поток по одному игроку
+          return from(players);
+        }),
 
-    const addPromises = players.map((player) => {
-      this.playerService
-        .getPlayer(comp, player.id)
-        .pipe(
-          take(1),
-          filter((t: Player | null): t is Player => t !== null),
-          switchMap((player: Player) =>
-            this.playerService.createPlayer(player).pipe(
-              tap((created) =>
-                this.logger.log(`Игрок сохранен в БД: ${created.id}`),
+        // Для каждого player:
+        mergeMap((player: Player) =>
+          this.playerService.createPlayer(player).pipe(
+            // Если успешно upsert, логируем
+            tap((created: Player) =>
+              this.logger.log(
+                `Игрок [${created.id}] сохранён в БД для турнира [${comp.id}]`,
               ),
-              catchError((err) => {
-                this.logger.error(
-                  `Не удалось сохранить игрока ${player.id}: ${err.message}`,
-                );
-                return EMPTY;
-              }),
             ),
+            // Если ошибка при сохранении — логируем и "гасим" поток
+            catchError((err) => {
+              this.logger.error(
+                `Не удалось сохранить игрока [${player.id}] турнира [${comp.id}]: ${err.message}`,
+              );
+              return EMPTY;
+            }),
+            // После этого (даже если был ошибочный EMPTY) добавляем задачу в очередь
+            tap(() => {
+              this.cacheQueue.add(
+                JobType.PLAYER,
+                { playerId: player.id, competition: comp },
+                {
+                  priority: priorities.player,
+                  deduplication: {
+                    id: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
+                    ttl: ttl.player.deduplication(),
+                  },
+                  repeat: {
+                    every: ttl.player.repeat(),
+                    key: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
+                    immediately: true,
+                  },
+                },
+              );
+            }),
           ),
-        )
-        .subscribe({
-          complete: () => {
-            this.logger.debug(`handlePlayers for [${player.id}] completed`);
-          },
-          error: (err) => {
-            this.logger.error(`Непредвиденная ошибка в handlePlayers: ${err}`);
-          },
-        });
-
-      this.cacheQueue.add(
-        JobType.PLAYER,
-        { playerId: player.id, competition: comp },
-        {
-          priority: priorities.player,
-          deduplication: {
-            id: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
-            ttl: ttl.player.deduplication(),
-          },
-          repeat: {
-            every: ttl.player.repeat(),
-            key: `${comp.id}:${JobType.PLAYERS}:${player.id}`,
-            immediately: true,
-          },
+        ),
+      )
+      .subscribe({
+        complete: () => {
+          this.logger.debug(`handlePlayers для турнира [${comp.id}] завершён`);
         },
-      );
-    });
-
-    return Promise.all(addPromises);
+        error: (err) => {
+          this.logger.error(
+            `Непредвиденная ошибка в handlePlayers для турнира [${comp.id}]: ${err}`,
+          );
+        },
+      });
   }
 
   private async handleTeam(job: Job<GetTeamDto>): Promise<TeamRoster> {

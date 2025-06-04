@@ -32,21 +32,47 @@ export class TeamService {
     return this.teamRepository.upsert(team);
   }
 
-  getTeamById(competition: Competition, id: string): Observable<Team> {
-    return this.volleystationCacheService.getTeams(competition).pipe(
-      map((teams) => {
-        const team = teams.find((team) => team.id === id);
-        if (!team) throw new NotFoundException(`Команда ${id} не найдена`);
+  // getTeamById(competition: Competition, id: string): Observable<Team> {
+  //   return this.volleystationCacheService.getTeams(competition).pipe(
+  //     map((teams) => {
+  //       const team = teams.find((team) => team.id === id);
+  //       if (!team) throw new NotFoundException(`Команда ${id} не найдена`);
+  //       return team;
+  //     }),
+  //   );
+  // }
+
+  // getTeamById(competition: Competition, id: string): Observable<Team> {
+  //   return this.teamRepository.findById(competition.id, id).pipe(
+  //     map((player) => {
+  //       if (!player) {
+  //         throw new NotFoundException(`Игрок ${id} не найден`);
+  //       }
+  //       return player;
+  //     }),
+  //   );
+  // }
+
+  // getTeams(competition: ICompetition): Observable<Team[]> {
+  //   return this.volleystationCacheService.getTeams(competition);
+  // }
+
+  // getTeam(dto: GetTeamDto): Observable<TeamRoster> {
+  //   return this.volleystationCacheService.getTeam(dto);
+  // }
+
+  getTeam(competition: Competition, id: string): Observable<Team> {
+    return this.teamRepository.findById(competition.id, id).pipe(
+      map((team) => {
+        if (!team) {
+          throw new NotFoundException(`Команда ${id} не найдена`);
+        }
         return team;
       }),
     );
   }
 
-  getTeams(competition: ICompetition): Observable<Team[]> {
-    return this.volleystationCacheService.getTeams(competition);
-  }
-
-  getTeam(dto: GetTeamDto): Observable<TeamRoster> {
-    return this.volleystationCacheService.getTeam(dto);
+  getTeams(competition: Competition): Observable<Team[]> {
+    return this.teamRepository.findAll(competition.id);
   }
 }
