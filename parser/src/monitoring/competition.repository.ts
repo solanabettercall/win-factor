@@ -14,9 +14,16 @@ export class CompetitionRepository implements ICompetitionRepository {
     private competitionModel: Model<CompetitionDocument>,
   ) {}
 
-  create(competition: Competition): Observable<Competition> {
-    const createdCompetition = new this.competitionModel(competition);
-    return from(createdCompetition.save());
+  upsertCompetition(competition: Competition): Observable<Competition> {
+    return from(
+      this.competitionModel
+        .findOneAndUpdate(
+          { id: competition.id }, // условие поиска по уникальному полю
+          { $set: competition }, // обновляем все поля
+          { upsert: true, new: true }, // new: true → вернуть обновлённый/созданный документ
+        )
+        .exec(),
+    );
   }
 
   findAll(): Observable<Competition[]> {

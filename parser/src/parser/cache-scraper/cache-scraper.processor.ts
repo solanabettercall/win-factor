@@ -9,7 +9,15 @@ import { Logger } from '@nestjs/common';
 import { JobType } from './cache-scraper.service';
 import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
 import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
-import { firstValueFrom } from 'rxjs';
+import {
+  catchError,
+  EMPTY,
+  filter,
+  firstValueFrom,
+  switchMap,
+  take,
+  tap,
+} from 'rxjs';
 import {
   VolleyJobData,
   MatchListType,
@@ -287,14 +295,51 @@ export class CacheScraperProcessor extends WorkerHost {
     );
   }
 
-  private async handleCompetitionInfo(job: Job<GetCompetitionByIdDto>) {
+  private handleCompetitionInfo(job: Job<GetCompetitionByIdDto>): void {
     const { id } = job.data;
     this.logger.log(`Обработка турнира для проверки: [${id}]`);
-    const competition: ICompetition | null = await firstValueFrom(
-      this.volleystationCacheService.getCompetition(id),
-    );
-    if (competition) {
-      await this.competitionService.createCompetition(competition);
-    }
+
+    this.volleystationCacheService
+      .getCompetition(id)
+      .pipe(
+        // берем только первый emission и завершаем поток
+        take(1),
+
+        // если пришло null (турнир не найден), просто выходим из цепочки
+        filter(
+          (comp: ICompetition | null): comp is ICompetition => comp !== null,
+        ),
+
+        // переключаемся на вызов createCompetition, который вернёт Observable<Competition>
+        switchMap((competition: ICompetition) =>
+          this.competitionService.createCompetition(competition).pipe(
+            // логируем успешное сохранение
+            tap((created) =>
+              this.logger.log(`Турнир сохранён в БД: ${created.id}`),
+            ),
+            // если при сохранении возникла ошибка — отлавливаем и логируем её
+            catchError((err) => {
+              this.logger.error(
+                `Не удалось сохранить турнир ${id}: ${err.message}`,
+              );
+              // прерываем поток (никаких значащих value не передаем дальше)
+              return EMPTY;
+            }),
+          ),
+        ),
+      )
+      .subscribe({
+        complete: () => {
+          // сюда попадаем, когда поток либо успешно дошёл до конца, либо
+          // был завершён EMPTY в catchError
+          this.logger.debug(`handleCompetitionInfo for [${id}] completed`);
+        },
+        error: (err) => {
+          // эта ветка сработает, только если ошибка вылетит вне catchError внутри цепочки
+          this.logger.error(
+            `Непредвиденная ошибка в handleCompetitionInfo: ${err}`,
+          );
+        },
+      });
   }
 }

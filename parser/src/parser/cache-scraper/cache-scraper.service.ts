@@ -50,7 +50,7 @@ export class CacheScraperService {
   async processCompetitions() {
     // await this.cachScraperQueue.resume();
     this.logger.log('Запуск поиска турниров');
-    for (let id = 1; id <= 2000; id++) {
+    for (let id = 1; id <= 1000; id++) {
       const data: Pick<GetCompeitionDto, 'id'> = {
         id,
       };
@@ -60,11 +60,11 @@ export class CacheScraperService {
           id: `${JobType.COMPETITION_INFO}:${id}`,
           ttl: ttl.competition.deduplication(),
         },
-        // repeat: {
-        //   every: ttl.competition.repeat(),
-        //   key: `${JobType.COMPETITION_INFO}:${id}`,
-        //   immediately: true,
-        // },
+        repeat: {
+          every: ttl.competition.repeat(),
+          key: `${JobType.COMPETITION_INFO}:${id}`,
+          immediately: true,
+        },
       });
     }
   }

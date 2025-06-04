@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-
-export type MonitoringDocument = Monitoring & Document;
+import { Document, Types } from 'mongoose';
+import { Competition, CompetitionDocument } from './competition.schema';
 
 @Schema()
 export class Monitoring {
@@ -11,13 +10,14 @@ export class Monitoring {
   @Prop({ required: true })
   teamId: string;
 
-  @Prop({ required: true })
-  competitionId: number;
+  @Prop({ type: 'ObjectId', ref: Competition.name, required: true })
+  competition: CompetitionDocument | Types.ObjectId;
 }
 
+export type MonitoringDocument = Monitoring & Document;
 export const MonitoringSchema = SchemaFactory.createForClass(Monitoring);
 
 MonitoringSchema.index(
-  { playerId: 1, teamId: 1, competitionId: 1 },
+  { playerId: 1, teamId: 1, competition: 1 },
   { unique: true },
 );

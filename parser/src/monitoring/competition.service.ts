@@ -1,13 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
-import { IMonitoringRepository } from './interfaces/monitoring-repository.interface';
-import {
-  CompetitionRepositoryToken,
-  MonitoringRepositoryToken,
-} from './repository-tokens';
-import { map, Observable, of, switchMap, throwError } from 'rxjs';
+import { CompetitionRepositoryToken } from './repository-tokens';
+import { map, Observable, switchMap, throwError } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
 import { ICompetition } from 'src/parser/sites/volleystation/interfaces/vollestation-competition.interface';
 import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
@@ -25,13 +19,11 @@ export class CompetitionService {
   constructor(
     @Inject(CompetitionRepositoryToken)
     private readonly competitionRepository: ICompetitionRepository,
-    // @Inject(MonitoringRepositoryToken)
-    // private readonly monitoringRepository: IMonitoringRepository,
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {}
 
   createCompetition(competition: Competition): Observable<Competition> {
-    return this.competitionRepository.create(competition);
+    return this.competitionRepository.upsertCompetition(competition);
   }
 
   getCompetitions(): Observable<Competition[]> {

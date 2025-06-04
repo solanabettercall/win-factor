@@ -7,7 +7,6 @@ import {
 } from './repository-tokens';
 import { map, Observable, of, switchMap } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
 import { ICompetition } from 'src/parser/sites/volleystation/interfaces/vollestation-competition.interface';
 import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
@@ -18,7 +17,6 @@ import { GetPlayerDto } from 'src/parser/sites/volleystation/dtos/get-player.dto
 import { RawMatch } from 'src/parser/sites/volleystation/models/match-list/raw-match';
 import { GetMatchesDto } from 'src/parser/sites/volleystation/dtos/get-matches.dto';
 import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
-import { ICompetitionRepository } from './interfaces/competition-repository.interface';
 
 @Injectable()
 export class MonitoringService {
@@ -26,7 +24,6 @@ export class MonitoringService {
     @Inject(MonitoringRepositoryToken)
     private readonly monitoringRepository: IMonitoringRepository,
     @Inject(CompetitionRepositoryToken)
-    private readonly competitionRepository: ICompetitionRepository,
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {}
 
@@ -38,22 +35,8 @@ export class MonitoringService {
     return this.monitoringRepository.removePlayerFromMonitoring(dto);
   }
 
-  //TODO refactor this
   getMonitoredCompetitions(): Observable<Competition[]> {
-    return this.monitoringRepository.getMonitoredCompetitionIds().pipe(
-      switchMap((ids) => {
-        if (!ids.length) {
-          return of([]);
-        }
-        return this.competitionRepository
-          .findAll()
-          .pipe(
-            map((competitions) =>
-              competitions.filter((c) => ids.includes(c.id)),
-            ),
-          );
-      }),
-    );
+    return this.monitoringRepository.getMonitoredCompetitions();
   }
 
   getMonitoredTeams(competition: ICompetition): Observable<Team[]> {

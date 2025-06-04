@@ -135,7 +135,7 @@ export class TelegramBotService implements OnModuleInit {
         const playerId = parseInt(key);
         const isSelected = await firstValueFrom(
           this.monitoringService.isPlayerMonitored({
-            tournamentId: ctx.session.selectedCompetition.id,
+            competitionId: ctx.session.selectedCompetition.id,
             teamId: ctx.session.selectedTeam.id,
             playerId,
           }),
@@ -148,7 +148,7 @@ export class TelegramBotService implements OnModuleInit {
           await firstValueFrom(
             this.monitoringService.addToMonitoring({
               playerId,
-              tournamentId: ctx.session.selectedCompetition.id,
+              competitionId: ctx.session.selectedCompetition.id,
               teamId: ctx.session.selectedTeam.id,
             }),
           );
@@ -156,7 +156,7 @@ export class TelegramBotService implements OnModuleInit {
           await firstValueFrom(
             this.monitoringService.removeFromMonitoring({
               playerId,
-              tournamentId: ctx.session.selectedCompetition.id,
+              competitionId: ctx.session.selectedCompetition.id,
               teamId: ctx.session.selectedTeam.id,
             }),
           );

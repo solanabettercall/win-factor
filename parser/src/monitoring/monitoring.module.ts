@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PlayerRepository } from './player.repository';
+import { MonitoringRepository } from './monitoring.repository';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Monitoring, MonitoringSchema } from './schemas/monitoring.schema';
 import { MonitoringService } from './monitoring.service';
@@ -23,11 +23,11 @@ import { CompetitionRepository } from './competition.repository';
   providers: [
     MonitoringService,
     CompetitionService,
-    PlayerRepository,
+    MonitoringRepository,
     CompetitionRepository,
     {
       provide: MonitoringRepositoryToken,
-      useExisting: PlayerRepository,
+      useExisting: MonitoringRepository,
     },
     {
       provide: CompetitionRepositoryToken,
