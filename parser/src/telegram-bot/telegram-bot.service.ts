@@ -15,6 +15,7 @@ import { FormattingService } from './formating.service';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { MonitoringService } from 'src/monitoring/monitoring.service';
 import { Team } from 'src/monitoring/schemas/team.schema';
+import { PlayerService } from 'src/monitoring/player.service';
 
 interface SessionData {
   page: number;
@@ -49,6 +50,7 @@ export class TelegramBotService implements OnModuleInit {
   constructor(
     private readonly monitoringService: MonitoringService,
     private readonly competitionService: CompetitionService,
+    private readonly playerService: PlayerService,
     private readonly formattingService: FormattingService,
   ) {
     const { telegram, redis } = appConfig();

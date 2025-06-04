@@ -21,46 +21,22 @@ export class PlayerService {
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {}
 
-  // getMonitoredTeams(competition: ICompetition): Observable<Team[]> {
-  //   return this.teamRepository.getMonitoredTeamIds(competition.id).pipe(
-  //     switchMap((ids) => {
-  //       if (!ids.length) {
-  //         return of([]);
-  //       }
-  //       return this.getTeams(competition).pipe(
-  //         map((teams) => teams.filter((c) => ids.includes(c.id))),
-  //       );
-  //     }),
-  //   );
-  // }
-
   createPlayer(player: Player): Observable<Player> {
     return this.playerRepository.upsert(player);
   }
 
   getPlayer(competition: Competition, id: number): Observable<Player> {
-    return from(
-      this.competitionModel.findOne({ id: competition.id }).exec(),
-    ).pipe(
-      switchMap((competitionDoc) => {
-        if (!competitionDoc) {
-          throw new NotFoundException(`Турнир ${competition.id} не найден`);
+    return this.playerRepository.findById(competition.id, id).pipe(
+      map((player) => {
+        if (!player) {
+          throw new NotFoundException(`Игрок ${id} не найден`);
         }
-        return this.volleystationCacheService.getPlayers(competition).pipe(
-          map((players) => {
-            const player = players.find((player) => player.id === id);
-            if (!player) {
-              throw new NotFoundException(`Игрок ${id} не найден`);
-            }
-            player.competition = competitionDoc;
-            return player;
-          }),
-        );
+        return player;
       }),
     );
   }
 
-  getPlayers(competition: ICompetition): Observable<Team[]> {
-    return this.volleystationCacheService.getTeams(competition);
+  getPlayers(competition: Competition): Observable<Player[]> {
+    return this.playerRepository.findAll(competition.id);
   }
 }
