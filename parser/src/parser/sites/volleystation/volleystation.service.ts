@@ -14,7 +14,6 @@ import { isValid, parse } from 'date-fns';
 import { ICompetition } from './interfaces/vollestation-competition.interface';
 import { plainToInstance } from 'class-transformer';
 import { RawMatch } from './models/match-list/raw-match';
-import { Team } from './models/team-list/team';
 import { ITeam } from './interfaces/team-list/team.interface';
 import { TeamRoster } from './models/team-roster/team-roster';
 import { ITeamRoster } from './interfaces/team-roster/team-roster.interface';
@@ -35,6 +34,7 @@ import { IReception } from './interfaces/skills/reception.interface';
 import { MatchListType } from './types';
 import { GetCompeitionDto } from './dtos/get-competition.dto';
 import { Competition } from './models/vollestation-competition';
+import { Team } from 'src/monitoring/schemas/team.schema';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;

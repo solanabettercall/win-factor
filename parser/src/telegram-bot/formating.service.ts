@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { bold, fmt, FormattedString, link } from '@grammyjs/parse-mode';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
-import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
+import { Team } from 'src/monitoring/schemas/team.schema';
 
 @Injectable()
 export class FormattingService {

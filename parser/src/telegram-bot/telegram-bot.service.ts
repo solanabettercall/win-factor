@@ -10,11 +10,11 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { appConfig } from 'src/config/parser.config';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
-import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 import { plainToInstance } from 'class-transformer';
 import { FormattingService } from './formating.service';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { MonitoringService } from 'src/monitoring/monitoring.service';
+import { Team } from 'src/monitoring/schemas/team.schema';
 
 interface SessionData {
   page: number;

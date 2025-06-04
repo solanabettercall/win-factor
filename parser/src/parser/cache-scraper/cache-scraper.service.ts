@@ -9,6 +9,7 @@ import { ttl } from './consts/ttl';
 import { priorities } from './consts/priorities';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { GetCompeitionDto } from '../sites/volleystation/dtos/get-competition.dto';
+import { CompetitionService } from 'src/monitoring/competition.service';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -28,6 +29,7 @@ export class CacheScraperService {
 
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
+    private readonly competitionService: CompetitionService,
 
     @InjectQueue(SCRAPER_QUEUE)
     private cachScraperQueue: Queue<VolleyJobData>,
@@ -72,7 +74,7 @@ export class CacheScraperService {
   async run() {
     this.logger.log('Запуск наполнения кэша');
     const competitions = await firstValueFrom(
-      this.volleystationCacheService.getCompetitions(),
+      this.competitionService.getCompetitions(),
     );
 
     for (const competition of competitions) {
@@ -91,8 +93,8 @@ export class CacheScraperService {
     }
   }
   async onApplicationBootstrap() {
-    await this.cachScraperQueue.resume();
-    // this.run();
-    this.processCompetitions();
+    // await this.cachScraperQueue.resume();
+    this.run();
+    // this.processCompetitions();
   }
 }

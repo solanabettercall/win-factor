@@ -1,2 +1,2 @@
-export const MonitoringRepositoryToken = 'IMonitoringRepository';
-export const CompetitionRepositoryToken = 'ICompetitionRepository';
+// export const MonitoringRepositoryToken = 'IMonitoringRepository';
+// export const CompetitionRepositoryToken = 'ICompetitionRepository';

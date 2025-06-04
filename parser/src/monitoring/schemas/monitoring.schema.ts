@@ -1,14 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Competition, CompetitionDocument } from './competition.schema';
+import { Team, TeamDocument } from './team.schema';
 
 @Schema()
 export class Monitoring {
   @Prop({ required: true })
   playerId: number;
 
-  @Prop({ required: true })
-  teamId: string;
+  @Prop({ type: 'ObjectId', ref: Team.name, required: true })
+  team: TeamDocument | Types.ObjectId;
 
   @Prop({ type: 'ObjectId', ref: Competition.name, required: true })
   competition: CompetitionDocument | Types.ObjectId;

@@ -33,6 +33,9 @@ import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
+import { TeamService } from 'src/monitoring/team.service';
+import { ITeam } from '../sites/volleystation/interfaces/team-list/team.interface';
+import { TeamRoster } from '../sites/volleystation/models/team-roster/team-roster';
 
 @Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
@@ -43,6 +46,7 @@ export class CacheScraperProcessor extends WorkerHost {
     private readonly cacheQueue: Queue<VolleyJobData>,
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly competitionService: CompetitionService,
+    private readonly teamService: TeamService,
   ) {
     super();
   }
@@ -220,7 +224,37 @@ export class CacheScraperProcessor extends WorkerHost {
       this.volleystationCacheService.getTeams(comp),
     );
 
-    const addPromises = teams.map((team) =>
+    const addPromises = teams.map((team) => {
+      this.logger.log(`Обработка команды: [${team.id}] турнира ${comp.id}`);
+
+      this.teamService
+        .getTeamById(comp, team.id)
+        .pipe(
+          take(1),
+          filter((t: ITeam | null): t is ITeam => t !== null),
+          switchMap((team: ITeam) =>
+            this.teamService.createTeam(team).pipe(
+              tap((created) =>
+                this.logger.log(`Команда сохранена в БД: ${created.id}`),
+              ),
+              catchError((err) => {
+                this.logger.error(
+                  `Не удалось сохранить команду ${team.id}: ${err.message}`,
+                );
+                return EMPTY;
+              }),
+            ),
+          ),
+        )
+        .subscribe({
+          complete: () => {
+            this.logger.debug(`handleTeams for [${team.id}] completed`);
+          },
+          error: (err) => {
+            this.logger.error(`Непредвиденная ошибка в handleTeams: ${err}`);
+          },
+        });
+
       this.cacheQueue.add(
         JobType.TEAM,
         { teamId: team.id, competition: comp },
@@ -236,8 +270,8 @@ export class CacheScraperProcessor extends WorkerHost {
             immediately: true,
           },
         },
-      ),
-    );
+      );
+    });
 
     return Promise.all(addPromises);
   }
@@ -272,7 +306,7 @@ export class CacheScraperProcessor extends WorkerHost {
     return Promise.all(addPromises);
   }
 
-  private async handleTeam(job: Job<GetTeamDto>) {
+  private async handleTeam(job: Job<GetTeamDto>): Promise<TeamRoster> {
     this.logger.log(
       `Обработка команды: [${job.data.teamId}] турнира ${job.data.competition.id}`,
     );
@@ -299,30 +333,22 @@ export class CacheScraperProcessor extends WorkerHost {
     const { id } = job.data;
     this.logger.log(`Обработка турнира для проверки: [${id}]`);
 
-    this.volleystationCacheService
-      .getCompetition(id)
+    this.competitionService
+      .getCompetitionById(id)
       .pipe(
-        // берем только первый emission и завершаем поток
         take(1),
-
-        // если пришло null (турнир не найден), просто выходим из цепочки
         filter(
           (comp: ICompetition | null): comp is ICompetition => comp !== null,
         ),
-
-        // переключаемся на вызов createCompetition, который вернёт Observable<Competition>
         switchMap((competition: ICompetition) =>
           this.competitionService.createCompetition(competition).pipe(
-            // логируем успешное сохранение
             tap((created) =>
               this.logger.log(`Турнир сохранён в БД: ${created.id}`),
             ),
-            // если при сохранении возникла ошибка — отлавливаем и логируем её
             catchError((err) => {
               this.logger.error(
                 `Не удалось сохранить турнир ${id}: ${err.message}`,
               );
-              // прерываем поток (никаких значащих value не передаем дальше)
               return EMPTY;
             }),
           ),
@@ -330,12 +356,9 @@ export class CacheScraperProcessor extends WorkerHost {
       )
       .subscribe({
         complete: () => {
-          // сюда попадаем, когда поток либо успешно дошёл до конца, либо
-          // был завершён EMPTY в catchError
           this.logger.debug(`handleCompetitionInfo for [${id}] completed`);
         },
         error: (err) => {
-          // эта ветка сработает, только если ошибка вылетит вне catchError внутри цепочки
           this.logger.error(
             `Непредвиденная ошибка в handleCompetitionInfo: ${err}`,
           );

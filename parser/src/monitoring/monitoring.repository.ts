@@ -5,8 +5,9 @@ import { Model, Types } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IMonitoringRepository } from './interfaces/monitoring-repository.interface';
-import { from, map, mergeMap, Observable, of, switchMap } from 'rxjs';
+import { defer, from, map, mergeMap, Observable, of, switchMap } from 'rxjs';
 import { Competition, CompetitionDocument } from './schemas/competition.schema';
+import { Team, TeamDocument } from './schemas/team.schema';
 
 @Injectable()
 export class MonitoringRepository implements IMonitoringRepository {
@@ -17,21 +18,27 @@ export class MonitoringRepository implements IMonitoringRepository {
     private monitoringModel: Model<MonitoringDocument>,
     @InjectModel(Competition.name)
     private competitionModel: Model<CompetitionDocument>,
+    @InjectModel(Team.name)
+    private teamModel: Model<TeamDocument>,
   ) {}
 
   isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
     this.logger.debug('isPlayerMonitored', dto);
+
     return from(
-      this.competitionModel.findOne({ id: dto.competitionId }).exec(),
+      Promise.all([
+        this.competitionModel.findOne({ id: dto.competitionId }).exec(),
+        this.teamModel.findOne({ id: dto.teamId }).exec(),
+      ]),
     ).pipe(
-      mergeMap((competitionDoc) => {
-        if (!competitionDoc) {
+      mergeMap(([competitionDoc, teamDoc]) => {
+        if (!competitionDoc || !teamDoc) {
           return of(false);
         }
         return from(
           this.monitoringModel.exists({
             playerId: dto.playerId,
-            teamId: dto.teamId,
+            team: teamDoc._id,
             competition: competitionDoc._id,
           }),
         ).pipe(map((exists) => !!exists));
@@ -41,25 +48,33 @@ export class MonitoringRepository implements IMonitoringRepository {
 
   addPlayerToMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('addPlayerToMonitoring', dto);
+
     return from(
-      this.competitionModel.findOne({ id: dto.competitionId }).exec(),
+      Promise.all([
+        this.competitionModel.findOne({ id: dto.competitionId }).exec(),
+        this.teamModel.findOne({ id: dto.teamId }).exec(),
+      ]),
     ).pipe(
-      mergeMap((competitionDoc) => {
+      mergeMap(([competitionDoc, teamDoc]) => {
         if (!competitionDoc) {
           throw new NotFoundException(`Турнир ${dto.competitionId} не найден`);
         }
+        if (!teamDoc) {
+          throw new NotFoundException(`Команда ${dto.teamId} не найдена`);
+        }
+
         return from(
           this.monitoringModel
             .updateOne(
               {
                 playerId: dto.playerId,
-                teamId: dto.teamId,
+                team: teamDoc._id,
                 competition: competitionDoc._id,
               },
               {
                 $setOnInsert: {
                   playerId: dto.playerId,
-                  teamId: dto.teamId,
+                  team: teamDoc._id,
                   competition: competitionDoc._id,
                 },
               },
@@ -73,18 +88,22 @@ export class MonitoringRepository implements IMonitoringRepository {
 
   removePlayerFromMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('removePlayerFromMonitoring', dto);
+
     return from(
-      this.competitionModel.findOne({ id: dto.competitionId }).exec(),
+      Promise.all([
+        this.competitionModel.findOne({ id: dto.competitionId }).exec(),
+        this.teamModel.findOne({ id: dto.teamId }).exec(),
+      ]),
     ).pipe(
-      mergeMap((competitionDoc) => {
-        if (!competitionDoc) {
-          // Если турнир не найден, просто выходим без ошибок.
+      mergeMap(([competitionDoc, teamDoc]) => {
+        if (!competitionDoc || !teamDoc) {
           return of(undefined);
         }
+
         return from(
           this.monitoringModel.deleteOne({
             playerId: dto.playerId,
-            teamId: dto.teamId,
+            team: teamDoc._id,
             competition: competitionDoc._id,
           }),
         ).pipe(
@@ -94,7 +113,6 @@ export class MonitoringRepository implements IMonitoringRepository {
                 `При удалении игрока из мониторинга игрок не найден`,
                 dto,
               );
-              // Можно кинуть NotFoundException, если требуется.
             }
             return undefined;
           }),
@@ -104,33 +122,61 @@ export class MonitoringRepository implements IMonitoringRepository {
   }
 
   getMonitoredCompetitions(): Observable<Competition[]> {
-    return from(this.monitoringModel.distinct('competition').exec()).pipe(
-      switchMap((ids: Types.ObjectId[]) => {
-        if (!ids?.length) {
-          return of([]);
-        }
-        return from(
-          this.competitionModel.find({ _id: { $in: ids } }).exec(),
-        ).pipe(map((docs) => docs as Competition[]));
-      }),
-    );
+    return defer(() =>
+      this.monitoringModel
+        .find()
+        .populate<{ competition: Competition }>('competition', 'id name url')
+        .select('competition -_id')
+        .lean()
+        .exec(),
+    ).pipe(map((docs) => docs.map((d) => d.competition).filter(Boolean)));
   }
 
-  getMonitoredTeamIds(tournamentId: number): Observable<string[]> {
-    return from(
-      this.competitionModel.findOne({ id: tournamentId }).exec(),
+  // getMonitoredTeamIds(competitionId: number): Observable<string[]> {
+  //   return from(
+  //     this.competitionModel.findOne({ id: competitionId }).exec(),
+  //   ).pipe(
+  //     mergeMap((competitionDoc) => {
+  //       if (!competitionDoc) {
+  //         return of([] as string[]);
+  //       }
+  //       return from(
+  //         this.monitoringModel
+  //           .find({ competition: competitionDoc._id })
+  //           .distinct('teamId')
+  //           .exec(),
+  //       );
+  //     }),
+  //   );
+  // }
+
+  getMonitoredTeams(competitionId: number): Observable<Team[]> {
+    return defer(() =>
+      this.competitionModel.findOne({ id: competitionId }).lean().exec(),
     ).pipe(
-      mergeMap((competitionDoc) => {
-        if (!competitionDoc) {
-          return of([] as string[]);
-        }
-        return from(
+      mergeMap((competition) => {
+        if (!competition) return of([]);
+
+        return defer(() =>
           this.monitoringModel
-            .find({ competition: competitionDoc._id })
-            .distinct('teamId')
+            .find({ competition: competition._id })
+            .distinct('team')
+            .lean()
             .exec(),
+        ).pipe(
+          mergeMap((teamIds) =>
+            teamIds.length
+              ? defer(() =>
+                  this.teamModel
+                    .find({ _id: { $in: teamIds } })
+                    .lean()
+                    .exec(),
+                )
+              : of([]),
+          ),
         );
       }),
+      map((teams) => teams as Team[]),
     );
   }
 
