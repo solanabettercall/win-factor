@@ -1,4 +1,4 @@
 export class GetMonitoredPlayerIdsDto {
-  tournamentId: number;
+  competitionId: number;
   teamId: string;
 }

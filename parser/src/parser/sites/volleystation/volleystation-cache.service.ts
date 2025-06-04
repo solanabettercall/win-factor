@@ -27,7 +27,6 @@ import { RawMatch } from './models/match-list/raw-match';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
 import { TeamRoster } from './models/team-roster/team-roster';
 import { PlayerProfile } from './models/player-profile/player-profile';
-import { Player } from './models/team-roster/player';
 import { Competition } from './models/vollestation-competition';
 import { randomInt } from 'crypto';
 import { GetPlayerDto } from './dtos/get-player.dto';
@@ -36,8 +35,8 @@ import { GetMatchesDto } from './dtos/get-matches.dto';
 import { CachableEntityType, ttl } from '../../cache-scraper/consts/ttl';
 import { MatchListType } from './types';
 import { MatchStatus } from './enums';
-import { GetCompeitionDto } from './dtos/get-competition.dto';
 import { Team } from 'src/monitoring/schemas/team.schema';
+import { Player } from 'src/monitoring/schemas/player.schema';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;

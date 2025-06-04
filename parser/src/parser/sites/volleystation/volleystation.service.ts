@@ -23,7 +23,6 @@ import { ISkillStatistics } from './interfaces/skills/skill-statistics.interface
 import { IPlayerProfile } from './interfaces/player-profile/player-profile.interface';
 import { IPlayerSummaryStatistics } from './interfaces/player-profile/player-summary-statistics.interface';
 import { PlayerProfile } from './models/player-profile/player-profile';
-import { Player } from './models/team-roster/player';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
@@ -35,6 +34,7 @@ import { MatchListType } from './types';
 import { GetCompeitionDto } from './dtos/get-competition.dto';
 import { Competition } from './models/vollestation-competition';
 import { Team } from 'src/monitoring/schemas/team.schema';
+import { Player } from 'src/monitoring/schemas/player.schema';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;

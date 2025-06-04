@@ -11,6 +11,9 @@ import { CompetitionRepository } from './competition.repository';
 import { Team, TeamSchema } from './schemas/team.schema';
 import { TeamService } from './team.service';
 import { TeamRepository } from './team.repository';
+import { PlayerRepository } from './player.repository';
+import { Player, PlayerSchema } from './schemas/player.schema';
+import { PlayerService } from './player.service';
 
 @Module({
   imports: [
@@ -18,6 +21,7 @@ import { TeamRepository } from './team.repository';
       { name: Monitoring.name, schema: MonitoringSchema },
       { name: Competition.name, schema: CompetitionSchema },
       { name: Team.name, schema: TeamSchema },
+      { name: Player.name, schema: PlayerSchema },
     ]),
     VolleystationModule,
   ],
@@ -27,8 +31,10 @@ import { TeamRepository } from './team.repository';
     TeamService,
     MonitoringRepository,
     TeamRepository,
+    PlayerRepository,
+    PlayerService,
     CompetitionRepository,
   ],
-  exports: [MonitoringService, CompetitionService, TeamService],
+  exports: [MonitoringService, CompetitionService, TeamService, PlayerService],
 })
 export class MonitoringModule {}

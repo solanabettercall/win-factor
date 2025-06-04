@@ -36,6 +36,8 @@ import { ICompetition } from '../sites/volleystation/interfaces/vollestation-com
 import { TeamService } from 'src/monitoring/team.service';
 import { ITeam } from '../sites/volleystation/interfaces/team-list/team.interface';
 import { TeamRoster } from '../sites/volleystation/models/team-roster/team-roster';
+import { PlayerService } from 'src/monitoring/player.service';
+import { Player } from 'src/monitoring/schemas/player.schema';
 
 @Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
@@ -47,6 +49,7 @@ export class CacheScraperProcessor extends WorkerHost {
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly competitionService: CompetitionService,
     private readonly teamService: TeamService,
+    private readonly playerService: PlayerService,
   ) {
     super();
   }
@@ -284,7 +287,35 @@ export class CacheScraperProcessor extends WorkerHost {
       this.volleystationCacheService.getPlayers(comp),
     );
 
-    const addPromises = players.map((player) =>
+    const addPromises = players.map((player) => {
+      this.playerService
+        .getPlayer(comp, player.id)
+        .pipe(
+          take(1),
+          filter((t: Player | null): t is Player => t !== null),
+          switchMap((player: Player) =>
+            this.playerService.createPlayer(player).pipe(
+              tap((created) =>
+                this.logger.log(`Игрок сохранен в БД: ${created.id}`),
+              ),
+              catchError((err) => {
+                this.logger.error(
+                  `Не удалось сохранить игрока ${player.id}: ${err.message}`,
+                );
+                return EMPTY;
+              }),
+            ),
+          ),
+        )
+        .subscribe({
+          complete: () => {
+            this.logger.debug(`handlePlayers for [${player.id}] completed`);
+          },
+          error: (err) => {
+            this.logger.error(`Непредвиденная ошибка в handlePlayers: ${err}`);
+          },
+        });
+
       this.cacheQueue.add(
         JobType.PLAYER,
         { playerId: player.id, competition: comp },
@@ -300,8 +331,8 @@ export class CacheScraperProcessor extends WorkerHost {
             immediately: true,
           },
         },
-      ),
-    );
+      );
+    });
 
     return Promise.all(addPromises);
   }

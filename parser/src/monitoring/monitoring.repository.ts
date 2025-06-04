@@ -132,24 +132,6 @@ export class MonitoringRepository implements IMonitoringRepository {
     ).pipe(map((docs) => docs.map((d) => d.competition).filter(Boolean)));
   }
 
-  // getMonitoredTeamIds(competitionId: number): Observable<string[]> {
-  //   return from(
-  //     this.competitionModel.findOne({ id: competitionId }).exec(),
-  //   ).pipe(
-  //     mergeMap((competitionDoc) => {
-  //       if (!competitionDoc) {
-  //         return of([] as string[]);
-  //       }
-  //       return from(
-  //         this.monitoringModel
-  //           .find({ competition: competitionDoc._id })
-  //           .distinct('teamId')
-  //           .exec(),
-  //       );
-  //     }),
-  //   );
-  // }
-
   getMonitoredTeams(competitionId: number): Observable<Team[]> {
     return defer(() =>
       this.competitionModel.findOne({ id: competitionId }).lean().exec(),
@@ -177,24 +159,6 @@ export class MonitoringRepository implements IMonitoringRepository {
         );
       }),
       map((teams) => teams as Team[]),
-    );
-  }
-
-  getMonitoredPlayerIds(dto: GetMonitoredPlayerIdsDto): Observable<number[]> {
-    return from(
-      this.competitionModel.findOne({ id: dto.tournamentId }).exec(),
-    ).pipe(
-      mergeMap((competitionDoc) => {
-        if (!competitionDoc) {
-          return of([] as number[]);
-        }
-        return from(
-          this.monitoringModel
-            .find({ competition: competitionDoc._id, teamId: dto.teamId })
-            .distinct('playerId')
-            .exec(),
-        );
-      }),
     );
   }
 }

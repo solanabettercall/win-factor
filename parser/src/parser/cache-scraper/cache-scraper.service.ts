@@ -93,7 +93,7 @@ export class CacheScraperService {
     }
   }
   async onApplicationBootstrap() {
-    // await this.cachScraperQueue.resume();
+    await this.cachScraperQueue.resume();
     this.run();
     // this.processCompetitions();
   }

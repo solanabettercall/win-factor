@@ -9,9 +9,9 @@ import { PlayerProfile } from 'src/parser/sites/volleystation/models/player-prof
 import { GetPlayerDto } from 'src/parser/sites/volleystation/dtos/get-player.dto';
 import { RawMatch } from 'src/parser/sites/volleystation/models/match-list/raw-match';
 import { GetMatchesDto } from 'src/parser/sites/volleystation/dtos/get-matches.dto';
-import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
 import { CompetitionRepository } from './competition.repository';
 import { Team } from './schemas/team.schema';
+import { Player } from './schemas/player.schema';
 
 @Injectable()
 export class CompetitionService {
