@@ -15,6 +15,7 @@ import {
   tap,
 } from 'rxjs';
 import { MatchListType } from './sites/volleystation/types';
+import { instanceToPlain, plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class ParserService implements OnApplicationBootstrap {
@@ -40,10 +41,10 @@ export class ParserService implements OnApplicationBootstrap {
     // );
     // console.log(competition);
 
-    const competitions = await firstValueFrom(
-      this.volleystationCacheService.getCompetitions(),
-    );
-    console.log(competitions.length);
+    // const competitions = await firstValueFrom(
+    //   this.volleystationCacheService.getCompetitions(),
+    // );
+    // console.log(competitions.length);
 
     // const title = await firstValueFrom(
     //   this.volleystationService.getCompetition(25, 'v1'),
@@ -82,11 +83,11 @@ export class ParserService implements OnApplicationBootstrap {
     //   ),
     // );
     // console.log(teamRoster);
-    // const matchId = 2163482;
-    // const match = await firstValueFrom(
-    //   this.volleystationCacheService.getMatchInfo(2224208),
-    // );
-    // console.log(match);
+    const matchId = 2210857;
+    const match = await firstValueFrom(
+      this.volleystationCacheService.getMatchInfo(matchId),
+    );
+    console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);
     // const cachedMatch = await this.redisService.getJson(key, PlayByPlayEvent);
     // console.log(cachedMatch);
