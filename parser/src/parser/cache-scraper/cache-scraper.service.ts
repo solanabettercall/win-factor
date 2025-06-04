@@ -60,11 +60,11 @@ export class CacheScraperService {
           id: `${JobType.COMPETITION_INFO}:${id}`,
           ttl: ttl.competition.deduplication(),
         },
-        repeat: {
-          every: ttl.competition.repeat(),
-          key: `${JobType.COMPETITION_INFO}:${id}`,
-          immediately: true,
-        },
+        // repeat: {
+        //   every: ttl.competition.repeat(),
+        //   key: `${JobType.COMPETITION_INFO}:${id}`,
+        //   immediately: true,
+        // },
       });
     }
   }
@@ -92,7 +92,7 @@ export class CacheScraperService {
   }
   async onApplicationBootstrap() {
     await this.cachScraperQueue.resume();
-    this.run();
+    // this.run();
     this.processCompetitions();
   }
 }

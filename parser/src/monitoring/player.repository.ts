@@ -1,18 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Player, PlayerDocument } from './schemas/player.schema';
+import { Monitoring, MonitoringDocument } from './schemas/monitoring.schema';
 import { Model } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
-import { IPlayerRepository } from './interfaces/player-repository.interface';
+import { IMonitoringRepository } from './interfaces/monitoring-repository.interface';
 import { from, map, mergeMap, Observable, of, tap } from 'rxjs';
 
 @Injectable()
-export class PlayerRepository implements IPlayerRepository {
+export class PlayerRepository implements IMonitoringRepository {
   private readonly logger = new Logger(PlayerRepository.name);
 
   constructor(
-    @InjectModel(Player.name) private playerModel: Model<PlayerDocument>,
+    @InjectModel(Monitoring.name)
+    private playerModel: Model<MonitoringDocument>,
   ) {}
 
   isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
@@ -21,7 +22,7 @@ export class PlayerRepository implements IPlayerRepository {
       this.playerModel.exists({
         playerId: dto.playerId,
         teamId: dto.teamId,
-        tournamentId: dto.tournamentId,
+        competitionId: dto.tournamentId,
       }),
     ).pipe(map((result) => !!result));
   }
@@ -34,7 +35,7 @@ export class PlayerRepository implements IPlayerRepository {
           {
             playerId: dto.playerId,
             teamId: dto.teamId,
-            tournamentId: dto.tournamentId,
+            competitionId: dto.tournamentId,
           },
           { $setOnInsert: dto },
           { upsert: true },
@@ -49,7 +50,7 @@ export class PlayerRepository implements IPlayerRepository {
       this.playerModel.deleteOne({
         playerId: dto.playerId,
         teamId: dto.teamId,
-        tournamentId: dto.tournamentId,
+        competitionId: dto.tournamentId,
       }),
     ).pipe(
       tap((data) => console.log(data)),
@@ -65,19 +66,22 @@ export class PlayerRepository implements IPlayerRepository {
   }
 
   getMonitoredCompetitionIds(): Observable<number[]> {
-    return from(this.playerModel.distinct('tournamentId').exec());
+    return from(this.playerModel.distinct('competitionId').exec());
   }
 
   getMonitoredTeamIds(tournamentId: number): Observable<string[]> {
     return from(
-      this.playerModel.find({ tournamentId }).distinct('teamId').exec(),
+      this.playerModel
+        .find({ competitionId: tournamentId })
+        .distinct('teamId')
+        .exec(),
     );
   }
 
   getMonitoredPlayerIds(dto: GetMonitoredPlayerIdsDto): Observable<number[]> {
     return from(
       this.playerModel
-        .find({ tournamentId: dto.tournamentId, teamId: dto.teamId })
+        .find({ competitionId: dto.tournamentId, teamId: dto.teamId })
         .distinct('playerId')
         .exec(),
     );

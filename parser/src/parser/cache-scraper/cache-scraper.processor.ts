@@ -23,9 +23,10 @@ import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
-import { GetCompeitionDto } from '../sites/volleystation/dtos/get-competition.dto';
+import { CompetitionService } from 'src/monitoring/competition.service';
+import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
 
-@Processor(SCRAPER_QUEUE, { concurrency: 3 })
+@Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);
 
@@ -33,6 +34,7 @@ export class CacheScraperProcessor extends WorkerHost {
     @InjectQueue(SCRAPER_QUEUE)
     private readonly cacheQueue: Queue<VolleyJobData>,
     private readonly volleystationCacheService: VolleystationCacheService,
+    private readonly competitionService: CompetitionService,
   ) {
     super();
   }
@@ -288,6 +290,11 @@ export class CacheScraperProcessor extends WorkerHost {
   private async handleCompetitionInfo(job: Job<GetCompetitionByIdDto>) {
     const { id } = job.data;
     this.logger.log(`Обработка турнира для проверки: [${id}]`);
-    return firstValueFrom(this.volleystationCacheService.getCompetition(id));
+    const competition: ICompetition | null = await firstValueFrom(
+      this.volleystationCacheService.getCompetition(id),
+    );
+    if (competition) {
+      await this.competitionService.createCompetition(competition);
+    }
   }
 }

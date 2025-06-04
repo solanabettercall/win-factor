@@ -9,11 +9,12 @@ import {
 } from 'grammy-inline-menu';
 import { firstValueFrom } from 'rxjs';
 import { appConfig } from 'src/config/parser.config';
-import { PlayerService } from 'src/monitoring/player.service';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
 import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 import { plainToInstance } from 'class-transformer';
 import { FormattingService } from './formating.service';
+import { CompetitionService } from 'src/monitoring/competition.service';
+import { MonitoringService } from 'src/monitoring/monitoring.service';
 
 interface SessionData {
   page: number;
@@ -46,7 +47,8 @@ export class TelegramBotService implements OnModuleInit {
   private readonly logger = new Logger(TelegramBotService.name);
 
   constructor(
-    private readonly playerService: PlayerService,
+    private readonly monitoringService: MonitoringService,
+    private readonly competitionService: CompetitionService,
     private readonly formattingService: FormattingService,
   ) {
     const { telegram, redis } = appConfig();
@@ -61,9 +63,11 @@ export class TelegramBotService implements OnModuleInit {
     competition: new MenuTemplate<MyCtx>(async (ctx) => {
       const id = parseInt(ctx.match[1]);
       this.logger.verbose('Отрисовали список турниров');
+
       const selectedCompetition = await firstValueFrom(
-        this.playerService.getCompetitionById(id),
+        this.competitionService.getCompetitionById(id),
       );
+
       ctx.session.selectedCompetition = selectedCompetition;
       const competitionTitle = this.formattingService.competitionTitle(
         ctx.session.selectedCompetition,
@@ -79,7 +83,7 @@ export class TelegramBotService implements OnModuleInit {
     team: new MenuTemplate<MyCtx>(async (ctx) => {
       const id = ctx.match[2];
       const selectedTeam = await firstValueFrom(
-        this.playerService.getTeamById(ctx.session.selectedCompetition, id),
+        this.monitoringService.getTeamById(ctx.session.selectedCompetition, id),
       );
       ctx.session.selectedTeam = selectedTeam;
       return this.formattingService.teamTitle(
@@ -94,7 +98,7 @@ export class TelegramBotService implements OnModuleInit {
       const id = parseInt(ctx.match[1]);
       this.logger.verbose('Отрисовали список турниров в мониторинге');
       const selectedCompetition = await firstValueFrom(
-        this.playerService.getCompetitionById(id),
+        this.competitionService.getCompetitionById(id),
       );
       ctx.session.selectedCompetition = selectedCompetition;
       return this.formattingService.monitoredCompetitionTitle(
@@ -116,7 +120,7 @@ export class TelegramBotService implements OnModuleInit {
         const competition = ctx.session.selectedCompetition;
         const team = ctx.session.selectedTeam;
         const teamRoster = await firstValueFrom(
-          this.playerService.getTeam({ competition, teamId: team.id }),
+          this.monitoringService.getTeam({ competition, teamId: team.id }),
         );
 
         return teamRoster.players.reduce<Record<string, string>>(
@@ -130,7 +134,7 @@ export class TelegramBotService implements OnModuleInit {
       isSet: async (ctx, key) => {
         const playerId = parseInt(key);
         const isSelected = await firstValueFrom(
-          this.playerService.isPlayerMonitored({
+          this.monitoringService.isPlayerMonitored({
             tournamentId: ctx.session.selectedCompetition.id,
             teamId: ctx.session.selectedTeam.id,
             playerId,
@@ -142,7 +146,7 @@ export class TelegramBotService implements OnModuleInit {
         const playerId = parseInt(key);
         if (newState) {
           await firstValueFrom(
-            this.playerService.addToMonitoring({
+            this.monitoringService.addToMonitoring({
               playerId,
               tournamentId: ctx.session.selectedCompetition.id,
               teamId: ctx.session.selectedTeam.id,
@@ -150,7 +154,7 @@ export class TelegramBotService implements OnModuleInit {
           );
         } else {
           await firstValueFrom(
-            this.playerService.removeFromMonitoring({
+            this.monitoringService.removeFromMonitoring({
               playerId,
               tournamentId: ctx.session.selectedCompetition.id,
               teamId: ctx.session.selectedTeam.id,
@@ -177,7 +181,7 @@ export class TelegramBotService implements OnModuleInit {
       choices: async (ctx) => {
         const competition = ctx.session.selectedCompetition;
         const teams = await firstValueFrom(
-          this.playerService.getTeams(competition),
+          this.monitoringService.getTeams(competition),
         );
         return teams.reduce<Record<string, string>>((acc, team) => {
           acc[team.id.toString()] = team.name;
@@ -203,7 +207,7 @@ export class TelegramBotService implements OnModuleInit {
       {
         choices: async () => {
           const competitions = await firstValueFrom(
-            this.playerService.getCompetitions(),
+            this.competitionService.getCompetitions(),
           );
           return competitions.reduce<Record<string, string>>(
             (acc, competition) => {
@@ -233,7 +237,7 @@ export class TelegramBotService implements OnModuleInit {
       {
         choices: async () => {
           const competitions = await firstValueFrom(
-            this.playerService.getMonitoredCompetitions(),
+            this.monitoringService.getMonitoredCompetitions(),
           );
           return competitions.reduce<Record<string, string>>(
             (acc, competition) => {
@@ -264,7 +268,7 @@ export class TelegramBotService implements OnModuleInit {
         choices: async (ctx) => {
           const competition = ctx.session.selectedCompetition;
           const teams = await firstValueFrom(
-            this.playerService.getMonitoredTeams(competition),
+            this.monitoringService.getMonitoredTeams(competition),
           );
           return teams.reduce<Record<string, string>>((acc, team) => {
             acc[team.id.toString()] = team.name;

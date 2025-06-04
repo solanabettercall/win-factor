@@ -1,7 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
-import { IPlayerRepository } from './interfaces/player-repository.interface';
-import { PlayerRepositoryToken } from './player-repository.token';
+import { IMonitoringRepository } from './interfaces/monitoring-repository.interface';
+import {
+  CompetitionRepositoryToken,
+  MonitoringRepositoryToken,
+} from './repository-tokens';
 import { map, Observable, of, switchMap } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -15,69 +18,46 @@ import { GetPlayerDto } from 'src/parser/sites/volleystation/dtos/get-player.dto
 import { RawMatch } from 'src/parser/sites/volleystation/models/match-list/raw-match';
 import { GetMatchesDto } from 'src/parser/sites/volleystation/dtos/get-matches.dto';
 import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
+import { ICompetitionRepository } from './interfaces/competition-repository.interface';
 
 @Injectable()
-export class PlayerService {
+export class MonitoringService {
   constructor(
-    @Inject(PlayerRepositoryToken)
-    private readonly playerRepository: IPlayerRepository,
+    @Inject(MonitoringRepositoryToken)
+    private readonly monitoringRepository: IMonitoringRepository,
+    @Inject(CompetitionRepositoryToken)
+    private readonly competitionRepository: ICompetitionRepository,
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {}
 
-  @Cron(CronExpression.EVERY_5_SECONDS, { waitForCompletion: true })
-  async run() {
-    // const [competition] = await firstValueFrom(this.getCompetitions());
-    // console.log(competition);
-    // const [team] = await firstValueFrom(this.getTeams(competition));
-    // console.log(team);
-    // const teamRoster = await firstValueFrom(
-    //   this.getTeam({ competition, teamId: team.id }),
-    // );
-    // const [player] = teamRoster.players;
-    // const playerProfile = await firstValueFrom(
-    //   this.getPlayer({ competition, playerId: player.id }),
-    // );
-    // console.log(playerProfile);
-    // await firstValueFrom(
-    //   this.addToMonitoring({
-    //     playerId: 2106014,
-    //     teamId: '2100412-43076',
-    //     tournamentId: 118,
-    //   }),
-    // );
-    // const monitoredCompetitions = await firstValueFrom(
-    //   this.getMonitoredCompetitions(),
-    // );
-    // // console.log(monitoredCompetitions);
-    // const monitoredTeams = await firstValueFrom(
-    //   this.getMonitoredTeams(monitoredCompetitions[0]),
-    // );
-    // console.log(monitoredTeams);
-  }
-
   addToMonitoring(dto: PlayerMonitoringDto): Observable<void> {
-    return this.playerRepository.addPlayerToMonitoring(dto);
+    return this.monitoringRepository.addPlayerToMonitoring(dto);
   }
 
   removeFromMonitoring(dto: PlayerMonitoringDto): Observable<void> {
-    return this.playerRepository.removePlayerFromMonitoring(dto);
+    return this.monitoringRepository.removePlayerFromMonitoring(dto);
   }
 
+  //TODO refactor this
   getMonitoredCompetitions(): Observable<Competition[]> {
-    return this.playerRepository.getMonitoredCompetitionIds().pipe(
+    return this.monitoringRepository.getMonitoredCompetitionIds().pipe(
       switchMap((ids) => {
         if (!ids.length) {
           return of([]);
         }
-        return this.getCompetitions().pipe(
-          map((competitions) => competitions.filter((c) => ids.includes(c.id))),
-        );
+        return this.competitionRepository
+          .findAll()
+          .pipe(
+            map((competitions) =>
+              competitions.filter((c) => ids.includes(c.id)),
+            ),
+          );
       }),
     );
   }
 
   getMonitoredTeams(competition: ICompetition): Observable<Team[]> {
-    return this.playerRepository.getMonitoredTeamIds(competition.id).pipe(
+    return this.monitoringRepository.getMonitoredTeamIds(competition.id).pipe(
       switchMap((ids) => {
         if (!ids.length) {
           return of([]);
@@ -88,41 +68,23 @@ export class PlayerService {
       }),
     );
   }
+  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
+    return this.monitoringRepository.isPlayerMonitored(dto);
+  }
 
-  // getMonitoredPlayerIds(dto: GetMonitoredPlayerIdsDto): Observable<number[]> {
-  //   return this.playerRepository.getMonitoredPlayerIds(dto);
+  // getCompetitions(): Observable<Competition[]> {
+  //   return this.volleystationCacheService.getCompetitions();
   // }
 
-  // getMonitoredPlayers(competition: ICompetition): Observable<Player[]> {
-  //   return this.playerRepository.getMonitoredTeamIds(competition.id).pipe(
-  //     switchMap((ids) => {
-  //       if (!ids.length) {
-  //         return of([]);
-  //       }
-  //       return this.getTeam(competition).pipe(
-  //         map((teams) => teams.filter((c) => ids.includes(c.id))),
-  //       );
+  // getCompetitionById(id: number): Observable<Competition> {
+  //   return this.volleystationCacheService.getCompetitions().pipe(
+  //     map((competitions) => {
+  //       const c = competitions.find((c) => c.id === id);
+  //       if (!c) throw new NotFoundException(`Турнир ${id} не найден`);
+  //       return c;
   //     }),
   //   );
   // }
-
-  isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
-    return this.playerRepository.isPlayerMonitored(dto);
-  }
-
-  getCompetitions(): Observable<Competition[]> {
-    return this.volleystationCacheService.getCompetitions();
-  }
-
-  getCompetitionById(id: number): Observable<Competition> {
-    return this.volleystationCacheService.getCompetitions().pipe(
-      map((competitions) => {
-        const c = competitions.find((c) => c.id === id);
-        if (!c) throw new NotFoundException(`Турнир ${id} не найден`);
-        return c;
-      }),
-    );
-  }
 
   getTeamById(competition: Competition, id: string): Observable<Team> {
     return this.volleystationCacheService.getTeams(competition).pipe(

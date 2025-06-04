@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-export type PlayerDocument = Player & Document;
+export type MonitoringDocument = Monitoring & Document;
 
 @Schema()
-export class Player {
+export class Monitoring {
   @Prop({ required: true })
   playerId: number;
 
@@ -12,12 +12,12 @@ export class Player {
   teamId: string;
 
   @Prop({ required: true })
-  tournamentId: number;
+  competitionId: number;
 }
 
-export const PlayerSchema = SchemaFactory.createForClass(Player);
+export const MonitoringSchema = SchemaFactory.createForClass(Monitoring);
 
-PlayerSchema.index(
-  { playerId: 1, teamId: 1, tournamentId: 1 },
+MonitoringSchema.index(
+  { playerId: 1, teamId: 1, competitionId: 1 },
   { unique: true },
 );

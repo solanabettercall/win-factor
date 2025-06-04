@@ -2,7 +2,7 @@ import { Observable } from 'rxjs';
 import { GetMonitoredPlayerIdsDto } from '../dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from '../dtos/player-to-monitoring-dto';
 
-export interface IPlayerRepository {
+export interface IMonitoringRepository {
   addPlayerToMonitoring(dto: PlayerMonitoringDto): Observable<void>;
   removePlayerFromMonitoring(dto: PlayerMonitoringDto): Observable<void>;
   getMonitoredCompetitionIds(): Observable<number[]>;
