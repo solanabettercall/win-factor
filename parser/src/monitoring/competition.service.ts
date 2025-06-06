@@ -1,5 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { CompetitionRepositoryToken } from './repository-tokens';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { map, Observable, switchMap, throwError } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
 import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
@@ -12,13 +11,12 @@ import { GetPlayerDto } from 'src/parser/sites/volleystation/dtos/get-player.dto
 import { RawMatch } from 'src/parser/sites/volleystation/models/match-list/raw-match';
 import { GetMatchesDto } from 'src/parser/sites/volleystation/dtos/get-matches.dto';
 import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
-import { ICompetitionRepository } from './interfaces/competition-repository.interface';
+import { CompetitionRepository } from './competition.repository';
 
 @Injectable()
 export class CompetitionService {
   constructor(
-    @Inject(CompetitionRepositoryToken)
-    private readonly competitionRepository: ICompetitionRepository,
+    private readonly competitionRepository: CompetitionRepository,
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {}
 

@@ -3,10 +3,6 @@ import { MonitoringRepository } from './monitoring.repository';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Monitoring, MonitoringSchema } from './schemas/monitoring.schema';
 import { MonitoringService } from './monitoring.service';
-import {
-  CompetitionRepositoryToken,
-  MonitoringRepositoryToken,
-} from './repository-tokens';
 import { VolleystationModule } from 'src/parser/sites/volleystation/volleystation.module';
 import { Competition, CompetitionSchema } from './schemas/competition.schema';
 import { CompetitionService } from './competition.service';
@@ -25,14 +21,6 @@ import { CompetitionRepository } from './competition.repository';
     CompetitionService,
     MonitoringRepository,
     CompetitionRepository,
-    {
-      provide: MonitoringRepositoryToken,
-      useExisting: MonitoringRepository,
-    },
-    {
-      provide: CompetitionRepositoryToken,
-      useExisting: CompetitionRepository,
-    },
   ],
   exports: [MonitoringService, CompetitionService],
 })
