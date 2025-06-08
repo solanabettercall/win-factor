@@ -1,24 +1,27 @@
 import { Module } from '@nestjs/common';
-import { PlayerRepository } from './player.repository';
+import { MonitoringRepository } from './monitoring.repository';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Player, PlayerSchema } from './schemas/player.schema';
-import { PlayerService } from './player.service';
-import { PlayerRepositoryToken } from './player-repository.token';
+import { Monitoring, MonitoringSchema } from './schemas/monitoring.schema';
+import { MonitoringService } from './monitoring.service';
 import { VolleystationModule } from 'src/parser/sites/volleystation/volleystation.module';
+import { Competition, CompetitionSchema } from './schemas/competition.schema';
+import { CompetitionService } from './competition.service';
+import { CompetitionRepository } from './competition.repository';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Player.name, schema: PlayerSchema }]),
+    MongooseModule.forFeature([
+      { name: Monitoring.name, schema: MonitoringSchema },
+      { name: Competition.name, schema: CompetitionSchema },
+    ]),
     VolleystationModule,
   ],
   providers: [
-    PlayerService,
-    PlayerRepository,
-    {
-      provide: PlayerRepositoryToken,
-      useExisting: PlayerRepository,
-    },
+    MonitoringService,
+    CompetitionService,
+    MonitoringRepository,
+    CompetitionRepository,
   ],
-  exports: [PlayerService],
+  exports: [MonitoringService, CompetitionService],
 })
 export class MonitoringModule {}

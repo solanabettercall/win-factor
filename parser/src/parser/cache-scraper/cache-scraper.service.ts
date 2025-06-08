@@ -8,9 +8,11 @@ import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { priorities } from './consts/priorities';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { GetCompeitionDto } from '../sites/volleystation/dtos/get-competition.dto';
 
 export enum JobType {
   COMPETITION = 'competition',
+  COMPETITION_INFO = 'competition_info',
   TEAM = 'team',
   PLAYER = 'player',
   MATCH = 'match',
@@ -35,7 +37,7 @@ export class CacheScraperService {
 
   async onModuleInit() {}
 
-  @Cron(CronExpression.EVERY_5_SECONDS, {
+  @Cron(CronExpression.EVERY_30_SECONDS, {
     waitForCompletion: true,
     disabled: true,
   })
@@ -43,6 +45,28 @@ export class CacheScraperService {
     await this.cachScraperQueue.resume();
     const activeJobsCount = await this.cachScraperQueue.getActiveCount();
     this.logger.verbose(`Активных задач: ${activeJobsCount}`);
+  }
+
+  async processCompetitions() {
+    // await this.cachScraperQueue.resume();
+    this.logger.log('Запуск поиска турниров');
+    for (let id = 1; id <= 1000; id++) {
+      const data: Pick<GetCompeitionDto, 'id'> = {
+        id,
+      };
+      await this.cachScraperQueue.add(JobType.COMPETITION_INFO, data, {
+        priority: priorities.competition,
+        deduplication: {
+          id: `${JobType.COMPETITION_INFO}:${id}`,
+          ttl: ttl.competition.deduplication(),
+        },
+        repeat: {
+          every: ttl.competition.repeat(),
+          key: `${JobType.COMPETITION_INFO}:${id}`,
+          immediately: true,
+        },
+      });
+    }
   }
 
   async run() {
@@ -67,6 +91,8 @@ export class CacheScraperService {
     }
   }
   async onApplicationBootstrap() {
-    await this.run();
+    await this.cachScraperQueue.resume();
+    // this.run();
+    this.processCompetitions();
   }
 }

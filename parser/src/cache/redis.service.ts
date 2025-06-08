@@ -19,6 +19,21 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   private readonly config = appConfig().redis;
 
+  private getNegativeKey(key: string): string {
+    return `${key}:negative`;
+  }
+
+  async isNegativeCached(originalKey: string): Promise<boolean> {
+    const negativeKey = this.getNegativeKey(originalKey);
+    const exists = await this.exists(negativeKey);
+    return exists;
+  }
+
+  async setNegativeCache(originalKey: string, ttl: number): Promise<void> {
+    const negativeKey = this.getNegativeKey(originalKey);
+    await this.set(negativeKey, '1', ttl);
+  }
+
   async onModuleInit() {
     this.client = new Redis({
       host: this.config.host,
@@ -103,5 +118,48 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         'Ошибка при установке JSON',
       );
     }
+  }
+
+  async getJsonByPattern<T extends object>(
+    pattern: string,
+    cls: ClassConstructor<T>,
+  ): Promise<T[]> {
+    const foundKeys: string[] = [];
+    let cursor = '0';
+
+    do {
+      const [newCursor, keys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100,
+      );
+      cursor = newCursor as string;
+      foundKeys.push(...(keys as string[]));
+    } while (cursor !== '0');
+
+    if (foundKeys.length === 0) return [];
+
+    // Теперь сразу пачкой отдаем все объекты
+    // JSON.MGET key1 key2 ... path
+    const args: (string | number)[] = [...foundKeys, '.'];
+    const raw = (await this.client.call('JSON.MGET', ...args)) as (
+      | string
+      | null
+    )[];
+    const result: T[] = [];
+
+    for (const item of raw) {
+      if (!item) continue;
+      const plain = JSON.parse(item);
+      if (Array.isArray(plain)) {
+        plain.forEach((p) => result.push(plainToInstance(cls, p)));
+      } else {
+        result.push(plainToInstance(cls, plain));
+      }
+    }
+
+    return result;
   }
 }

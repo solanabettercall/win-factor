@@ -6,11 +6,14 @@ import { Player } from './models/team-roster/player';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
+import { GetCompeitionDto } from './dtos/get-competition.dto';
 
 export enum MatchListType {
   Schedule = 'schedule',
   Results = 'results',
 }
+
+export type GetCompetitionByIdDto = Pick<GetCompeitionDto, 'id'>;
 
 export type VolleyJobData =
   | Competition
@@ -19,7 +22,8 @@ export type VolleyJobData =
   | RawMatch
   | GetTeamDto
   | GetPlayerDto
-  | GetMatchesDto;
+  | GetMatchesDto
+  | GetCompetitionByIdDto;
 
 export type JobTask = {
   name?: string | undefined;

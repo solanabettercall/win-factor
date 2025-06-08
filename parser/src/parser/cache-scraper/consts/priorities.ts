@@ -2,6 +2,7 @@ import { CachableEntityType } from './ttl';
 
 export const priorities: Record<CachableEntityType, number> = {
   onlineMatch: 1,
+  competitions: 1,
   competition: 2,
   scheduledMatch: 3,
   teams: 4,

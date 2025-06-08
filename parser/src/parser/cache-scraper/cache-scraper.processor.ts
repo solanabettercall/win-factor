@@ -9,8 +9,20 @@ import { Logger } from '@nestjs/common';
 import { JobType } from './cache-scraper.service';
 import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
 import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
-import { firstValueFrom } from 'rxjs';
-import { VolleyJobData, MatchListType } from '../sites/volleystation/types';
+import {
+  catchError,
+  EMPTY,
+  filter,
+  firstValueFrom,
+  switchMap,
+  take,
+  tap,
+} from 'rxjs';
+import {
+  VolleyJobData,
+  MatchListType,
+  GetCompetitionByIdDto,
+} from '../sites/volleystation/types';
 import { Job, Queue } from 'bullmq';
 import { GetTeamDto } from '../sites/volleystation/dtos/get-team.dto';
 import { GetPlayerDto } from '../sites/volleystation/dtos/get-player.dto';
@@ -19,8 +31,10 @@ import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
+import { CompetitionService } from 'src/monitoring/competition.service';
+import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
 
-@Processor(SCRAPER_QUEUE, { concurrency: 5 })
+@Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
   private readonly logger = new Logger(CacheScraperProcessor.name);
 
@@ -28,6 +42,7 @@ export class CacheScraperProcessor extends WorkerHost {
     @InjectQueue(SCRAPER_QUEUE)
     private readonly cacheQueue: Queue<VolleyJobData>,
     private readonly volleystationCacheService: VolleystationCacheService,
+    private readonly competitionService: CompetitionService,
   ) {
     super();
   }
@@ -36,6 +51,8 @@ export class CacheScraperProcessor extends WorkerHost {
     switch (job.name as JobType) {
       case JobType.COMPETITION:
         return this.handleCompetition(job as Job<Competition>);
+      case JobType.COMPETITION_INFO:
+        return this.handleCompetitionInfo(job as Job<GetCompetitionByIdDto>);
       case JobType.RESULTS_MATCHES:
       case JobType.SCHEDULED_MATCHES:
         return this.handleMatchList(job as Job<GetMatchesDto>);
@@ -276,5 +293,53 @@ export class CacheScraperProcessor extends WorkerHost {
     return firstValueFrom(
       this.volleystationCacheService.getMatchInfo(job.data.id),
     );
+  }
+
+  private handleCompetitionInfo(job: Job<GetCompetitionByIdDto>): void {
+    const { id } = job.data;
+    this.logger.log(`Обработка турнира для проверки: [${id}]`);
+
+    this.volleystationCacheService
+      .getCompetition(id)
+      .pipe(
+        // берем только первый emission и завершаем поток
+        take(1),
+
+        // если пришло null (турнир не найден), просто выходим из цепочки
+        filter(
+          (comp: ICompetition | null): comp is ICompetition => comp !== null,
+        ),
+
+        // переключаемся на вызов createCompetition, который вернёт Observable<Competition>
+        switchMap((competition: ICompetition) =>
+          this.competitionService.createCompetition(competition).pipe(
+            // логируем успешное сохранение
+            tap((created) =>
+              this.logger.log(`Турнир сохранён в БД: ${created.id}`),
+            ),
+            // если при сохранении возникла ошибка — отлавливаем и логируем её
+            catchError((err) => {
+              this.logger.error(
+                `Не удалось сохранить турнир ${id}: ${err.message}`,
+              );
+              // прерываем поток (никаких значащих value не передаем дальше)
+              return EMPTY;
+            }),
+          ),
+        ),
+      )
+      .subscribe({
+        complete: () => {
+          // сюда попадаем, когда поток либо успешно дошёл до конца, либо
+          // был завершён EMPTY в catchError
+          this.logger.debug(`handleCompetitionInfo for [${id}] completed`);
+        },
+        error: (err) => {
+          // эта ветка сработает, только если ошибка вылетит вне catchError внутри цепочки
+          this.logger.error(
+            `Непредвиденная ошибка в handleCompetitionInfo: ${err}`,
+          );
+        },
+      });
   }
 }

@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Expose, Transform, Type } from 'class-transformer';
 import { IPlayByPlayEvent } from '../../interfaces/match-details/play-by-play-event.interface';
 import { Officials } from './officials.model';
 import { ScoutData } from './scout-data.model';
@@ -12,7 +12,9 @@ import { Logger } from '@nestjs/common';
 export class PlayByPlayEvent implements IPlayByPlayEvent {
   @Expose({ name: '_id' })
   id: string;
-  @Type(() => Date)
+
+  @Transform(({ value }) => value.getTime(), { toPlainOnly: true })
+  @Transform(({ value }) => new Date(value), { toClassOnly: true })
   startDate: Date;
   @Type(() => Teams)
   teams: Teams;

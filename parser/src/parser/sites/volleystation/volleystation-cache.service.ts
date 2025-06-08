@@ -5,7 +5,20 @@ import {
 } from './volleystation.service';
 import { RedisService } from 'src/cache/redis.service';
 import { ICompetition } from './interfaces/vollestation-competition.interface';
-import { forkJoin, from, Observable, of, switchMap, tap } from 'rxjs';
+import {
+  catchError,
+  concat,
+  defer,
+  first,
+  forkJoin,
+  from,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import {
   IVolleystationSocketService,
   VolleystationSocketService,
@@ -24,14 +37,41 @@ import { GetMatchesDto } from './dtos/get-matches.dto';
 import { CachableEntityType, ttl } from '../../cache-scraper/consts/ttl';
 import { MatchListType } from './types';
 import { MatchStatus } from './enums';
+import { GetCompeitionDto } from './dtos/get-competition.dto';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
 
+function MeasureExecutionTime() {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    const originalMethod = descriptor.value;
+    descriptor.value = function (...args: any[]) {
+      const startTime = performance.now();
+      const result = originalMethod.apply(this, args);
+      if (result instanceof Observable) {
+        return result.pipe(
+          tap(() => {
+            const endTime = performance.now();
+            const executionTime = endTime - startTime;
+            const logger = new Logger(target.constructor.name);
+            logger.debug(
+              `Время выполнения метода ${propertyKey}: ${executionTime.toFixed(2)} мс`,
+            );
+          }),
+        );
+      }
+      return result;
+    };
+    return descriptor;
+  };
+}
+
 @Injectable()
-export class VolleystationCacheService
-  implements IVolleystationSocketService, IVolleystationService
-{
+export class VolleystationCacheService implements IVolleystationSocketService {
   private readonly logger = new Logger(VolleystationCacheService.name);
 
   constructor(
@@ -40,35 +80,130 @@ export class VolleystationCacheService
     private readonly redisService: RedisService,
   ) {}
 
+  getCompetition(id: number): Observable<ICompetition | null> {
+    const ttlValue = ttl.competition.cache();
+
+    const loadVersion = (version: 'v1' | 'v2') => {
+      const cacheKey = `volleystation:compeition:${id}:${version}`;
+
+      return from(this.redisService.isNegativeCached(cacheKey)).pipe(
+        mergeMap((isNegative) => {
+          if (isNegative) {
+            this.logger.debug(`Negative cache: ${cacheKey}`);
+            return of(null);
+          }
+
+          return from(this.redisService.getJson(cacheKey, Competition)).pipe(
+            mergeMap((cached) => {
+              if (cached && !Array.isArray(cached)) {
+                this.logger.debug(`Кэш найден: ${cacheKey}`);
+                return of(cached);
+              }
+
+              if (Array.isArray(cached)) {
+                this.logger.warn(
+                  `Ожидался объект, но получен массив: ${cacheKey}`,
+                );
+              }
+
+              this.logger.debug(`Кэш пуст, парсим: ${cacheKey}`);
+
+              return this.volleystationService
+                .getCompetition({ id, version })
+                .pipe(
+                  tap(async (competition) => {
+                    try {
+                      if (competition) {
+                        await this.redisService.setJson(
+                          cacheKey,
+                          competition,
+                          ttlValue,
+                        );
+                        this.logger.debug(`Турнир сохранён: ${cacheKey}`);
+                      } else {
+                        await this.redisService.setNegativeCache(
+                          cacheKey,
+                          ttlValue,
+                        );
+                        this.logger.debug(
+                          `Negative cache установлен: ${cacheKey}`,
+                        );
+                      }
+                    } catch (e) {
+                      this.logger.warn(`Ошибка кэширования: ${e.message}`);
+                    }
+                  }),
+                  catchError((err) => {
+                    this.logger.warn(
+                      `Ошибка загрузки версии ${version}: ${err.message}`,
+                    );
+                    return of(null);
+                  }),
+                );
+            }),
+          );
+        }),
+      );
+    };
+
+    return concat(
+      loadVersion('v1'),
+      defer(() => {
+        this.logger.debug(
+          `v1 не дал результата, пробуем v2: competition ${id}`,
+        );
+        return loadVersion('v2');
+      }),
+    ).pipe(first((v): v is ICompetition => !!v, null));
+  }
+
+  @MeasureExecutionTime()
   getCompetitions(): Observable<Competition[]> {
-    return this.volleystationService.getCompetitions();
-    const cacheKey = `volleystation:competitions`;
-    const TTL = 60 * 24;
+    const ttlValue = ttl.competitions.cache();
+    const cacheKey = 'volleystation:competitions:all';
 
     return from(this.redisService.getJson(cacheKey, Competition)).pipe(
-      switchMap((cached): Observable<Competition[]> => {
+      switchMap((cached) => {
         if (Array.isArray(cached)) {
           this.logger.debug(`Турниры найдены в кэше: ${cacheKey}`);
           return of(cached);
         }
-
         if (cached) {
           this.logger.warn(
             `Ожидался массив турниров, но получен одиночный объект: ${cacheKey}`,
           );
           return of([cached]);
         }
+        this.logger.debug(
+          `Кэша всех турниров нет, сканим Redis по паттернам...`,
+        );
 
-        this.logger.debug(`Турниры не найдены в кэше, загружаем: ${cacheKey}`);
+        // Сразу два паттерна: v1 и v2
+        const patterns: string[] = [
+          'volleystation:compeition:*:v1',
+          'volleystation:compeition:*:v2',
+        ];
 
-        return this.volleystationService.getCompetitions().pipe(
-          tap(async (competitions: Competition[]) => {
+        // Параллельно сканим оба паттерна и получаем массив турниров
+        return forkJoin(
+          patterns.map((p) =>
+            from(this.redisService.getJsonByPattern(p, Competition)),
+          ),
+        ).pipe(
+          map((arrays) => arrays.flat()), // сливаем v1+v2
+          map((all) => {
+            // удаляем дубликаты по id
+            const uniq = new Map<number, Competition>();
+            all.forEach((c) => uniq.set(c.id, c));
+            return Array.from(uniq.values());
+          }),
+          tap(async (competitions) => {
             try {
-              await this.redisService.setJson(cacheKey, competitions, TTL);
-              this.logger.debug(`Турниры сохранены в кэш: ${cacheKey}`);
-            } catch (error) {
+              await this.redisService.setJson(cacheKey, competitions, ttlValue);
+              this.logger.debug(`Список турниров закэширован: ${cacheKey}`);
+            } catch (e) {
               this.logger.warn(
-                `Ошибка при сохранении турниров в кэш: ${error.message}`,
+                `Ошибка кэширования списка турниров: ${e.message}`,
               );
             }
           }),

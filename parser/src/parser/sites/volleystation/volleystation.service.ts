@@ -28,12 +28,13 @@ import { Player } from './models/team-roster/player';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
 import { GetMatchesDto } from './dtos/get-matches.dto';
-import { competitions } from './consts/competitions';
 import { IBlock } from './interfaces/skills/block.interface';
 import { ISpike } from './interfaces/skills/spike.interface';
 import { IServe } from './interfaces/skills/serve.interface';
 import { IReception } from './interfaces/skills/reception.interface';
 import { MatchListType } from './types';
+import { GetCompeitionDto } from './dtos/get-competition.dto';
+import { Competition } from './models/vollestation-competition';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
@@ -43,7 +44,8 @@ export interface IVolleystationService {
   getPlayer(dto: GetPlayerDto): Observable<IPlayerProfile>;
 
   getPlayers(competition: ICompetition): Observable<IPlayer[]>;
-  getCompetitions(): Observable<ICompetition[]>;
+  // getCompetitions(): Observable<ICompetition[]>;
+  getCompetition(dto: GetCompeitionDto): Observable<ICompetition | null>;
 }
 
 @Injectable()
@@ -52,8 +54,100 @@ export class VolleystationService implements IVolleystationService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  getCompetitions(): Observable<ICompetition[]> {
-    return of(competitions);
+  // getCompetitions(): Observable<ICompetition[]> {
+  //   return of(competitions);
+  // }
+
+  getCompetition(dto: GetCompeitionDto): Observable<ICompetition | null> {
+    const { id, version } = dto;
+    const website = version === 'v1' ? 'website' : 'website2';
+    const href = `https://panel.volleystation.com/${website}/${id}/en/`;
+
+    // Делаем HTTP GET-запрос с дефолтным поведением (авто-фолловинг редиректов).
+    return this.httpService
+      .get(href, {
+        // По желанию можно явно указать maxRedirects, но по умолчанию Axios даст 5–10 редиректов.
+        maxRedirects: 10,
+        // Делаем так, чтобы Axios не «крошил» ошибку 403/404, а сразу возвращал ответ
+        validateStatus: (status) => status < 500,
+      })
+      .pipe(
+        retry({
+          count: 10,
+          delay: (error, retryIndex) => {
+            const status = error?.response?.status || 0;
+            if (status === 404) {
+              // если 404 — бьем по исключению, чтобы сразу выйти
+              return throwError(() => new NotFoundException());
+            }
+            if (status === 403) {
+              // 403 будем считать конечным и возвращать null
+              return of(null).pipe(); // оператор delay на нулевом значении
+            }
+            const delayTime =
+              status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
+            this.logger.warn(
+              `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (статус: ${status})`,
+            );
+            return of(null).pipe(delay(delayTime));
+          },
+        }),
+        // На этом этапе response уже содержит { data, status, headers, request, ... }
+        map((axiosResponse) => {
+          // Если сервер вернул 403 или пустой body, просто выходим
+          if (!axiosResponse || axiosResponse.status === 403) {
+            return null;
+          }
+
+          // Получаем HTML-строку:
+          const html = axiosResponse.data;
+          // cheerio-парсинг, чтобы найти название турнира:
+          const $ = cheerio.load(html);
+
+          const hasOgType = !!$('meta[property="og:type"][content="website"]')
+            .length;
+          if (!hasOgType) {
+            // Если мета-тега нет — считаем «невалидной» страницей
+            this.logger.warn(
+              `Сайт ${href} не содержит og:type=website, пропускаем`,
+            );
+            return null;
+          }
+
+          const name = $('title')
+            .text()
+            .trim()
+            .replaceAll('\n', '')
+            .replace('Homepage - ', '');
+
+          // Основное: finalUrl хранится в объекте response.request.res.responseUrl
+          // (это свойство доступно, если Axios следовал за редиректами автоматически)
+          // Обратите внимание: structure может отличаться, иногда в axiosResponse.request
+          // нужно смотреть иной путь — в наших тестах именно response.request.res.responseUrl.
+          let finalUrl: string;
+          try {
+            finalUrl = axiosResponse.request.res.responseUrl as string;
+          } catch {
+            // если что-то пойдет не так, полагаемся на исходный href
+            finalUrl = href;
+          }
+
+          const competition: ICompetition = {
+            id,
+            name,
+            url: finalUrl,
+          };
+          return competition;
+        }),
+        catchError((err) => {
+          if (err instanceof NotFoundException) {
+            this.logger.warn(`Не найдено ${href}`);
+            return of(null);
+          }
+          this.logger.error(`Ошибка при обработке ${href}: ${err.message}`);
+          return of(null);
+        }),
+      );
   }
 
   // Первый парсер
