@@ -15,7 +15,7 @@ export interface IPlayByPlayEvent {
   country: string;
   hall: string;
   phase: string;
-  round: number;
+  round: string;
   competition: string;
   remarks: string;
   matchNumber: string;

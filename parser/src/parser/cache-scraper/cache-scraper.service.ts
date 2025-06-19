@@ -1,14 +1,31 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
-import { firstValueFrom } from 'rxjs';
+import {
+  catchError,
+  concatMap,
+  EMPTY,
+  filter,
+  finalize,
+  firstValueFrom,
+  from,
+  map,
+  mergeMap,
+  Observable,
+  tap,
+} from 'rxjs';
 import { InjectQueue } from '@nestjs/bullmq';
-import { VolleyJobData } from '../sites/volleystation/types';
+import { MatchListType, VolleyJobData } from '../sites/volleystation/types';
 import { Queue } from 'bullmq';
 import { SCRAPER_QUEUE } from './consts/queue';
 import { ttl } from './consts/ttl';
 import { priorities } from './consts/priorities';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { GetCompeitionDto } from '../sites/volleystation/dtos/get-competition.dto';
+import { CompetitionService } from 'src/monitoring/competition.service';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
+import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
+import { PlayByPlayEvent } from '../sites/volleystation/models/match-details/play-by-play-event.model';
+import { MatchService } from 'src/monitoring/match.service';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -28,6 +45,8 @@ export class CacheScraperService {
 
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
+    private readonly competitionService: CompetitionService,
+    private readonly matchService: MatchService,
 
     @InjectQueue(SCRAPER_QUEUE)
     private cachScraperQueue: Queue<VolleyJobData>,
@@ -90,9 +109,88 @@ export class CacheScraperService {
       });
     }
   }
-  async onApplicationBootstrap() {
-    await this.cachScraperQueue.resume();
-    // this.run();
-    this.processCompetitions();
+
+  onApplicationBootstrap() {
+    // this.getPlayByPlayEvents() // Observable<PlayByPlayEvent>
+    //   .pipe(
+    //     mergeMap(
+    //       (evt) =>
+    //         from(this.matchService.saveMatch(evt)).pipe(
+    //           catchError((err) => {
+    //             this.logger.error(
+    //               `Ошибка сохранения матча ${evt.matchId}:`,
+    //               err,
+    //             );
+    //             return EMPTY;
+    //           }),
+    //         ),
+    //       5,
+    //     ),
+    //     finalize(() => {
+    //       this.logger.verbose('Все события сохранены');
+    //     }),
+    //   )
+    //   .subscribe(); // .subscribe() здесь пустой, т.к. вся логика внутри pipe
+  }
+
+  @Cron(CronExpression.EVERY_30_SECONDS, {
+    waitForCompletion: true,
+    disabled: true,
+  })
+  handlePlayByPlayCron() {
+    this.logger.debug('Старт крон-задачи getPlayByPlayEvents');
+    this.getPlayByPlayEvents()
+      .pipe(
+        mergeMap(
+          (evt) =>
+            from(this.matchService.saveMatch(evt)).pipe(
+              catchError((err) => {
+                this.logger.error(
+                  `Ошибка сохранения матча ${evt.matchId}:`,
+                  err,
+                );
+                return EMPTY;
+              }),
+            ),
+          5,
+        ),
+        finalize(() => {
+          this.logger.verbose('Все события сохранены');
+        }),
+      )
+      .subscribe();
+  }
+
+  getPlayByPlayEvents(): Observable<PlayByPlayEvent> {
+    return this.competitionService.getCompetitions().pipe(
+      tap((comps) => this.logger.verbose(`Найдено ${comps.length} турниров`)),
+
+      concatMap((competitions) => from(competitions)),
+
+      concatMap((competition) =>
+        this.volleystationCacheService
+          .getMatches({ competition, type: MatchListType.Schedule })
+          .pipe(
+            tap((matches) => {
+              const matchesCount = matches.length;
+              if (matchesCount > 0) {
+                this.logger.verbose(
+                  `Турнир "${competition.name}": ${matches.length} матчей`,
+                );
+              }
+            }),
+            mergeMap((matches) => from(matches)),
+          ),
+      ),
+
+      mergeMap(
+        (match) =>
+          this.volleystationCacheService
+            .getMatchInfo(match.id)
+            .pipe(filter((info): info is PlayByPlayEvent => !!info)),
+        10,
+      ),
+      // tap((evt) => this.logger.log(evt.matchId)),
+    );
   }
 }

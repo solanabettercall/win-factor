@@ -29,7 +29,6 @@ import { Team } from './models/team-list/team';
 import { TeamRoster } from './models/team-roster/team-roster';
 import { PlayerProfile } from './models/player-profile/player-profile';
 import { Player } from './models/team-roster/player';
-import { Competition } from './models/vollestation-competition';
 import { randomInt } from 'crypto';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
@@ -37,7 +36,7 @@ import { GetMatchesDto } from './dtos/get-matches.dto';
 import { CachableEntityType, ttl } from '../../cache-scraper/consts/ttl';
 import { MatchListType } from './types';
 import { MatchStatus } from './enums';
-import { GetCompeitionDto } from './dtos/get-competition.dto';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -373,7 +372,7 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
       switchMap((cached): Observable<RawMatch[]> => {
         if (Array.isArray(cached)) {
-          this.logger.debug(`Данные найдены в кэше: ${cacheKey}`);
+          // this.logger.debug(`Данные найдены в кэше: ${cacheKey}`);
           return of(cached);
         }
 
@@ -411,13 +410,13 @@ export class VolleystationCacheService implements IVolleystationSocketService {
       switchMap((cached): Observable<PlayByPlayEvent | null> => {
         if (cached) {
           const data = Array.isArray(cached) ? cached[0] || null : cached;
-          this.logger.debug(`Данные для матча ${matchId} найдены в кэше`);
+          // this.logger.debug(`Данные для матча ${matchId} найдены в кэше`);
           return of(data);
         }
 
-        this.logger.debug(
-          `Данные не найдены в кэше, запрашиваем через сокет: ${cacheKey}`,
-        );
+        // this.logger.debug(
+        //   `Данные не найдены в кэше, запрашиваем через сокет: ${cacheKey}`,
+        // );
 
         return this.volleystationSocketService.getMatchInfo(matchId).pipe(
           tap(async (matchInfo) => {

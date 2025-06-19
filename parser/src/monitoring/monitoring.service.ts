@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { map, Observable, of, switchMap } from 'rxjs';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
-import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
 import { ICompetition } from 'src/parser/sites/volleystation/interfaces/vollestation-competition.interface';
 import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 import { GetTeamDto } from 'src/parser/sites/volleystation/dtos/get-team.dto';
@@ -13,6 +12,7 @@ import { RawMatch } from 'src/parser/sites/volleystation/models/match-list/raw-m
 import { GetMatchesDto } from 'src/parser/sites/volleystation/dtos/get-matches.dto';
 import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
 import { MonitoringRepository } from './monitoring.repository';
+import { Competition } from './schemas/competition.schema';
 
 @Injectable()
 export class MonitoringService {

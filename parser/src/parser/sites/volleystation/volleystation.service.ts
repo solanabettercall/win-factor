@@ -34,7 +34,6 @@ import { IServe } from './interfaces/skills/serve.interface';
 import { IReception } from './interfaces/skills/reception.interface';
 import { MatchListType } from './types';
 import { GetCompeitionDto } from './dtos/get-competition.dto';
-import { Competition } from './models/vollestation-competition';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
@@ -576,7 +575,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -949,7 +948,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -1058,7 +1057,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -1243,7 +1242,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());

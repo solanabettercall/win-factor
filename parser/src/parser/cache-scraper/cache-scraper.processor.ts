@@ -4,7 +4,6 @@ import {
   Processor,
   WorkerHost,
 } from '@nestjs/bullmq';
-import { Competition } from '../sites/volleystation/models/vollestation-competition';
 import { Logger } from '@nestjs/common';
 import { JobType } from './cache-scraper.service';
 import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
@@ -14,6 +13,8 @@ import {
   EMPTY,
   filter,
   firstValueFrom,
+  mergeMap,
+  Observable,
   switchMap,
   take,
   tap,
@@ -33,6 +34,9 @@ import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
+import { MatchService } from 'src/monitoring/match.service';
+import { PlayByPlayEvent } from '../sites/volleystation/models/match-details/play-by-play-event.model';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 @Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
@@ -43,6 +47,7 @@ export class CacheScraperProcessor extends WorkerHost {
     private readonly cacheQueue: Queue<VolleyJobData>,
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly competitionService: CompetitionService,
+    private readonly matchService: MatchService,
   ) {
     super();
   }
@@ -250,7 +255,7 @@ export class CacheScraperProcessor extends WorkerHost {
       this.volleystationCacheService.getPlayers(comp),
     );
 
-    const addPromises = players.map((player) =>
+    const addPromises = (players ?? []).map((player) =>
       this.cacheQueue.add(
         JobType.PLAYER,
         { playerId: player.id, competition: comp },
@@ -288,11 +293,17 @@ export class CacheScraperProcessor extends WorkerHost {
     return firstValueFrom(this.volleystationCacheService.getPlayer(job.data));
   }
 
-  private async handleMatch(job: Job<RawMatch>) {
+  private async handleMatch(job: Job<RawMatch>): Promise<void> {
     this.logger.log(`Обработка матча: [${job.data.id}]`);
-    return firstValueFrom(
+
+    const match: PlayByPlayEvent = await firstValueFrom(
       this.volleystationCacheService.getMatchInfo(job.data.id),
     );
+    if (match) {
+      await this.matchService.saveMatch(match);
+    } else {
+      this.logger.verbose(`Матч ${job.data.id} не найден`);
+    }
   }
 
   private handleCompetitionInfo(job: Job<GetCompetitionByIdDto>): void {
