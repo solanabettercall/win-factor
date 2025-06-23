@@ -89,10 +89,6 @@ export class ParserService implements OnApplicationBootstrap {
     // );
     // console.log(match.teams.home);
 
-    // const match = await firstValueFrom(
-    //   this.matchService.getMatchById('2227528'),
-    // );
-    // console.log(match);
     // await firstValueFrom(this.matchService.saveMatch(match));
     // const match = await firstValueFrom(
     //   this.matchService.getMatchById(matchId.toString()),

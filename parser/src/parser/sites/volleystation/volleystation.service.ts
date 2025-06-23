@@ -624,7 +624,7 @@ export class VolleystationService implements IVolleystationService {
   private parseTeamV1(
     $: cheerio.CheerioAPI,
     origin: string,
-  ): ITeamRoster | null {
+  ): Omit<ITeamRoster, 'id'> | null {
     const teamSection = $('section.team-detail');
     if (teamSection.length === 0) {
       return null;
@@ -756,7 +756,7 @@ export class VolleystationService implements IVolleystationService {
   private parseTeamV2(
     $: cheerio.CheerioAPI,
     origin: string,
-  ): ITeamRoster | null {
+  ): Omit<ITeamRoster, 'id'> | null {
     const wonMatches = parseInt($('div.won-box h5').text(), 10);
     const lostMatches = parseInt($('div.lost-box h5').text(), 10);
     const playedMatches = wonMatches || 0 + lostMatches || 0;
@@ -983,7 +983,9 @@ export class VolleystationService implements IVolleystationService {
           }
         }
 
-        return roster ? plainToInstance(TeamRoster, roster) : null;
+        return roster
+          ? plainToInstance(TeamRoster, { id: teamId, ...roster })
+          : null;
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {

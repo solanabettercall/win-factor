@@ -37,6 +37,7 @@ import { CachableEntityType, ttl } from '../../cache-scraper/consts/ttl';
 import { MatchListType } from './types';
 import { MatchStatus } from './enums';
 import { Competition } from 'src/monitoring/schemas/competition.schema';
+import { GetTeamByShortIdDto } from './dtos/get-team-by-short-id.dto';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -312,8 +313,20 @@ export class VolleystationCacheService implements IVolleystationSocketService {
               try {
                 const TTL = ttl.team.cache();
 
+                // Основное сохранение по полному ID
                 await this.redisService.setJson(cacheKey, roster, TTL);
                 this.logger.debug(`Команда сохранена в кэш: ${cacheKey}`);
+
+                // Дополнительное сохранение по короткому ID
+                const idParts = dto.teamId.split('-');
+                if (idParts.length > 1) {
+                  const shortId = idParts[idParts.length - 1];
+                  const shortCacheKey = `volleystation:${competition.id}:team:short:${shortId}`;
+                  await this.redisService.setJson(shortCacheKey, roster, TTL);
+                  this.logger.debug(
+                    `Команда сохранена по короткому ID: ${shortCacheKey}`,
+                  );
+                }
               } catch (error) {
                 this.logger.warn(
                   `Ошибка при сохранении команды в кэш: ${error.message}`,
@@ -324,6 +337,39 @@ export class VolleystationCacheService implements IVolleystationSocketService {
             }
           }),
         );
+      }),
+    );
+  }
+
+  getTeamByShortId(dto: GetTeamByShortIdDto): Observable<TeamRoster | null> {
+    const { competition, shortId } = dto;
+    const cacheKey = `volleystation:${competition.id}:team:short:${shortId}`;
+
+    return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
+      map((cached) => {
+        if (cached && !Array.isArray(cached)) {
+          this.logger.debug(
+            `Команда найдена в кэше по короткому ID: ${cacheKey}`,
+          );
+          return cached;
+        }
+
+        if (Array.isArray(cached)) {
+          this.logger.warn(
+            `Ожидалась одиночная команда, но получен массив: ${cacheKey}`,
+          );
+        }
+
+        this.logger.debug(
+          `Команда не найдена в кэше по короткому ID: ${cacheKey}`,
+        );
+        return null;
+      }),
+      catchError((error) => {
+        this.logger.warn(
+          `Ошибка при получении команды по короткому ID: ${error.message}`,
+        );
+        return of(null);
       }),
     );
   }

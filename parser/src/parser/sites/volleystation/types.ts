@@ -15,11 +15,16 @@ export enum MatchListType {
 
 export type GetCompetitionByIdDto = Pick<GetCompeitionDto, 'id'>;
 
+export class RawMatchAndCompetition {
+  match: RawMatch;
+  competition: Competition;
+}
+
 export type VolleyJobData =
   | Competition
   | Team
   | Player
-  | RawMatch
+  | RawMatchAndCompetition
   | GetTeamDto
   | GetPlayerDto
   | GetMatchesDto

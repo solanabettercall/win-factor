@@ -88,10 +88,14 @@ export class CacheScraperService {
     }
   }
 
+  // @Cron(CronExpression.EVERY_30_SECONDS, {
+  //   waitForCompletion: true,
+  //   disabled: false,
+  // })
   async run() {
     this.logger.log('Запуск наполнения кэша');
     const competitions = await firstValueFrom(
-      this.volleystationCacheService.getCompetitions(),
+      this.competitionService.getCompetitions(),
     );
 
     for (const competition of competitions) {
@@ -110,43 +114,21 @@ export class CacheScraperService {
     }
   }
 
-  onApplicationBootstrap() {
-    // this.getPlayByPlayEvents() // Observable<PlayByPlayEvent>
-    //   .pipe(
-    //     mergeMap(
-    //       (evt) =>
-    //         from(this.matchService.saveMatch(evt)).pipe(
-    //           catchError((err) => {
-    //             this.logger.error(
-    //               `Ошибка сохранения матча ${evt.matchId}:`,
-    //               err,
-    //             );
-    //             return EMPTY;
-    //           }),
-    //         ),
-    //       5,
-    //     ),
-    //     finalize(() => {
-    //       this.logger.verbose('Все события сохранены');
-    //     }),
-    //   )
-    //   .subscribe(); // .subscribe() здесь пустой, т.к. вся логика внутри pipe
-  }
-
   @Cron(CronExpression.EVERY_30_SECONDS, {
     waitForCompletion: true,
-    disabled: true,
+    disabled: false,
   })
-  handlePlayByPlayCron() {
+  async handlePlayByPlayCron() {
     this.logger.debug('Старт крон-задачи getPlayByPlayEvents');
-    this.getPlayByPlayEvents()
-      .pipe(
+
+    await firstValueFrom(
+      this.getPlayByPlayEvents().pipe(
         mergeMap(
-          (evt) =>
-            from(this.matchService.saveMatch(evt)).pipe(
+          ({ competition, event }) =>
+            from(this.matchService.saveMatch(competition, event)).pipe(
               catchError((err) => {
                 this.logger.error(
-                  `Ошибка сохранения матча ${evt.matchId}:`,
+                  `Ошибка сохранения матча ${event.matchId}:`,
                   err,
                 );
                 return EMPTY;
@@ -157,40 +139,35 @@ export class CacheScraperService {
         finalize(() => {
           this.logger.verbose('Все события сохранены');
         }),
-      )
-      .subscribe();
+      ),
+    );
   }
 
-  getPlayByPlayEvents(): Observable<PlayByPlayEvent> {
+  getPlayByPlayEvents(): Observable<{
+    competition: Competition;
+    event: PlayByPlayEvent;
+  }> {
     return this.competitionService.getCompetitions().pipe(
-      tap((comps) => this.logger.verbose(`Найдено ${comps.length} турниров`)),
-
       concatMap((competitions) => from(competitions)),
-
       concatMap((competition) =>
         this.volleystationCacheService
           .getMatches({ competition, type: MatchListType.Schedule })
           .pipe(
-            tap((matches) => {
-              const matchesCount = matches.length;
-              if (matchesCount > 0) {
-                this.logger.verbose(
-                  `Турнир "${competition.name}": ${matches.length} матчей`,
-                );
-              }
-            }),
             mergeMap((matches) => from(matches)),
+            mergeMap((match) =>
+              this.volleystationCacheService.getMatchInfo(match.id).pipe(
+                filter((info): info is PlayByPlayEvent => !!info),
+                map((event) => ({ competition, event })),
+              ),
+            ),
           ),
       ),
-
-      mergeMap(
-        (match) =>
-          this.volleystationCacheService
-            .getMatchInfo(match.id)
-            .pipe(filter((info): info is PlayByPlayEvent => !!info)),
-        10,
-      ),
-      // tap((evt) => this.logger.log(evt.matchId)),
     );
+  }
+
+  async onApplicationBootstrap() {
+    await this.cachScraperQueue.resume();
+    this.run();
+    // this.processCompetitions();
   }
 }

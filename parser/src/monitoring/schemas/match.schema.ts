@@ -1,12 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { IPlayByPlayEvent } from 'src/parser/sites/volleystation/interfaces/match-details/play-by-play-event.interface';
 
-export type MatchDocument = MatchModel & Document;
+export type MatchDocument = MatchModel & Document & { competitionId: number };
 
 @Schema({ timestamps: true })
 export class MatchModel implements Omit<IPlayByPlayEvent, 'id'> {
   @Prop({ required: true })
   matchId: number;
+
+  @Prop({ required: true })
+  competitionId: number;
 
   @Prop({ required: true })
   startDate: Date;

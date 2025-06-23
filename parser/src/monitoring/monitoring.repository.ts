@@ -20,7 +20,6 @@ export class MonitoringRepository implements IMonitoringRepository {
   ) {}
 
   isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
-    this.logger.debug('isPlayerMonitored', dto);
     return from(
       this.competitionModel.findOne({ id: dto.competitionId }).exec(),
     ).pipe(

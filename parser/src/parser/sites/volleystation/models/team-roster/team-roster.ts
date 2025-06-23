@@ -7,6 +7,7 @@ import { SkillStatistics } from '../skills/skill-statistics';
  * Статистика команды и состав игроков.
  */
 export class TeamRoster implements ITeamRoster {
+  id: string;
   playedMatches!: number;
   wonMatches!: number;
   lostMatches!: number;

@@ -8,6 +8,7 @@ import { IMatchRepository } from './interfaces/match-repository.interface';
 import { MatchDocument, MatchModel } from './schemas/match.schema';
 import { PlayByPlayEvent } from 'src/parser/sites/volleystation/models/match-details/play-by-play-event.model';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
+import { UpcomingMatcheDto } from './dtos/upcoming-match.dto';
 
 @Injectable()
 export class MatchRepository implements IMatchRepository {
@@ -18,10 +19,18 @@ export class MatchRepository implements IMatchRepository {
     private matchModel: Model<MatchDocument>,
   ) {}
 
-  async upsert(event: PlayByPlayEvent): Promise<void> {
+  async upsert(
+    competition: Competition,
+    event: PlayByPlayEvent,
+  ): Promise<void> {
     const plain = instanceToPlain(event);
     const filter = { matchId: event.matchId };
-    const update = { $set: plain };
+    const update = {
+      $set: {
+        ...plain,
+        competitionId: competition.id,
+      },
+    };
     const options = { upsert: true };
 
     this.logger.debug(`Upserting match ${event.matchId}`);
@@ -37,6 +46,33 @@ export class MatchRepository implements IMatchRepository {
         }
         return plainToInstance(PlayByPlayEvent, doc);
       }),
+    );
+  }
+
+  getAll(): Observable<UpcomingMatcheDto[]> {
+    return from(
+      this.matchModel
+        .aggregate([
+          {
+            $lookup: {
+              from: 'competitions', // имя коллекции, Mongo использует строчные и множественные
+              localField: 'competitionId',
+              foreignField: 'id',
+              as: 'competition',
+            },
+          },
+          {
+            $unwind: '$competition', // разворачиваем массив в объект
+          },
+        ])
+        .exec(),
+    ).pipe(
+      map((docs: any[]): UpcomingMatcheDto[] =>
+        docs.map((doc) => ({
+          event: plainToInstance(PlayByPlayEvent, doc),
+          competition: plainToInstance(Competition, doc.competition),
+        })),
+      ),
     );
   }
 }
