@@ -45,23 +45,33 @@ export class MonitoringService {
       }),
     );
   }
+
+  getMonitoredPlayers(
+    competition: ICompetition,
+    teamId: string,
+  ): Observable<Player[]> {
+    return this.monitoringRepository
+      .getMonitoredPlayerIds({
+        tournamentId: competition.id,
+        teamId,
+      })
+      .pipe(
+        switchMap((monitoredIds) => {
+          if (!monitoredIds.length) return of([]);
+          return this.volleystationCacheService
+            .getPlayers(competition)
+            .pipe(
+              map((allPlayers) =>
+                allPlayers.filter((player) => monitoredIds.includes(player.id)),
+              ),
+            );
+        }),
+      );
+  }
+
   isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
     return this.monitoringRepository.isPlayerMonitored(dto);
   }
-
-  // getCompetitions(): Observable<Competition[]> {
-  //   return this.volleystationCacheService.getCompetitions();
-  // }
-
-  // getCompetitionById(id: number): Observable<Competition> {
-  //   return this.volleystationCacheService.getCompetitions().pipe(
-  //     map((competitions) => {
-  //       const c = competitions.find((c) => c.id === id);
-  //       if (!c) throw new NotFoundException(`Турнир ${id} не найден`);
-  //       return c;
-  //     }),
-  //   );
-  // }
 
   getTeamById(competition: Competition, id: string): Observable<Team> {
     return this.volleystationCacheService.getTeams(competition).pipe(

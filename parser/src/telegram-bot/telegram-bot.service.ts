@@ -144,6 +144,9 @@ export class TelegramBotService implements OnModuleInit {
       },
       set: async (ctx, key, newState) => {
         const playerId = parseInt(key);
+        console.log('playerId', playerId);
+        console.log('competitionId', ctx.session.selectedCompetition.id);
+        console.log('teamId', ctx.session.selectedTeam.id);
         if (newState) {
           await firstValueFrom(
             this.monitoringService.addToMonitoring({
@@ -307,6 +310,10 @@ export class TelegramBotService implements OnModuleInit {
     this.setupSessionTransformation();
 
     this.bot.use(middleware);
+
+    this.bot.catch((err) => {
+      this.logger.error('🤖 Telegram Bot Error', err);
+    });
 
     this.bot.start();
   }
