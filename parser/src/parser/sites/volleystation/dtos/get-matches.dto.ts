@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
-import { Competition } from '../models/vollestation-competition';
 import { MatchListType } from '../types';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 export class GetMatchesDto {
   competition: Competition;

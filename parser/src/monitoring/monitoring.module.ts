@@ -7,21 +7,27 @@ import { VolleystationModule } from 'src/parser/sites/volleystation/volleystatio
 import { Competition, CompetitionSchema } from './schemas/competition.schema';
 import { CompetitionService } from './competition.service';
 import { CompetitionRepository } from './competition.repository';
+import { MatchService } from './match.service';
+import { MatchModel, MatchSchema } from './schemas/match.schema';
+import { MatchRepository } from './match.repository';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Monitoring.name, schema: MonitoringSchema },
       { name: Competition.name, schema: CompetitionSchema },
+      { name: MatchModel.name, schema: MatchSchema },
     ]),
     VolleystationModule,
   ],
   providers: [
     MonitoringService,
+    MatchService,
     CompetitionService,
+    MatchRepository,
     MonitoringRepository,
     CompetitionRepository,
   ],
-  exports: [MonitoringService, CompetitionService],
+  exports: [MonitoringService, CompetitionService, MatchService],
 })
 export class MonitoringModule {}

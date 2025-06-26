@@ -1,9 +1,11 @@
 export interface IPlayer {
-  code: number;
+  code: string;
   firstName: string;
   lastName: string;
-  isForeign: boolean;
-  isDisabled: boolean;
-  isConfederation: boolean;
+  isForeign?: boolean;
+  isDisabled?: boolean;
+  isConfederation?: boolean;
   shirtNumber: number;
+  position: number;
+  shirtName: string;
 }

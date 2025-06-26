@@ -29,7 +29,6 @@ import { Team } from './models/team-list/team';
 import { TeamRoster } from './models/team-roster/team-roster';
 import { PlayerProfile } from './models/player-profile/player-profile';
 import { Player } from './models/team-roster/player';
-import { Competition } from './models/vollestation-competition';
 import { randomInt } from 'crypto';
 import { GetPlayerDto } from './dtos/get-player.dto';
 import { GetTeamDto } from './dtos/get-team.dto';
@@ -37,7 +36,8 @@ import { GetMatchesDto } from './dtos/get-matches.dto';
 import { CachableEntityType, ttl } from '../../cache-scraper/consts/ttl';
 import { MatchListType } from './types';
 import { MatchStatus } from './enums';
-import { GetCompeitionDto } from './dtos/get-competition.dto';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
+import { GetTeamByShortIdDto } from './dtos/get-team-by-short-id.dto';
 
 // TODO: Сформировать что-то более подходящее
 type FullRawMatch = RawMatch & PlayByPlayEvent;
@@ -313,8 +313,20 @@ export class VolleystationCacheService implements IVolleystationSocketService {
               try {
                 const TTL = ttl.team.cache();
 
+                // Основное сохранение по полному ID
                 await this.redisService.setJson(cacheKey, roster, TTL);
                 this.logger.debug(`Команда сохранена в кэш: ${cacheKey}`);
+
+                // Дополнительное сохранение по короткому ID
+                const idParts = dto.teamId.split('-');
+                if (idParts.length > 1) {
+                  const shortId = idParts[idParts.length - 1];
+                  const shortCacheKey = `volleystation:${competition.id}:team:short:${shortId}`;
+                  await this.redisService.setJson(shortCacheKey, roster, TTL);
+                  this.logger.debug(
+                    `Команда сохранена по короткому ID: ${shortCacheKey}`,
+                  );
+                }
               } catch (error) {
                 this.logger.warn(
                   `Ошибка при сохранении команды в кэш: ${error.message}`,
@@ -325,6 +337,39 @@ export class VolleystationCacheService implements IVolleystationSocketService {
             }
           }),
         );
+      }),
+    );
+  }
+
+  getTeamByShortId(dto: GetTeamByShortIdDto): Observable<TeamRoster | null> {
+    const { competition, shortId } = dto;
+    const cacheKey = `volleystation:${competition.id}:team:short:${shortId}`;
+
+    return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
+      map((cached) => {
+        if (cached && !Array.isArray(cached)) {
+          this.logger.debug(
+            `Команда найдена в кэше по короткому ID: ${cacheKey}`,
+          );
+          return cached;
+        }
+
+        if (Array.isArray(cached)) {
+          this.logger.warn(
+            `Ожидалась одиночная команда, но получен массив: ${cacheKey}`,
+          );
+        }
+
+        this.logger.debug(
+          `Команда не найдена в кэше по короткому ID: ${cacheKey}`,
+        );
+        return null;
+      }),
+      catchError((error) => {
+        this.logger.warn(
+          `Ошибка при получении команды по короткому ID: ${error.message}`,
+        );
+        return of(null);
       }),
     );
   }
@@ -373,7 +418,7 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
       switchMap((cached): Observable<RawMatch[]> => {
         if (Array.isArray(cached)) {
-          this.logger.debug(`Данные найдены в кэше: ${cacheKey}`);
+          // this.logger.debug(`Данные найдены в кэше: ${cacheKey}`);
           return of(cached);
         }
 
@@ -411,13 +456,13 @@ export class VolleystationCacheService implements IVolleystationSocketService {
       switchMap((cached): Observable<PlayByPlayEvent | null> => {
         if (cached) {
           const data = Array.isArray(cached) ? cached[0] || null : cached;
-          this.logger.debug(`Данные для матча ${matchId} найдены в кэше`);
+          // this.logger.debug(`Данные для матча ${matchId} найдены в кэше`);
           return of(data);
         }
 
-        this.logger.debug(
-          `Данные не найдены в кэше, запрашиваем через сокет: ${cacheKey}`,
-        );
+        // this.logger.debug(
+        //   `Данные не найдены в кэше, запрашиваем через сокет: ${cacheKey}`,
+        // );
 
         return this.volleystationSocketService.getMatchInfo(matchId).pipe(
           tap(async (matchInfo) => {

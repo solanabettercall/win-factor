@@ -1,6 +1,3 @@
-import { plainToInstance } from 'class-transformer';
-import { Competition } from '../models/vollestation-competition';
-
 // export const competitions: Competition[] = [
 //   {
 //     id: 118,

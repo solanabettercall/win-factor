@@ -9,6 +9,8 @@ import { ISkillStatistics } from '../skills/skill-statistics.interface';
  * Основная статистика команды по сыгранным матчам и техническим действиям.
  */
 export interface ITeamRoster {
+  id: string;
+
   /**
    * Количество сыгранных матчей.
    */

@@ -16,6 +16,7 @@ import {
 } from 'rxjs';
 import { MatchListType } from './sites/volleystation/types';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
+import { MatchService } from 'src/monitoring/match.service';
 
 @Injectable()
 export class ParserService implements OnApplicationBootstrap {
@@ -25,6 +26,7 @@ export class ParserService implements OnApplicationBootstrap {
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly volleystationService: VolleystationService,
     private readonly redisService: RedisService,
+    private readonly matchService: MatchService,
   ) {}
 
   // @Cron(CronExpression.EVERY_10_SECONDS)
@@ -36,9 +38,9 @@ export class ParserService implements OnApplicationBootstrap {
     //   this.volleystationService.getTeams(competition),
     // );
     // console.log(teams);
-    // const competition = await firstValueFrom(
-    //   this.volleystationCacheService.getCompetition(3),
-    // );
+    const competition = await firstValueFrom(
+      this.volleystationCacheService.getCompetition(222),
+    );
     // console.log(competition);
     // const competitions = await firstValueFrom(
     //   this.volleystationCacheService.getCompetitions(),
@@ -58,7 +60,7 @@ export class ParserService implements OnApplicationBootstrap {
     // const player = await firstValueFrom(
     //   this.volleystationService.getPlayer({
     //     competition,
-    //     playerId: 2205610,
+    //     playerId: 2475430,
     //   }),
     // );
     // console.log(player);
@@ -81,9 +83,15 @@ export class ParserService implements OnApplicationBootstrap {
     //   ),
     // );
     // console.log(teamRoster);
-    // const matchId = 2210857;
+    // const matchId = 2229860;
     // const match = await firstValueFrom(
     //   this.volleystationCacheService.getMatchInfo(matchId),
+    // );
+    // console.log(match.teams.home);
+
+    // await firstValueFrom(this.matchService.saveMatch(match));
+    // const match = await firstValueFrom(
+    //   this.matchService.getMatchById(matchId.toString()),
     // );
     // console.log(match);
     // await this.redisService.setJson<PlayByPlayEvent>(key, match, 360);

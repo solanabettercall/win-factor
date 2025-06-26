@@ -34,7 +34,6 @@ import { IServe } from './interfaces/skills/serve.interface';
 import { IReception } from './interfaces/skills/reception.interface';
 import { MatchListType } from './types';
 import { GetCompeitionDto } from './dtos/get-competition.dto';
-import { Competition } from './models/vollestation-competition';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
@@ -576,7 +575,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -625,7 +624,7 @@ export class VolleystationService implements IVolleystationService {
   private parseTeamV1(
     $: cheerio.CheerioAPI,
     origin: string,
-  ): ITeamRoster | null {
+  ): Omit<ITeamRoster, 'id'> | null {
     const teamSection = $('section.team-detail');
     if (teamSection.length === 0) {
       return null;
@@ -757,7 +756,7 @@ export class VolleystationService implements IVolleystationService {
   private parseTeamV2(
     $: cheerio.CheerioAPI,
     origin: string,
-  ): ITeamRoster | null {
+  ): Omit<ITeamRoster, 'id'> | null {
     const wonMatches = parseInt($('div.won-box h5').text(), 10);
     const lostMatches = parseInt($('div.lost-box h5').text(), 10);
     const playedMatches = wonMatches || 0 + lostMatches || 0;
@@ -949,7 +948,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -984,7 +983,9 @@ export class VolleystationService implements IVolleystationService {
           }
         }
 
-        return roster ? plainToInstance(TeamRoster, roster) : null;
+        return roster
+          ? plainToInstance(TeamRoster, { id: teamId, ...roster })
+          : null;
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {
@@ -1058,7 +1059,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -1243,7 +1244,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: Infinity,
+        count: 10,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { Competition } from '../models/vollestation-competition';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 export class GetTeamDto {
   @Type(() => Competition)

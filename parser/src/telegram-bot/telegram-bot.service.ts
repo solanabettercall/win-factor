@@ -9,12 +9,12 @@ import {
 } from 'grammy-inline-menu';
 import { firstValueFrom } from 'rxjs';
 import { appConfig } from 'src/config/parser.config';
-import { Competition } from 'src/parser/sites/volleystation/models/vollestation-competition';
 import { Team } from 'src/parser/sites/volleystation/models/team-list/team';
 import { plainToInstance } from 'class-transformer';
 import { FormattingService } from './formating.service';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { MonitoringService } from 'src/monitoring/monitoring.service';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 interface SessionData {
   page: number;
@@ -144,6 +144,9 @@ export class TelegramBotService implements OnModuleInit {
       },
       set: async (ctx, key, newState) => {
         const playerId = parseInt(key);
+        console.log('playerId', playerId);
+        console.log('competitionId', ctx.session.selectedCompetition.id);
+        console.log('teamId', ctx.session.selectedTeam.id);
         if (newState) {
           await firstValueFrom(
             this.monitoringService.addToMonitoring({
@@ -307,6 +310,10 @@ export class TelegramBotService implements OnModuleInit {
     this.setupSessionTransformation();
 
     this.bot.use(middleware);
+
+    this.bot.catch((err) => {
+      this.logger.error('🤖 Telegram Bot Error', err);
+    });
 
     this.bot.start();
   }

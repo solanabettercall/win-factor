@@ -118,7 +118,7 @@ export class VolleystationSocketService
   }
 
   public getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
-    this.logger.debug(`getMatchInfo(${matchId}) вызван`);
+    // this.logger.debug(`getMatchInfo(${matchId}) вызван`);
     return new Observable((observer) => {
       const handler = (err: Error, response: { data: PlayByPlayEvent[] }) => {
         if (err) {
@@ -133,7 +133,7 @@ export class VolleystationSocketService
         observer.complete();
       };
 
-      this.logger.debug('Отправка socket.emit(find)');
+      // this.logger.debug('Отправка socket.emit(find)');
       this.socket.emit(
         'find',
         'widget/play-by-play',
@@ -145,7 +145,6 @@ export class VolleystationSocketService
       );
 
       return () => {
-        this.logger.debug('Отписка от socket.find');
         this.socket.off('find', handler);
       };
     });

@@ -4,7 +4,6 @@ import {
   Processor,
   WorkerHost,
 } from '@nestjs/bullmq';
-import { Competition } from '../sites/volleystation/models/vollestation-competition';
 import { Logger } from '@nestjs/common';
 import { JobType } from './cache-scraper.service';
 import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
@@ -14,6 +13,8 @@ import {
   EMPTY,
   filter,
   firstValueFrom,
+  mergeMap,
+  Observable,
   switchMap,
   take,
   tap,
@@ -22,6 +23,7 @@ import {
   VolleyJobData,
   MatchListType,
   GetCompetitionByIdDto,
+  RawMatchAndCompetition,
 } from '../sites/volleystation/types';
 import { Job, Queue } from 'bullmq';
 import { GetTeamDto } from '../sites/volleystation/dtos/get-team.dto';
@@ -33,6 +35,9 @@ import { isToday } from 'date-fns';
 import { priorities } from './consts/priorities';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
+import { MatchService } from 'src/monitoring/match.service';
+import { PlayByPlayEvent } from '../sites/volleystation/models/match-details/play-by-play-event.model';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 @Processor(SCRAPER_QUEUE, { concurrency: 1 })
 export class CacheScraperProcessor extends WorkerHost {
@@ -43,6 +48,7 @@ export class CacheScraperProcessor extends WorkerHost {
     private readonly cacheQueue: Queue<VolleyJobData>,
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly competitionService: CompetitionService,
+    private readonly matchService: MatchService,
   ) {
     super();
   }
@@ -65,7 +71,7 @@ export class CacheScraperProcessor extends WorkerHost {
       case JobType.PLAYER:
         return this.handlePlayer(job as Job<GetPlayerDto>);
       case JobType.MATCH:
-        return this.handleMatch(job as Job<RawMatch>);
+        return this.handleMatch(job as Job<RawMatchAndCompetition>);
       default:
         throw new Error(`Неизвестный тип задачи ${job.name}`);
     }
@@ -78,43 +84,43 @@ export class CacheScraperProcessor extends WorkerHost {
     );
 
     return Promise.all([
-      this.cacheQueue.add(
-        JobType.RESULTS_MATCHES,
-        { competition, type: MatchListType.Results } as GetMatchesDto,
-        {
-          priority: priorities.resultsMatches,
-          deduplication: {
-            id: `${JobType.RESULTS_MATCHES}:${competition.id}`,
-            ttl: ttl.resultsMatches.deduplication(),
-          },
-          repeat: {
-            every: ttl.resultsMatches.repeat(),
-            key: `${JobType.RESULTS_MATCHES}:${competition.id}`,
-            immediately: true,
-          },
-        },
-      ),
-      this.cacheQueue.add(
-        JobType.SCHEDULED_MATCHES,
-        { competition, type: MatchListType.Schedule } as GetMatchesDto,
-        {
-          priority: priorities.scheduledMatches,
-          // deduplication: {
-          //   id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
-          //   ttl: 1000 * 60 * 5,
-          // },
+      // this.cacheQueue.add(
+      //   JobType.RESULTS_MATCHES,
+      //   { competition, type: MatchListType.Results } as GetMatchesDto,
+      //   {
+      //     priority: priorities.resultsMatches,
+      //     deduplication: {
+      //       id: `${JobType.RESULTS_MATCHES}:${competition.id}`,
+      //       ttl: ttl.resultsMatches.deduplication(),
+      //     },
+      //     repeat: {
+      //       every: ttl.resultsMatches.repeat(),
+      //       key: `${JobType.RESULTS_MATCHES}:${competition.id}`,
+      //       immediately: true,
+      //     },
+      //   },
+      // ),
+      // this.cacheQueue.add(
+      //   JobType.SCHEDULED_MATCHES,
+      //   { competition, type: MatchListType.Schedule } as GetMatchesDto,
+      //   {
+      //     priority: priorities.scheduledMatches,
+      //     // deduplication: {
+      //     //   id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
+      //     //   ttl: 1000 * 60 * 5,
+      //     // },
 
-          deduplication: {
-            id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
-            ttl: ttl.resultsMatches.deduplication(),
-          },
-          repeat: {
-            every: ttl.resultsMatches.repeat(),
-            key: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
-            immediately: true,
-          },
-        },
-      ),
+      //     deduplication: {
+      //       id: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
+      //       ttl: ttl.resultsMatches.deduplication(),
+      //     },
+      //     repeat: {
+      //       every: ttl.resultsMatches.repeat(),
+      //       key: `${JobType.SCHEDULED_MATCHES}:${competition.id}`,
+      //       immediately: true,
+      //     },
+      //   },
+      // ),
       this.cacheQueue.add(JobType.PLAYERS, competition, {
         priority: priorities.players,
         deduplication: {
@@ -176,8 +182,12 @@ export class CacheScraperProcessor extends WorkerHost {
         repeatTTL = ttl.onlineMatch.repeat();
         priority = priorities.onlineMatch;
       }
+      const rawMatchAndCompetition: RawMatchAndCompetition = {
+        competition: job.data.competition,
+        match,
+      };
 
-      return this.cacheQueue.add(JobType.MATCH, match, {
+      return this.cacheQueue.add(JobType.MATCH, rawMatchAndCompetition, {
         priority,
         deduplication: {
           id: `${JobType.MATCH}:${match.id}`,
@@ -250,7 +260,7 @@ export class CacheScraperProcessor extends WorkerHost {
       this.volleystationCacheService.getPlayers(comp),
     );
 
-    const addPromises = players.map((player) =>
+    const addPromises = (players ?? []).map((player) =>
       this.cacheQueue.add(
         JobType.PLAYER,
         { playerId: player.id, competition: comp },
@@ -288,11 +298,18 @@ export class CacheScraperProcessor extends WorkerHost {
     return firstValueFrom(this.volleystationCacheService.getPlayer(job.data));
   }
 
-  private async handleMatch(job: Job<RawMatch>) {
-    this.logger.log(`Обработка матча: [${job.data.id}]`);
-    return firstValueFrom(
-      this.volleystationCacheService.getMatchInfo(job.data.id),
+  private async handleMatch(job: Job<RawMatchAndCompetition>): Promise<void> {
+    const { competition, match: rawMatch } = job.data;
+    this.logger.log(`Обработка матча: [${rawMatch.id}]`);
+
+    const match: PlayByPlayEvent = await firstValueFrom(
+      this.volleystationCacheService.getMatchInfo(rawMatch.id),
     );
+    if (match) {
+      await this.matchService.saveMatch(competition, match);
+    } else {
+      this.logger.verbose(`Матч ${rawMatch.id} не найден`);
+    }
   }
 
   private handleCompetitionInfo(job: Job<GetCompetitionByIdDto>): void {

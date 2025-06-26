@@ -1,11 +1,24 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Monitoring, MonitoringDocument } from './schemas/monitoring.schema';
 import { Model, Types } from 'mongoose';
 import { GetMonitoredPlayerIdsDto } from './dtos/get-monitored-player-ids.dto';
 import { PlayerMonitoringDto } from './dtos/player-to-monitoring-dto';
 import { IMonitoringRepository } from './interfaces/monitoring-repository.interface';
-import { from, map, mergeMap, Observable, of, switchMap } from 'rxjs';
+import {
+  from,
+  map,
+  mergeMap,
+  Observable,
+  of,
+  switchMap,
+  throwError,
+} from 'rxjs';
 import { Competition, CompetitionDocument } from './schemas/competition.schema';
 
 @Injectable()
@@ -20,7 +33,6 @@ export class MonitoringRepository implements IMonitoringRepository {
   ) {}
 
   isPlayerMonitored(dto: PlayerMonitoringDto): Observable<boolean> {
-    this.logger.debug('isPlayerMonitored', dto);
     return from(
       this.competitionModel.findOne({ id: dto.competitionId }).exec(),
     ).pipe(
@@ -41,6 +53,14 @@ export class MonitoringRepository implements IMonitoringRepository {
 
   addPlayerToMonitoring(dto: PlayerMonitoringDto): Observable<void> {
     this.logger.debug('addPlayerToMonitoring', dto);
+
+    if (!dto.playerId || !dto.teamId) {
+      this.logger.error('❌ playerId или teamId отсутствует', dto);
+      return throwError(
+        () => new BadRequestException('playerId и teamId обязательны'),
+      );
+    }
+
     return from(
       this.competitionModel.findOne({ id: dto.competitionId }).exec(),
     ).pipe(
