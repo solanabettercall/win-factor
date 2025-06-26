@@ -15,6 +15,9 @@ import { FormattingService } from './formating.service';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { MonitoringService } from 'src/monitoring/monitoring.service';
 import { Competition } from 'src/monitoring/schemas/competition.schema';
+import { MatchNotificationPayload } from 'src/match-watcher/match-watcher.service.service';
+import { OnEvent } from '@nestjs/event-emitter';
+import { addHours, format } from 'date-fns';
 
 interface SessionData {
   page: number;
@@ -54,6 +57,108 @@ export class TelegramBotService implements OnModuleInit {
     const { telegram, redis } = appConfig();
     this.bot = new Bot<MyCtx>(telegram.botToken);
     this.redis = new Redis(redis);
+  }
+
+  //   @OnEvent('match.notification')
+  //   async handle(payload: MatchNotificationPayload) {
+  //     const { channelId } = appConfig().telegram;
+  //     if (!channelId) return;
+
+  //     const { match, competition, home, away } = payload;
+  //     const matchTime = format(
+  //       addHours(new Date(match.startDate), 3),
+  //       'dd.MM.yyyy HH:mm',
+  //     );
+
+  //     const formatPlayers = (list: { number: number; name: string }[]) =>
+  //       list.map((p) => `${p.number}. ${p.name}`).join(', ') || '—';
+
+  //     const message = `<a href="${competition.url}">🏆 ${competition.name}</a>
+  // 🕒 ${matchTime}
+  // <b>🏐 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">${match.teams.home.name} vs ${match.teams.away.name}</a></b>
+
+  // <b>🔴 ${match.teams.home.name}</b>
+  // 👥 Основной состав: ${formatPlayers(home.onField)}
+  // 🪑 Скамейка: ${formatPlayers(home.onBench)}
+  // ❌ Не заявлены: ${formatPlayers(home.notDeclared)}
+
+  // <b>🔵 ${match.teams.away.name}</b>
+  // 👥 Основной состав: ${formatPlayers(away.onField)}
+  // 🪑 Скамейка: ${formatPlayers(away.onBench)}
+  // ❌ Не заявлены: ${formatPlayers(away.notDeclared)}
+  //     `.trim();
+
+  //     await this.bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
+  //   }
+
+  @OnEvent('match.notification')
+  async handle(payload: MatchNotificationPayload) {
+    const { channelId } = appConfig().telegram;
+    if (!channelId) return;
+
+    const { match, competition, home, away } = payload;
+    const matchTime = format(
+      addHours(new Date(match.startDate), 3),
+      'dd.MM.yyyy HH:mm',
+    );
+
+    const formatPlayerList = (
+      list: { number: number; name: string }[],
+      symbol: string,
+    ) =>
+      list.length > 0
+        ? list.map((p) => `${symbol} №${p.number} <b>${p.name}</b>`).join('\n')
+        : null;
+
+    const formatTeamBlock = (
+      teamName: string,
+      onField: { number: number; name: string }[],
+      onBench: { number: number; name: string }[],
+      notDeclared: { number: number; name: string }[],
+      colorEmoji: string,
+    ) => {
+      const lines = [`<b>${colorEmoji} ${teamName}</b>`];
+
+      const fieldBlock = formatPlayerList(onField, '🟢');
+      if (fieldBlock) lines.push(fieldBlock);
+
+      const benchBlock = formatPlayerList(onBench, '🪑');
+      if (benchBlock) lines.push(benchBlock);
+
+      const notDeclaredBlock = formatPlayerList(notDeclared, '❌');
+      if (notDeclaredBlock) lines.push(notDeclaredBlock);
+
+      return lines.join('\n');
+    };
+
+    const message = `
+<a href="${competition.url}">🏆 ${competition.name}</a>
+🕒 ${matchTime}
+<b>🏐 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">${match.teams.home.name} vs ${match.teams.away.name}</a></b>
+
+${formatTeamBlock(
+  match.teams.home.name,
+  home.onField,
+  home.onBench,
+  home.notDeclared,
+  '👕',
+)}
+
+${formatTeamBlock(
+  match.teams.away.name,
+  away.onField,
+  away.onBench,
+  away.notDeclared,
+  '👕',
+)}
+`.trim();
+
+    await this.bot.api.sendMessage(channelId, message, {
+      parse_mode: 'HTML',
+      link_preview_options: {
+        is_disabled: true,
+      },
+    });
   }
 
   private readonly templates: Record<MenuTemplateType, MenuTemplate<MyCtx>> = {

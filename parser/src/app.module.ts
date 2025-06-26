@@ -9,6 +9,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 import { TelegramBotModule } from './telegram-bot/telegram-bot.module';
 import { MatchWatcherModule } from './match-watcher/match-watcher.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { MatchWatcherModule } from './match-watcher/match-watcher.module';
     MonitoringModule,
     TelegramBotModule,
     MatchWatcherModule,
+    EventEmitterModule.forRoot(),
   ],
   controllers: [],
   providers: [],

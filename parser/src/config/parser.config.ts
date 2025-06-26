@@ -32,6 +32,7 @@ export interface IMongodbConfig {
 }
 export interface ITelegramConfig {
   botToken: string;
+  channelId: number;
 }
 
 interface IAppConfig {
@@ -82,6 +83,7 @@ export const appConfig = (): IAppConfig => {
     },
     telegram: {
       botToken: process.env.TELEGRAM_BOT_TOKEN,
+      channelId: parseInt(process.env.TELEGRAM_CHANNEL_ID, 10),
     },
   };
 

@@ -9,6 +9,9 @@ import { Player } from 'src/parser/sites/volleystation/models/team-roster/player
 import { ICompetition } from 'src/parser/sites/volleystation/interfaces/vollestation-competition.interface';
 import { PlayByPlayEvent } from 'src/parser/sites/volleystation/models/match-details/play-by-play-event.model';
 import { TeamRoster } from 'src/parser/sites/volleystation/models/team-roster/team-roster';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { MatchNotificationCacheService } from './match-notification-cache.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 interface NotificationTeamInfo {
   team: TeamRoster;
@@ -17,7 +20,7 @@ interface NotificationTeamInfo {
   notDeclared: Player[];
 }
 
-interface MatchNotificationPayload {
+export interface MatchNotificationPayload {
   competition: ICompetition;
   match: PlayByPlayEvent;
   home: NotificationTeamInfo;
@@ -25,12 +28,13 @@ interface MatchNotificationPayload {
 }
 
 @Injectable()
-export class MatchWatcherService implements OnModuleInit {
+export class MatchWatcherService {
   constructor(
     private readonly matchService: MatchService,
     private readonly competitionService: CompetitionService,
     private readonly monitoringService: MonitoringService,
     private readonly volleystationCacheService: VolleystationCacheService,
+    private readonly matchNotificationCacheService: MatchNotificationCacheService,
   ) {}
   private readonly logger = new Logger(MatchWatcherService.name);
 
@@ -66,13 +70,13 @@ export class MatchWatcherService implements OnModuleInit {
     return { team: teamRoster, onField, onBench, notDeclared };
   }
 
-  async onModuleInit() {
+  @Cron(CronExpression.EVERY_10_SECONDS)
+  async run() {
     const matches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
     );
     for (const { competition, event } of matches) {
       if (!isToday(event.startDate)) continue;
-
       // 1) берём кеши для полной информации об игроках
       const [homeRoster, awayRoster] = await Promise.all([
         firstValueFrom(
@@ -141,8 +145,8 @@ export class MatchWatcherService implements OnModuleInit {
         away: awayInfo,
       };
 
-      console.log(JSON.stringify(homeInfo, null, 2));
-      console.log(JSON.stringify(awayInfo, null, 2));
+      this.matchNotificationCacheService.handleEvent(payload);
+
       break;
     }
   }
