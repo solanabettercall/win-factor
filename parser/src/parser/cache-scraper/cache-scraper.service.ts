@@ -66,7 +66,7 @@ export class CacheScraperService {
     this.logger.verbose(`Активных задач: ${activeJobsCount}`);
   }
 
-  @Cron(CronExpression.EVERY_12_HOURS, {
+  @Cron(CronExpression.EVERY_HOUR, {
     waitForCompletion: true,
     disabled: false,
   })
@@ -171,7 +171,7 @@ export class CacheScraperService {
 
   async onApplicationBootstrap() {
     await this.cachScraperQueue.resume();
-    this.run();
     this.processCompetitions();
+    this.run();
   }
 }
