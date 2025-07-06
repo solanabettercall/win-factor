@@ -15,7 +15,10 @@ import { FormattingService } from './formating.service';
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { MonitoringService } from 'src/monitoring/monitoring.service';
 import { Competition } from 'src/monitoring/schemas/competition.schema';
-import { MatchNotificationPayload } from 'src/match-watcher/match-watcher.service.service';
+import {
+  MatchNotificationPayload,
+  PlayerWithStatistic,
+} from 'src/match-watcher/match-watcher.service.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { addHours, format } from 'date-fns';
 import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
@@ -60,38 +63,6 @@ export class TelegramBotService implements OnModuleInit {
     this.redis = new Redis(redis);
   }
 
-  //   @OnEvent('match.notification')
-  //   async handle(payload: MatchNotificationPayload) {
-  //     const { channelId } = appConfig().telegram;
-  //     if (!channelId) return;
-
-  //     const { match, competition, home, away } = payload;
-  //     const matchTime = format(
-  //       addHours(new Date(match.startDate), 3),
-  //       'dd.MM.yyyy HH:mm',
-  //     );
-
-  //     const formatPlayers = (list: { number: number; name: string }[]) =>
-  //       list.map((p) => `${p.number}. ${p.name}`).join(', ') || '—';
-
-  //     const message = `<a href="${competition.url}">🏆 ${competition.name}</a>
-  // 🕒 ${matchTime}
-  // <b>🏐 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">${match.teams.home.name} vs ${match.teams.away.name}</a></b>
-
-  // <b>🔴 ${match.teams.home.name}</b>
-  // 👥 Основной состав: ${formatPlayers(home.onField)}
-  // 🪑 Скамейка: ${formatPlayers(home.onBench)}
-  // ❌ Не заявлены: ${formatPlayers(home.notDeclared)}
-
-  // <b>🔵 ${match.teams.away.name}</b>
-  // 👥 Основной состав: ${formatPlayers(away.onField)}
-  // 🪑 Скамейка: ${formatPlayers(away.onBench)}
-  // ❌ Не заявлены: ${formatPlayers(away.notDeclared)}
-  //     `.trim();
-
-  //     await this.bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
-  //   }
-
   @OnEvent('match.notification')
   async handle(payload: MatchNotificationPayload) {
     const { channelId } = appConfig().telegram;
@@ -122,15 +93,45 @@ export class TelegramBotService implements OnModuleInit {
       }
     };
 
-    const formatPlayerList = (list: Player[], symbol: string) => {
+    const formatPlayerList = (list: PlayerWithStatistic[], symbol: string) => {
       if (list.length === 0) {
         return null;
       }
       const lines = [];
-      for (const p of list) {
-        // TODO добавить реальный рейтинг игрока
-        const rating: { rank: number; points: number; sets: number } | null =
+      const playersWithRating = list.map((p) => {
+        let rating: { rank: number; points: number; sets: number } | null =
           null;
+
+        if (p.statistic?.pointsScored && p.statistic?.setsPlayed) {
+          rating = {
+            points: p.statistic.pointsScored,
+            rank: p.statistic.pointsScored / p.statistic.setsPlayed,
+            sets: p.statistic.setsPlayed,
+          };
+        }
+
+        return {
+          player: p,
+          rating,
+        };
+      });
+
+      // Сортировка: сначала игроки с рейтингом (по убыванию), потом без рейтинга
+      playersWithRating.sort((a, b) => {
+        // Если у a есть рейтинг, а у b нет — a выше
+        if (a.rating && !b.rating) return -1;
+        // Если у b есть рейтинг, а у a нет — b выше
+        if (!a.rating && b.rating) return 1;
+        // Оба без рейтинга — равны
+        if (!a.rating && !b.rating) return 0;
+        // Оба с рейтингом — сравниваем по убыванию
+        return b.rating!.rank - a.rating!.rank;
+      });
+
+      // Формирование строк в нужном порядке
+      for (const item of playersWithRating) {
+        const p = item.player;
+        const rating = item.rating;
 
         const playerLines = [];
 
@@ -140,10 +141,11 @@ export class TelegramBotService implements OnModuleInit {
 
         if (rating) {
           playerLines.push(
-            `Рейтинг: ${rating.rank} (${rating.points}/${rating.sets})`,
+            `Рейтинг: ${rating.rank.toFixed(2)} (${rating.points}/${rating.sets})`,
           );
         }
-        lines.push(playerLines.join(''));
+
+        lines.push(playerLines.join('\n'));
       }
 
       return lines.join('\n');
@@ -162,9 +164,9 @@ export class TelegramBotService implements OnModuleInit {
 
     const formatTeamBlock = (
       teamName: string,
-      onField: Player[],
-      onBench: Player[],
-      notDeclared: Player[],
+      onField: PlayerWithStatistic[],
+      onBench: PlayerWithStatistic[],
+      notDeclared: PlayerWithStatistic[],
       colorEmoji: string,
     ) => {
       const lines = [`<b>${colorEmoji} ${teamName}</b>`];
@@ -310,9 +312,6 @@ ${formatTeamBlock(
       },
       set: async (ctx, key, newState) => {
         const playerId = parseInt(key);
-        console.log('playerId', playerId);
-        console.log('competitionId', ctx.session.selectedCompetition.id);
-        console.log('teamId', ctx.session.selectedTeam.id);
         if (newState) {
           await firstValueFrom(
             this.monitoringService.addToMonitoring({

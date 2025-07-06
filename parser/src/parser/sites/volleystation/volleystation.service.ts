@@ -34,6 +34,7 @@ import { IServe } from './interfaces/skills/serve.interface';
 import { IReception } from './interfaces/skills/reception.interface';
 import { MatchListType } from './types';
 import { GetCompeitionDto } from './dtos/get-competition.dto';
+import { isNumber } from 'class-validator';
 
 export interface IVolleystationService {
   getTeams(competition: ICompetition): Observable<Team[]>;
@@ -280,17 +281,34 @@ export class VolleystationService implements IVolleystationService {
     const teamSection = $('section.player-detail');
     if (teamSection.length === 0) return null;
 
-    const [
-      matchesPlayed,
-      setsPlayed,
-      pointsScored,
-      numberOfAces,
-      pointsByBlock,
-    ] = $(teamSection)
-      .find('div.stats-boxes div.box div.number')
-      .map((_, el) => {
-        return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
-      });
+    let [matchesPlayed, setsPlayed, pointsScored, numberOfAces, pointsByBlock] =
+      $(teamSection)
+        .find('div.stats-boxes div.box div.number')
+        .map((_, el) => {
+          return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
+        });
+
+    if (!pointsScored && !setsPlayed) {
+      const pointsScoredTemp = parseInt(
+        $('div.points-box div.value')
+          .clone()
+          .children()
+          .remove()
+          .end()
+          .text()
+          .trim(),
+        10,
+      );
+      const setsPlayedTemp = parseInt(
+        $('div.table-row.summary div.columns-item.sets').text().trim(),
+        10,
+      );
+
+      if (isNumber(pointsScoredTemp) && isNumber(setsPlayedTemp)) {
+        pointsScored = pointsScoredTemp;
+        setsPlayed = setsPlayedTemp;
+      }
+    }
 
     const statistic: IPlayerSummaryStatistics = {
       matchesPlayed,
