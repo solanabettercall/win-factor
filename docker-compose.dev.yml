@@ -1,0 +1,116 @@
+services:
+  parser:
+    container_name: parser
+    build:
+      context: ./parser
+      dockerfile: Dockerfile.dev
+    develop:
+      watch:
+        - action: sync
+          path: ./parser/src
+          target: /app/src
+          ignore:
+            - node_modules/
+            - dist/
+
+        - action: sync
+          path: ./test
+          target: ./parser/test
+
+        - action: rebuild
+          path: ./parser/yarn.lock
+
+    command: yarn run start:dev
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://localhost:${PARSER_HEALTHCHECK_PORT}/health || exit 1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      cloudflare_proxy:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    env_file:
+      - .env
+    restart: always
+
+  cloudflare_proxy:
+    container_name: cloudflare_proxy
+    build: ./cloudscraper
+    expose:
+      - ${CLOUFLAREBYPASS_PROXY_PORT}
+    env_file:
+      - .env
+    restart: always
+
+  redis:
+    container_name: redis
+    image: redis/redis-stack:7.4.0-v3
+    restart: always
+    ports:
+      - "${REDIS_WEB_PORT}:8001"
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_ARGS=--port ${REDIS_PORT} --save 60 1 --loglevel warning --activedefrag no
+    healthcheck:
+      test:
+        ["CMD", "redis-cli", "-h", "localhost", "-p", "${REDIS_PORT}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    expose:
+      - ${REDIS_PORT}
+
+  mongodb:
+    image: mongo:8.0.9
+    container_name: mongodb
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
+    expose:
+      - ${MONGODB_POPT}
+    restart: always
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "${MONGODB_USERNAME}",
+          "--password",
+          "${MONGODB_PASSWORD}",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 10s
+
+  mongo-express:
+    image: mongo-express
+    restart: unless-stopped
+    ports:
+      - ${MONGODB_EXPRESS_PORT}:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGODB_EXPRESS_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGODB_EXPRESS_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_POPT}/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      mongodb:
+        condition: service_healthy
+volumes:
+  redis_data:
+  mongo_data:
