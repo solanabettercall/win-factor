@@ -33,9 +33,7 @@ export class MatchNotificationCacheService {
       return;
     }
 
-    // TODO: устанавливать кэш, только после фактической отправки
-    // await this.redisService.set(cacheKey, cacheKey, 129600); //36 часов
-    // await this.redisService.set(cacheKey, cacheKey, 20); //36 часов
+    await this.redisService.set(cacheKey, cacheKey, 129600); //36 часов
 
     this.eventEmitter.emit('match.notification', event);
   }

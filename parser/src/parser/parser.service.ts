@@ -39,8 +39,9 @@ export class ParserService implements OnApplicationBootstrap {
     // );
     // console.log(teams);
     const competition = await firstValueFrom(
-      this.volleystationCacheService.getCompetition(221),
+      this.volleystationCacheService.getCompetition(222),
     );
+
     // console.log(competition);
     // const competitions = await firstValueFrom(
     //   this.volleystationCacheService.getCompetitions(),
@@ -64,10 +65,13 @@ export class ParserService implements OnApplicationBootstrap {
     //   }),
     // );
     // console.log(player);
-    // // const player = await firstValueFrom(
-    // //   this.volleystationCacheService.getPlayer(competition, 2122868),
-    // // );
-    // // console.log(player);
+    // const player = await firstValueFrom(
+    //   this.volleystationCacheService.getPlayer({
+    //     competition,
+    //     playerId: 2121086,
+    //   }),
+    // );
+    // console.log(player);
     // // const detailedMatches = await firstValueFrom(
     // //   this.volleystationCacheService.getDetailedMatches(competition, 'results'),
     // // );

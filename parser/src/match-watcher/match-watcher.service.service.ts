@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from '@nestjs/common';
 import { MatchService } from '../monitoring/match.service';
 import { firstValueFrom } from 'rxjs';
 import { CompetitionService } from '../monitoring/competition.service';
@@ -9,15 +14,18 @@ import { Player } from 'src/parser/sites/volleystation/models/team-roster/player
 import { ICompetition } from 'src/parser/sites/volleystation/interfaces/vollestation-competition.interface';
 import { PlayByPlayEvent } from 'src/parser/sites/volleystation/models/match-details/play-by-play-event.model';
 import { TeamRoster } from 'src/parser/sites/volleystation/models/team-roster/team-roster';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MatchNotificationCacheService } from './match-notification-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { PlayerProfile } from 'src/parser/sites/volleystation/models/player-profile/player-profile';
+
+export type PlayerWithStatistic = Player &
+  Partial<Pick<PlayerProfile, 'statistic'>>;
 
 interface NotificationTeamInfo {
   team: TeamRoster;
-  onField: Player[];
-  onBench: Player[];
-  notDeclared: Player[];
+  onField: PlayerWithStatistic[];
+  onBench: PlayerWithStatistic[];
+  notDeclared: PlayerWithStatistic[];
 }
 
 export interface MatchNotificationPayload {
@@ -28,14 +36,18 @@ export interface MatchNotificationPayload {
 }
 
 @Injectable()
-export class MatchWatcherService {
+export class MatchWatcherService implements OnApplicationBootstrap {
   constructor(
     private readonly matchService: MatchService,
-    private readonly competitionService: CompetitionService,
     private readonly monitoringService: MonitoringService,
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly matchNotificationCacheService: MatchNotificationCacheService,
   ) {}
+
+  async onApplicationBootstrap() {
+    await this.run();
+  }
+
   private readonly logger = new Logger(MatchWatcherService.name);
 
   private buildTeamInfo(
@@ -67,7 +79,12 @@ export class MatchWatcherService {
       (m) => !declaredShirtNumbers.has(m.number),
     );
 
-    return { team: teamRoster, onField, onBench, notDeclared };
+    return {
+      team: teamRoster,
+      onField,
+      onBench,
+      notDeclared,
+    };
   }
 
   @Cron(CronExpression.EVERY_10_SECONDS)
@@ -75,8 +92,19 @@ export class MatchWatcherService {
     const matches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
     );
+    // const upcomingMatches: UpcomingMatcheDto[] = [];
+
+    // const upcomingMatches = matches
+    //   .sort(
+    //     (a, b) =>
+    //       a.event.startDate.getUTCMilliseconds() -
+    //       b.event.startDate.getUTCMilliseconds(),
+    //   )
+    //   .slice(0, 1);
+    this.logger.debug(`Найдено ${matches.length} матчей сегодня`);
     for (const { competition, event } of matches) {
       if (!isToday(event.startDate)) continue;
+
       // 1) берём кеши для полной информации об игроках
       const [homeRoster, awayRoster] = await Promise.all([
         firstValueFrom(
@@ -136,6 +164,96 @@ export class MatchWatcherService {
         declaredAwayNums,
         awayStartNums,
       );
+
+      for (const p of awayInfo.onBench) {
+        try {
+          const player: PlayerProfile | null = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition,
+              playerId: p.id,
+            }),
+          );
+
+          if (player?.statistic) {
+            p.statistic = player.statistic;
+          }
+        } catch (error) {}
+      }
+
+      for (const p of awayInfo.notDeclared) {
+        try {
+          const player: PlayerProfile | null = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition,
+              playerId: p.id,
+            }),
+          );
+
+          if (player?.statistic) {
+            p.statistic = player.statistic;
+          }
+        } catch (error) {}
+      }
+
+      for (const p of awayInfo.onField) {
+        try {
+          const player: PlayerProfile | null = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition,
+              playerId: p.id,
+            }),
+          );
+
+          if (player?.statistic) {
+            p.statistic = player.statistic;
+          }
+        } catch (error) {}
+      }
+
+      for (const p of homeInfo.onBench) {
+        try {
+          const player: PlayerProfile | null = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition,
+              playerId: p.id,
+            }),
+          );
+
+          if (player?.statistic) {
+            p.statistic = player.statistic;
+          }
+        } catch (error) {}
+      }
+
+      for (const p of homeInfo.notDeclared) {
+        try {
+          const player: PlayerProfile | null = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition,
+              playerId: p.id,
+            }),
+          );
+
+          if (player?.statistic) {
+            p.statistic = player.statistic;
+          }
+        } catch (error) {}
+      }
+
+      for (const p of homeInfo.onField) {
+        try {
+          const player: PlayerProfile | null = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition,
+              playerId: p.id,
+            }),
+          );
+
+          if (player?.statistic) {
+            p.statistic = player.statistic;
+          }
+        } catch (error) {}
+      }
 
       // 6) единый payload и вывод в консоль
       const payload: MatchNotificationPayload = {
