@@ -125,48 +125,33 @@ export class CacheScraperService {
   async handlePlayByPlayCron() {
     this.logger.debug('Старт крон-задачи getPlayByPlayEvents');
 
-    await firstValueFrom(
-      this.getPlayByPlayEvents().pipe(
-        mergeMap(
-          ({ competition, event }) =>
-            from(this.matchService.saveMatch(competition, event)).pipe(
-              catchError((err) => {
-                this.logger.error(
-                  `Ошибка сохранения матча ${event.matchId}:`,
-                  err,
-                );
-                return EMPTY;
-              }),
-            ),
-          5,
-        ),
-        finalize(() => {
-          this.logger.verbose('Все события сохранены');
-        }),
-      ),
+    const competitions = await firstValueFrom(
+      this.competitionService.getCompetitions(),
     );
-  }
 
-  getPlayByPlayEvents(): Observable<{
-    competition: Competition;
-    event: PlayByPlayEvent;
-  }> {
-    return this.competitionService.getCompetitions().pipe(
-      concatMap((competitions) => from(competitions)),
-      concatMap((competition) =>
-        this.volleystationCacheService
-          .getMatches({ competition, type: MatchListType.Schedule })
-          .pipe(
-            mergeMap((matches) => from(matches)),
-            mergeMap((match) =>
-              this.volleystationCacheService.getMatchInfo(match.id).pipe(
-                filter((info): info is PlayByPlayEvent => !!info),
-                map((event) => ({ competition, event })),
-              ),
-            ),
-          ),
-      ),
-    );
+    for (const competition of competitions) {
+      const rawMatches = await firstValueFrom(
+        this.volleystationCacheService.getMatches({
+          competition,
+          type: MatchListType.Schedule,
+        }),
+      );
+
+      this.logger.verbose(
+        `[${competition.id}] Турнир: ${competition.name} Матчей: ${rawMatches.length}`,
+      );
+
+      for (const rawMatch of rawMatches) {
+        const match = await firstValueFrom(
+          this.volleystationCacheService.getMatchInfo(rawMatch.id),
+        );
+
+        if (match) {
+          await this.matchService.saveMatch(competition, match);
+          this.logger.verbose(`Сохранили матч ${match.matchId}`);
+        }
+      }
+    }
   }
 
   async onApplicationBootstrap() {
