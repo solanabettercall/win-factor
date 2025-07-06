@@ -264,8 +264,6 @@ export class MatchWatcherService implements OnApplicationBootstrap {
       };
 
       this.matchNotificationCacheService.handleEvent(payload);
-
-      break;
     }
   }
 }
