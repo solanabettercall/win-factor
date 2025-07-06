@@ -66,6 +66,10 @@ export class CacheScraperService {
     this.logger.verbose(`Активных задач: ${activeJobsCount}`);
   }
 
+  @Cron(CronExpression.EVERY_12_HOURS, {
+    waitForCompletion: true,
+    disabled: false,
+  })
   async processCompetitions() {
     // await this.cachScraperQueue.resume();
     this.logger.log('Запуск поиска турниров');
@@ -166,8 +170,8 @@ export class CacheScraperService {
   }
 
   async onApplicationBootstrap() {
-    // await this.cachScraperQueue.resume();
+    await this.cachScraperQueue.resume();
     this.run();
-    // this.processCompetitions();
+    this.processCompetitions();
   }
 }

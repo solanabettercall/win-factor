@@ -101,7 +101,7 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     //       b.event.startDate.getUTCMilliseconds(),
     //   )
     //   .slice(0, 1);
-    // this.logger.debug(`Найдено ${matches.length} матчей сегодня`);
+    this.logger.debug(`Найдено ${matches.length} матчей сегодня`);
     for (const { competition, event } of matches) {
       if (!isToday(event.startDate)) continue;
 

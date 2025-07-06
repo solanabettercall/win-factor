@@ -48,6 +48,52 @@ export class MatchRepository implements IMatchRepository {
       }),
     );
   }
+  getToday(): Observable<UpcomingMatcheDto[]> {
+    const today = new Date();
+    const startOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+    );
+    const endOfDay = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    );
+
+    return from(
+      this.matchModel
+        .aggregate([
+          {
+            $match: {
+              startDate: {
+                $gte: startOfDay,
+                $lt: endOfDay,
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'competitions',
+              localField: 'competitionId',
+              foreignField: 'id',
+              as: 'competition',
+            },
+          },
+          {
+            $unwind: '$competition',
+          },
+        ])
+        .exec(),
+    ).pipe(
+      map((docs: any[]): UpcomingMatcheDto[] =>
+        docs.map((doc) => ({
+          event: plainToInstance(PlayByPlayEvent, doc),
+          competition: plainToInstance(Competition, doc.competition),
+        })),
+      ),
+    );
+  }
 
   getAll(): Observable<UpcomingMatcheDto[]> {
     return from(
