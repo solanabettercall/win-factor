@@ -293,7 +293,7 @@ ${formatTeamBlock(
 
         return teamRoster.players.reduce<Record<string, string>>(
           (acc, player) => {
-            acc[player.id.toString()] = player.name;
+            acc[player.id.toString()] = `#${player.number} ${player.name}`;
             return acc;
           },
           {},
@@ -331,7 +331,7 @@ ${formatTeamBlock(
         }
         return true;
       },
-      columns: 2,
+      columns: 1,
       getCurrentPage: async (ctx) => ctx.session.page,
       setPage: (ctx, pg) => {
         ctx.session.page = pg;
