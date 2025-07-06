@@ -18,6 +18,7 @@ import { Competition } from 'src/monitoring/schemas/competition.schema';
 import { MatchNotificationPayload } from 'src/match-watcher/match-watcher.service.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { addHours, format } from 'date-fns';
+import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
 
 interface SessionData {
   page: number;
@@ -102,55 +103,89 @@ export class TelegramBotService implements OnModuleInit {
       'dd.MM.yyyy HH:mm',
     );
 
-    const formatPlayerList = (
-      list: { number: number; name: string }[],
-      symbol: string,
-    ) =>
+    const formatPosition = (position: string) => {
+      switch (position) {
+        case 'middle blocker':
+          return 'MB';
+        case 'setter':
+          return 'S';
+        case 'outside hitter':
+          return 'OH';
+        case 'blocker':
+          return 'B';
+        case 'opposite':
+          return 'O';
+        case 'libero':
+          return 'L';
+        default:
+          return position;
+      }
+    };
+
+    const formatPlayerList = (list: Player[], symbol: string) =>
       list.length > 0
-        ? list.map((p) => `${symbol} №${p.number} <b>${p.name}</b>`).join('\n')
+        ? list
+            .map(
+              (p) =>
+                // `${symbol} №${p.number} <b>${p.name}</b> (<i>${formatPositin(p.position)}</i>)`,
+                `- ${symbol} № ${p.number}: ${p.name} (<i>${formatPosition(p.position)}</i>)` +
+                `\nРейтинг: 4.34 (495/114)`,
+            )
+            .join('\n')
         : null;
 
     const formatTeamBlock = (
       teamName: string,
-      onField: { number: number; name: string }[],
-      onBench: { number: number; name: string }[],
-      notDeclared: { number: number; name: string }[],
+      onField: Player[],
+      onBench: Player[],
+      notDeclared: Player[],
       colorEmoji: string,
     ) => {
       const lines = [`<b>${colorEmoji} ${teamName}</b>`];
+      lines.push('\n');
+
+      const notDeclaredBlock = formatPlayerList(notDeclared, '⚪️');
+      if (notDeclaredBlock) {
+        lines.push('❌ <b>Не заявлены:</b>');
+        lines.push(notDeclaredBlock);
+        lines.push('\n');
+      }
+      const benchBlock = formatPlayerList(onBench, '🔘');
+      if (benchBlock) {
+        lines.push('🪑 <b>На скамейке::</b>');
+        lines.push(benchBlock);
+        lines.push('\n');
+      }
 
       const fieldBlock = formatPlayerList(onField, '🟢');
-      if (fieldBlock) lines.push(fieldBlock);
+      if (fieldBlock) {
+        lines.push('👥 <b>Основной состав::</b>');
+        lines.push(fieldBlock);
+        lines.push('\n');
+      }
 
-      const benchBlock = formatPlayerList(onBench, '🪑');
-      if (benchBlock) lines.push(benchBlock);
-
-      const notDeclaredBlock = formatPlayerList(notDeclared, '❌');
-      if (notDeclaredBlock) lines.push(notDeclaredBlock);
-
-      return lines.join('\n');
+      return lines.join('\n').replaceAll('\n\n\n', '\n\n');
     };
 
     const message = `
 <a href="${competition.url}">🏆 ${competition.name}</a>
 🕒 ${matchTime}
-<b>🏐 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">${match.teams.home.name} vs ${match.teams.away.name}</a></b>
+
+<b>🏐 ${match.teams.home.name} vs ${match.teams.away.name}</b>
 
 ${formatTeamBlock(
   match.teams.home.name,
   home.onField,
   home.onBench,
   home.notDeclared,
-  '👕',
-)}
-
-${formatTeamBlock(
-  match.teams.away.name,
-  away.onField,
-  away.onBench,
-  away.notDeclared,
-  '👕',
-)}
+  '🔴',
+)}${formatTeamBlock(
+      match.teams.away.name,
+      away.onField,
+      away.onBench,
+      away.notDeclared,
+      '🔵',
+    )}🔗 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">Подробнее</a>
 `.trim();
 
     await this.bot.api.sendMessage(channelId, message, {
