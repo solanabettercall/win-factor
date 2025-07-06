@@ -122,17 +122,43 @@ export class TelegramBotService implements OnModuleInit {
       }
     };
 
-    const formatPlayerList = (list: Player[], symbol: string) =>
-      list.length > 0
-        ? list
-            .map(
-              (p) =>
-                // `${symbol} №${p.number} <b>${p.name}</b> (<i>${formatPositin(p.position)}</i>)`,
-                `- ${symbol} № ${p.number}: ${p.name} (<i>${formatPosition(p.position)}</i>)` +
-                `\nРейтинг: 4.34 (495/114)`,
-            )
-            .join('\n')
-        : null;
+    const formatPlayerList = (list: Player[], symbol: string) => {
+      if (list.length === 0) {
+        return null;
+      }
+      const lines = [];
+      for (const p of list) {
+        // TODO добавить реальный рейтинг игрока
+        const rating: { rank: number; points: number; sets: number } | null =
+          null;
+
+        const playerLines = [];
+
+        playerLines.push(
+          `- ${symbol} № ${p.number}: ${p.name} (<i>${formatPosition(p.position)}</i>)`,
+        );
+
+        if (rating) {
+          playerLines.push(
+            `Рейтинг: ${rating.rank} (${rating.points}/${rating.sets})`,
+          );
+        }
+        lines.push(playerLines.join(''));
+      }
+
+      return lines.join('\n');
+
+      // return list.length > 0
+      //   ? list
+      //       .map(
+      //         (p) =>
+      //           // `${symbol} №${p.number} <b>${p.name}</b> (<i>${formatPositin(p.position)}</i>)`,
+      //           `- ${symbol} № ${p.number}: ${p.name} (<i>${formatPosition(p.position)}</i>)` +
+      //           `\nРейтинг: 4.34 (495/114)`,
+      //       )
+      //       .join('\n')
+      //   : null;
+    };
 
     const formatTeamBlock = (
       teamName: string,
