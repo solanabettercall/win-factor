@@ -291,15 +291,34 @@ ${formatTeamBlock(
           this.monitoringService.getTeam({ competition, teamId: team.id }),
         );
 
-        return teamRoster.players.reduce<Record<string, string>>(
-          (acc, player) => {
-            acc[player.id.toString()] = `#${player.number} ${player.name}`;
-            return acc;
-          },
-          {},
+        return (
+          teamRoster.players
+            .sort((a, b) => a.number - b.number)
+            // .map((player) => `#${player.number} ${player.name}`);
+            .map((player) => player.id)
         );
+
+        // return teamRoster.players
+        //   .sort((a, b) => a.number - b.number)
+        //   .reduce<Record<string, string>>((acc, player) => {
+        //     acc[player.id.toString()] = `#${player.number} ${player.name}`;
+        //     return acc;
+        //   }, {});
+      },
+
+      formatState: async (context, textResult, state, key) => {
+        const competition = context.session.selectedCompetition;
+        const team = context.session.selectedTeam;
+        const { players } = await firstValueFrom(
+          this.monitoringService.getTeam({ competition, teamId: team.id }),
+        );
+
+        const player = players.find((p) => p.id == parseInt(key));
+
+        return `${state ? '✅' : ''} #${player.number} ${player.name}`;
       },
       isSet: async (ctx, key) => {
+        console.log(ctx);
         const playerId = parseInt(key);
         const isSelected = await firstValueFrom(
           this.monitoringService.isPlayerMonitored({
@@ -336,6 +355,7 @@ ${formatTeamBlock(
       setPage: (ctx, pg) => {
         ctx.session.page = pg;
       },
+      maxRows: 30,
       showFalseEmoji: true,
     });
     this.templates.team.manualRow(
