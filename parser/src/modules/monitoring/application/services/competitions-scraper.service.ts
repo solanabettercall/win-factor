@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
 import { GetCompetitionQuery } from '../queries/get-competition.query';
@@ -7,6 +7,9 @@ import {
   Competition,
   ICompetition,
 } from '../../domain/entities/competition.entity';
+import { GetVolleystationCompetitionQuery } from 'src/modules/volleystation/application/queries/get-volleystation-competition.query';
+import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
+import { mapRawToCompetition } from '../mappers/competition.mapper';
 
 @Injectable()
 export class CompetitionsScraperService {
@@ -26,17 +29,29 @@ export class CompetitionsScraperService {
     );
   }
 
+  private readonly logger = new Logger(this.constructor.name);
+
   async onApplicationBootstrap() {
-    const competitionId = CompetitionId.create(25);
+    const competitionId = CompetitionId.create(110);
 
-    const dto: ICompetition = {
-      id: competitionId,
-      name: 'Test',
-      url: 'http://example.com',
-      version: 'website',
-    };
+    const rawCompetition: IRawComptition | null = await this.queryBus.execute(
+      new GetVolleystationCompetitionQuery(competitionId),
+    );
 
-    await this.createCompetition(dto);
+    if (!rawCompetition) {
+      this.logger.debug(`Турнир ${competitionId} не найден`);
+      return;
+    }
+
+    const mappedCompetition: ICompetition = mapRawToCompetition(rawCompetition);
+    // const dto: ICompetition = {
+    //   id: competitionId,
+    //   name: 'Test',
+    //   url: 'http://example.com',
+    //   version: 'website',
+    // };
+
+    await this.createCompetition(mappedCompetition);
 
     const createdCompetition = await this.getCompetition(competitionId);
     console.log(createdCompetition);

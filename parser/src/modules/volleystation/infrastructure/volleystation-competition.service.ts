@@ -3,7 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
 
-interface IRawComptition {
+export interface IRawComptition {
   id: number;
   name: string;
   url: string;

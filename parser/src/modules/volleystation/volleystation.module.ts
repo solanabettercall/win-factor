@@ -3,6 +3,9 @@ import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
 import { VolleystationApiService } from './application/volleystation-api.service';
 import { VolleystationCompetitionApiService } from './infrastructure/volleystation-competition.service';
+import { GetVolleystationCompetitionQueryHandler } from './application/handlers/queries/get-volleystation-competition.handler';
+
+const queryHandlers = [GetVolleystationCompetitionQueryHandler];
 
 @Module({
   imports: [
@@ -27,7 +30,11 @@ import { VolleystationCompetitionApiService } from './infrastructure/volleystati
       },
     }),
   ],
-  providers: [VolleystationApiService, VolleystationCompetitionApiService],
+  providers: [
+    ...queryHandlers,
+    VolleystationApiService,
+    VolleystationCompetitionApiService,
+  ],
   exports: [],
 })
 export class VolleystationModule {}
