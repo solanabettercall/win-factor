@@ -4,6 +4,7 @@ import { appConfig } from 'src/config/parser.config';
 import { VolleystationApiService } from './application/volleystation-api.service';
 import { VolleystationCompetitionApiService } from './infrastructure/volleystation-competition.service';
 import { GetVolleystationCompetitionQueryHandler } from './application/handlers/queries/get-volleystation-competition.handler';
+import { VolleystationTeamApiService } from './infrastructure/volleystation-team.service';
 
 const queryHandlers = [GetVolleystationCompetitionQueryHandler];
 
@@ -34,6 +35,7 @@ const queryHandlers = [GetVolleystationCompetitionQueryHandler];
     ...queryHandlers,
     VolleystationApiService,
     VolleystationCompetitionApiService,
+    VolleystationTeamApiService,
   ],
   exports: [],
 })
