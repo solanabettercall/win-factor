@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
 import { HealthModule } from './health/health.module';
-import { RedisModule } from './cache/redis.module';
+import { RedisModule } from './shared/infrastructure/cache/redis.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { appConfig } from './config/parser.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { VolleystationApiService } from './volleystation/volleystation-api.service';
+import { VolleystationModule } from './modules/volleystation/volleystation.module';
+import { MonitoringModule } from './modules/monitoring/monitoring.module';
+import { CqrsModule } from '@nestjs/cqrs';
 
 @Module({
   imports: [
+    CqrsModule.forRoot(),
     HealthModule,
     RedisModule,
     ScheduleModule.forRoot(),
@@ -46,6 +49,8 @@ import { VolleystationApiService } from './volleystation/volleystation-api.servi
       },
     }),
     EventEmitterModule.forRoot(),
+    VolleystationModule,
+    MonitoringModule,
   ],
   controllers: [],
   providers: [],

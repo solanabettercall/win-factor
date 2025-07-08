@@ -1,17 +1,12 @@
 import {
   Injectable,
-  InternalServerErrorException,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
 import Redis from 'ioredis';
 import { appConfig } from 'src/config/parser.config';
-import {
-  ClassConstructor,
-  instanceToPlain,
-  plainToInstance,
-} from 'class-transformer';
+
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: Redis;

@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
-import { VolleystationApiService } from './volleystation-api.service';
+import { VolleystationApiService } from './application/volleystation-api.service';
+import { VolleystationCompetitionApiService } from './infrastructure/volleystation-competition.service';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { VolleystationApiService } from './volleystation-api.service';
       },
     }),
   ],
-  providers: [VolleystationApiService],
+  providers: [VolleystationApiService, VolleystationCompetitionApiService],
   exports: [],
 })
 export class VolleystationModule {}
