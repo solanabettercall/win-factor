@@ -1,10 +1,5 @@
 import { IQueryHandler, QueryHandler } from '@nestjs/cqrs';
 
-import { GetVolleystationCompetitionQuery } from '../../queries/get-volleystation-competition.query';
-import {
-  IRawComptition,
-  VolleystationCompetitionApiService,
-} from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
 import { GetVolleystationTeamsQuery } from '../../queries/get-volleystation-teams.query';
 import {
   IRawTeam,
