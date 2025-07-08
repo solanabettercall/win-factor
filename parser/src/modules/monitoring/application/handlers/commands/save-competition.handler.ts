@@ -1,14 +1,14 @@
 import { CommandHandler, EventPublisher, ICommandHandler } from '@nestjs/cqrs';
-import { CreateCompetitionCommand } from '../../commands/create-competition.command';
+import { SaveCompetitionCommand } from '../../commands/save-competition.command';
 import { Inject } from '@nestjs/common';
 import {
   COMPETITION_REPOSITORY,
   ICompetitionRepository,
 } from '../../../domain/repositories/competition.repository.interface';
 
-@CommandHandler(CreateCompetitionCommand)
-export class CreateCompetitionCommandHandler
-  implements ICommandHandler<CreateCompetitionCommand>
+@CommandHandler(SaveCompetitionCommand)
+export class SaveCompetitionCommandHandler
+  implements ICommandHandler<SaveCompetitionCommand>
 {
   constructor(
     @Inject(COMPETITION_REPOSITORY)
@@ -16,7 +16,7 @@ export class CreateCompetitionCommandHandler
     private readonly eventPublisher: EventPublisher,
   ) {}
 
-  async execute(command: CreateCompetitionCommand) {
+  async execute(command: SaveCompetitionCommand) {
     const { competition } = command;
 
     this.eventPublisher.mergeObjectContext(competition);

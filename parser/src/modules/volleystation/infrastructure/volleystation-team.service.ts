@@ -1,14 +1,14 @@
 import { HttpService } from '@nestjs/axios';
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnApplicationBootstrap,
-} from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
 
-export interface IRawTeam {}
+export interface IRawTeam {
+  id: string;
+  name: string;
+  url: string;
+  logoUrl: string | null;
+}
 
 class GetTeamsDto {
   competitionBaseUrl: string;
@@ -21,10 +21,10 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
   constructor(private readonly httpService: HttpService) {}
 
   async onApplicationBootstrap() {
-    const teams = await this.getTeams({
-      competitionBaseUrl: 'https://juniorkimmp.volleystation.com/en/',
-    });
-    console.log(teams[0]);
+    // const teams = await this.getTeams({
+    //   competitionBaseUrl: 'https://juniorkimmp.volleystation.com/en/',
+    // });
+    // console.log(teams[0]);
   }
 
   private parseTeamsV1($: cheerio.CheerioAPI, origin: string): IRawTeam[] {
@@ -42,7 +42,7 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
         const { href: url } = new URL(teamHref, origin);
         const match = decodedHref?.match(/\/teams\/([^/]+)\//);
         const teamId = match ? match[1] : null;
-
+        if (!teamId) return null;
         return {
           id: teamId,
           logoUrl,
@@ -69,7 +69,7 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
         const { href: url } = new URL(teamHref, origin);
         const match = decodedHref?.match(/\/teams\/([^/]+)\//);
         const teamId = match ? match[1] : null;
-
+        if (!teamId) return null;
         return {
           id: teamId,
           logoUrl,
@@ -88,59 +88,37 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
     url.pathname += `teams/`;
     const { origin, href } = url;
 
-    const maxRetries = 10;
-    let retryCount = 0;
+    try {
+      const response = await this.httpService.axiosRef.get(href);
+      const html = response.data;
+      const $ = cheerio.load(html);
 
-    while (retryCount < maxRetries) {
-      try {
-        const response = await this.httpService.axiosRef.get(href);
-        const html = response.data;
-        const $ = cheerio.load(html);
-
-        let teams = this.parseTeamsV1($, origin);
-        if (teams.length) {
-          this.logger.debug(`Парсер V1 сработал: ${teams.length} команд`);
-        } else {
-          this.logger.warn(`Парсер V1 не нашёл команды, пробуем V2: ${href}`);
-          teams = this.parseTeamsV2($, origin);
-
-          if (teams.length) {
-            this.logger.debug(`Парсер V2 сработал: ${teams.length} команд`);
-          } else {
-            this.logger.warn(`Парсер V2 также не нашёл команды: ${href}`);
-          }
-        }
-
+      let teams = this.parseTeamsV1($, origin);
+      if (teams.length) {
+        this.logger.debug(`Парсер V1 найден: ${teams.length} команд`);
         return teams;
-      } catch (error) {
-        const status = error?.status || error?.response?.status || 0;
-
-        if (status === 404) {
-          this.logger.warn(`Не найдено ${href}`);
-          return [];
-        }
-
-        retryCount++;
-
-        if (retryCount >= maxRetries) {
-          this.logger.error(
-            `Ошибка при окончательной обработке ${href}: ${error.message}`,
-          );
-          return [];
-        }
-
-        const delayTime = status === 500 ? 0 : Math.pow(2, retryCount) * 1000;
-
-        this.logger.warn(
-          `Повторная попытка №${retryCount + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
-        );
-
-        if (delayTime > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayTime));
-        }
       }
-    }
 
-    return [];
+      teams = this.parseTeamsV2($, origin);
+      if (teams.length) {
+        this.logger.debug(`Парсер V2 найден: ${teams.length} команд`);
+        return teams;
+      }
+
+      this.logger.warn(`Команды не найдены: ${href}`);
+      return [];
+    } catch (error) {
+      const status = error?.status || error?.response?.status || 0;
+
+      if (status === 404) {
+        this.logger.warn(`Страница не найдена: ${href}`);
+        return [];
+      }
+
+      this.logger.error(
+        `Ошибка при получении команд ${href}: ${error.message}`,
+      );
+      return [];
+    }
   }
 }

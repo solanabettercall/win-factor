@@ -5,8 +5,12 @@ import { VolleystationApiService } from './application/volleystation-api.service
 import { VolleystationCompetitionApiService } from './infrastructure/volleystation-competition.service';
 import { GetVolleystationCompetitionQueryHandler } from './application/handlers/queries/get-volleystation-competition.handler';
 import { VolleystationTeamApiService } from './infrastructure/volleystation-team.service';
+import { GetVolleystationTeamsQueryHandler } from './application/handlers/queries/get-volleystation-teams.handler';
 
-const queryHandlers = [GetVolleystationCompetitionQueryHandler];
+const queryHandlers = [
+  GetVolleystationCompetitionQueryHandler,
+  GetVolleystationTeamsQueryHandler,
+];
 
 @Module({
   imports: [
