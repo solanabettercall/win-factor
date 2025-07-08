@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { CveService } from './cve.service';
 import { HttpModule, HttpModuleOptions } from '@nestjs/axios';
 import { appConfig } from 'src/config/parser.config';
+import { VolleystationApiService } from './volleystation-api.service';
 
 @Module({
   imports: [
@@ -26,7 +26,7 @@ import { appConfig } from 'src/config/parser.config';
       },
     }),
   ],
-
-  providers: [CveService],
+  providers: [VolleystationApiService],
+  exports: [],
 })
-export class CveModule {}
+export class VolleystationModule {}
