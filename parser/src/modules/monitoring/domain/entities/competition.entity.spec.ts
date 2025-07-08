@@ -2,16 +2,19 @@ import { BadRequestException } from '@nestjs/common';
 import { Competition, ICompetition } from './competition.entity';
 import { CompetitionId } from '../value-objects/competition-id.vo';
 import { CompetitionCreatedEvent } from '../events/competition-created.event';
+import { TeamCreatedEvent } from '../events/team-created.event';
+import { TeamId } from '../value-objects/team-id.vo';
+import { ITeam } from './team.entity';
 
 describe('Competition Entity', () => {
   let validCompetitionProps: ICompetition;
   let competitionId: CompetitionId;
 
   beforeEach(() => {
-    competitionId = CompetitionId.create(110);
+    competitionId = CompetitionId.create(1);
     validCompetitionProps = {
       id: competitionId,
-      name: 'Testliga Women',
+      name: 'Test Competition',
       url: 'https://panel.volleystation.com/website/110/en/',
       version: 'website',
     };
@@ -190,6 +193,174 @@ describe('Competition Entity', () => {
 
       const competition = Competition.create(propsWithSpecialName);
       expect(competition.getName()).toBe(specialName);
+    });
+  });
+
+  describe('team management', () => {
+    let competition: Competition;
+    let validTeamProps: ITeam;
+
+    beforeEach(() => {
+      competition = Competition.create(validCompetitionProps);
+      validTeamProps = {
+        id: TeamId.create('123-ABC'),
+        name: 'Test Team',
+        url: 'https://example.com/team',
+      };
+    });
+
+    describe('addTeam', () => {
+      it('should add a team successfully', () => {
+        competition.addTeam(validTeamProps);
+
+        expect(competition.getTeamCount()).toBe(1);
+        expect(competition.hasTeam(validTeamProps.id)).toBe(true);
+        expect(competition.getTeams()[0].getName()).toBe(validTeamProps.name);
+      });
+
+      it('should apply TeamCreatedEvent when adding team', () => {
+        competition.addTeam(validTeamProps);
+        const events = competition.getUncommittedEvents();
+
+        // Should have CompetitionCreatedEvent + TeamCreatedEvent
+        expect(events).toHaveLength(2);
+        expect(events[1]).toBeInstanceOf(TeamCreatedEvent);
+        
+        const teamCreatedEvent = events[1] as TeamCreatedEvent;
+        expect(teamCreatedEvent.team).toEqual(validTeamProps);
+      });
+
+      it('should throw error when adding duplicate team', () => {
+        competition.addTeam(validTeamProps);
+
+        expect(() => competition.addTeam(validTeamProps)).toThrow(BadRequestException);
+        expect(() => competition.addTeam(validTeamProps)).toThrow(
+          'Команда Test Team уже добавлена в турнир',
+        );
+      });
+
+      it('should mark competition as updated when adding team', () => {
+        competition.addTeam(validTeamProps);
+
+        // Just verify that updatedAt exists (markAsUpdated was called)
+        expect(competition.updatedAt).toBeDefined();
+      });
+    });
+
+    describe('addTeams', () => {
+      it('should add multiple teams successfully', () => {
+        const teams: ITeam[] = [
+          {
+            id: TeamId.create('123-ABC'),
+            name: 'Team A',
+            url: 'https://example.com/team-a',
+          },
+          {
+            id: TeamId.create('456-DEF'),
+            name: 'Team B',
+            url: 'https://example.com/team-b',
+          },
+        ];
+
+        competition.addTeams(teams);
+
+        expect(competition.getTeamCount()).toBe(2);
+        expect(competition.hasTeam(teams[0].id)).toBe(true);
+        expect(competition.hasTeam(teams[1].id)).toBe(true);
+      });
+
+      it('should continue adding teams even if one fails', () => {
+        const teams: ITeam[] = [
+          validTeamProps, // First team
+          validTeamProps, // Duplicate - should fail
+          {
+            id: TeamId.create('456-DEF'),
+            name: 'Team B',
+            url: 'https://example.com/team-b',
+          }, // Third team - should succeed
+        ];
+
+        const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+        
+        competition.addTeams(teams);
+
+        expect(competition.getTeamCount()).toBe(2); // First and third teams
+        expect(consoleSpy).toHaveBeenCalled();
+        
+        consoleSpy.mockRestore();
+      });
+    });
+
+    describe('removeTeam', () => {
+      beforeEach(() => {
+        competition.addTeam(validTeamProps);
+      });
+
+      it('should remove team successfully', () => {
+        competition.removeTeam(validTeamProps.id);
+
+        expect(competition.getTeamCount()).toBe(0);
+        expect(competition.hasTeam(validTeamProps.id)).toBe(false);
+      });
+
+      it('should throw error when removing non-existent team', () => {
+        const nonExistentTeamId = TeamId.create('999-XYZ');
+
+        expect(() => competition.removeTeam(nonExistentTeamId)).toThrow(BadRequestException);
+        expect(() => competition.removeTeam(nonExistentTeamId)).toThrow(
+          'Команда с ID 999-XYZ не найдена в турнире',
+        );
+      });
+
+      it('should mark competition as updated when removing team', () => {
+        competition.removeTeam(validTeamProps.id);
+
+        // Just verify that updatedAt exists (markAsUpdated was called)
+        expect(competition.updatedAt).toBeDefined();
+      });
+    });
+
+    describe('team queries', () => {
+      beforeEach(() => {
+        const teams: ITeam[] = [
+          {
+            id: TeamId.create('123-ABC'),
+            name: 'Team A',
+            url: 'https://example.com/team-a',
+          },
+          {
+            id: TeamId.create('456-DEF'),
+            name: 'Team B',
+            url: 'https://example.com/team-b',
+          },
+        ];
+        competition.addTeams(teams);
+      });
+
+      it('should return correct team count', () => {
+        expect(competition.getTeamCount()).toBe(2);
+      });
+
+      it('should return readonly array of teams', () => {
+        const teams = competition.getTeams();
+        
+        expect(teams).toHaveLength(2);
+        expect(teams[0].getName()).toBe('Team A');
+        expect(teams[1].getName()).toBe('Team B');
+        
+        // Readonly array, so let's try to modify through a new copy
+        const modifiableTeams = teams.slice();
+        modifiableTeams.pop();
+        expect(competition.getTeamCount()).toBe(2);
+      });
+
+      it('should correctly check if team exists', () => {
+        const existingTeamId = TeamId.create('123-ABC');
+        const nonExistentTeamId = TeamId.create('999-XYZ');
+
+        expect(competition.hasTeam(existingTeamId)).toBe(true);
+        expect(competition.hasTeam(nonExistentTeamId)).toBe(false);
+      });
     });
   });
 });

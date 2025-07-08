@@ -71,6 +71,13 @@ export class ScraperService {
     const competitionId = CompetitionId.create(110);
     await this.fetchAndSaveCompetition(competitionId);
 
+    await this.fetchAndSaveTeamsForCompetition(competitionId);
+
+    const competition = await this.getCompetition(competitionId);
+    console.log(competition?.getTeamCount());
+  }
+
+  async fetchAndSaveTeamsForCompetition(competitionId: CompetitionId) {
     const competition = await this.getCompetition(competitionId);
 
     if (!competition) {
@@ -81,12 +88,18 @@ export class ScraperService {
     const teams: IRawTeam[] = await this.queryBus.execute(
       new GetVolleystationTeamsQuery(competition),
     );
-    const firstTeam = teams[0];
-    const team: ITeam = mapRawToTeam(firstTeam);
 
-    await this.saveTeam(team);
+    // Map all teams
+    const mappedTeams: ITeam[] = teams.map(mapRawToTeam);
 
-    const createdTeam = await this.getTeam(team.id);
-    console.log(createdTeam);
+    // Add teams to competition aggregate
+    competition.addTeams(mappedTeams);
+
+    // Save updated competition with teams
+    await this.commandBus.execute(new SaveCompetitionCommand(competition));
+
+    this.logger.log(
+      `Добавлено ${competition.getTeamCount()} команд в турнир ${competition.getName()}`,
+    );
   }
 }
