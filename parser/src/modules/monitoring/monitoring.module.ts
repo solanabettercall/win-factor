@@ -10,12 +10,29 @@ import { ImMemoryTeamRepository } from './infrastructure/repositories/in-memory-
 import { SaveTeamCommandHandler } from './application/handlers/commands/save-team.handler';
 import { GetTeamQueryHandler } from './application/handlers/queries/get-team.handler';
 import { TeamCreatedEventHandler } from './application/handlers/events/team-created.handler';
+import { PlayerCreatedEventHandler } from './application/handlers/events/player-created.handler';
+import { PLAYER_REPOSITORY } from './domain/repositories/player.repository.interface';
+import { ImMemoryPlayerRepository } from './infrastructure/repositories/in-memory-player.repository';
+import { SavePlayerCommandHandler } from './application/handlers/commands/save-player.handler';
+import { GetPlayerQueryHandler } from './application/handlers/queries/get-player.handler';
 
-const commandHandlers = [SaveCompetitionCommandHandler, SaveTeamCommandHandler];
+const commandHandlers = [
+  SaveCompetitionCommandHandler,
+  SaveTeamCommandHandler,
+  SavePlayerCommandHandler,
+];
 
-const queryHandlers = [GetCompetitionQueryHandler, GetTeamQueryHandler];
+const queryHandlers = [
+  GetCompetitionQueryHandler,
+  GetTeamQueryHandler,
+  GetPlayerQueryHandler,
+];
 
-const eventHandlers = [CompetitionCreatedEventHandler, TeamCreatedEventHandler];
+const eventHandlers = [
+  CompetitionCreatedEventHandler,
+  TeamCreatedEventHandler,
+  PlayerCreatedEventHandler,
+];
 
 @Module({
   imports: [],
@@ -32,6 +49,11 @@ const eventHandlers = [CompetitionCreatedEventHandler, TeamCreatedEventHandler];
       provide: TEAM_REPOSITORY,
       useClass: ImMemoryTeamRepository,
     },
+    {
+      provide: PLAYER_REPOSITORY,
+      useClass: ImMemoryPlayerRepository,
+    },
+
     ScraperService,
   ],
   exports: [],

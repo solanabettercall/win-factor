@@ -17,6 +17,10 @@ import { ITeam, Team } from '../../domain/entities/team.entity';
 import { TeamId } from '../../domain/value-objects/team-id.vo';
 import { GetTeamQuery } from '../queries/get-team.query';
 import { SaveTeamCommand } from '../commands/save-team.command';
+import { IRawPlayer } from 'src/modules/volleystation/infrastructure/volleystation-player.service';
+import { GetVolleystationPlayersQuery } from 'src/modules/volleystation/application/queries/get-volleystation-players.query';
+import { IPlayer } from '../../domain/entities/player.entity';
+import { mapRawToPlayer } from '../mappers/player.mapper';
 
 @Injectable()
 export class ScraperService {
@@ -70,11 +74,36 @@ export class ScraperService {
   async onApplicationBootstrap() {
     const competitionId = CompetitionId.create(110);
     await this.fetchAndSaveCompetition(competitionId);
-
     await this.fetchAndSaveTeamsForCompetition(competitionId);
+    await this.fetchAndSavePlayersForCompetition(competitionId);
 
     const competition = await this.getCompetition(competitionId);
-    console.log(competition?.getTeamCount());
+
+    console.log(`Игроков: ${competition?.getPlayerCount()}`);
+    console.log(`Команд: ${competition?.getTeamCount()}`);
+  }
+
+  async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
+    const competition = await this.getCompetition(competitionId);
+
+    if (!competition) {
+      this.logger.warn(`Турнир ${competitionId} не найден`);
+      return;
+    }
+
+    const players: IRawPlayer[] = await this.queryBus.execute(
+      new GetVolleystationPlayersQuery(competition),
+    );
+
+    const mappedPlayers: IPlayer[] = players.map(mapRawToPlayer);
+
+    competition.addPlayers(mappedPlayers);
+
+    await this.commandBus.execute(new SaveCompetitionCommand(competition));
+
+    this.logger.log(
+      `Добавлено ${competition.getPlayerCount()} игроков в турнир ${competition.getName()}`,
+    );
   }
 
   async fetchAndSaveTeamsForCompetition(competitionId: CompetitionId) {

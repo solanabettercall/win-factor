@@ -1,9 +1,11 @@
 import { BaseEntity } from 'src/shared/domain/entities/base.entity';
 import { CompetitionId } from '../value-objects/competition-id.vo';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { CompetitionCreatedEvent } from '../events/competition-created.event';
 import { Team, ITeam } from './team.entity';
 import { TeamId } from '../value-objects/team-id.vo';
+import { IPlayer, Player } from './player.entity';
+import { PlayerId } from '../value-objects/player-id.vo';
 
 export interface ICompetition {
   id: CompetitionId;
@@ -14,6 +16,9 @@ export interface ICompetition {
 
 export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   private _teams: Team[] = [];
+  private _players: Player[] = [];
+  private readonly logger = new Logger(this.constructor.name);
+
   private constructor(props: ICompetition) {
     super(props.id, props);
     this.apply(new CompetitionCreatedEvent(props));
@@ -29,6 +34,58 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
     this.validate(props);
 
     return new Competition(props);
+  }
+
+  public addPlayer(props: IPlayer): void {
+    const existingPlayer = this._players.find((t) => t.id === props.id);
+    if (existingPlayer) {
+      throw new BadRequestException(
+        `Игрок ${props.name} уже добавлен в турнир`,
+      );
+    }
+
+    const player = Player.create(props);
+    this._players.push(player);
+
+    const playerEvents = player.getUncommittedEvents();
+    playerEvents.forEach((event) => this.apply(event));
+    player.commit();
+
+    this.markAsUpdated();
+  }
+
+  public addPlayers(props: IPlayer[]): void {
+    props.forEach((playerProps) => {
+      try {
+        this.addPlayer(playerProps);
+      } catch (error) {
+        this.logger.warn(
+          `Не удалось добавить игрока ${playerProps.name}: ${error.message}`,
+        );
+      }
+    });
+  }
+
+  public removePlayer(id: PlayerId): void {
+    const playerIndex = this._players.findIndex((t) => t.id === id);
+    if (playerIndex === -1) {
+      throw new BadRequestException(`Команда с ID ${id} не найдена в турнире`);
+    }
+
+    this._players.splice(playerIndex, 1);
+    this.markAsUpdated();
+  }
+
+  public getPlayers(): readonly Player[] {
+    return [...this._players];
+  }
+
+  public getPlayerCount(): number {
+    return this._players.length;
+  }
+
+  public hasPlayer(id: PlayerId): boolean {
+    return this._players.some((t) => t.id === id);
   }
 
   public addTeam(teamProps: ITeam): void {
