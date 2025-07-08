@@ -87,7 +87,7 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     };
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
   async run() {
     const matches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
@@ -120,7 +120,7 @@ export class MatchWatcherService implements OnApplicationBootstrap {
           }),
         ),
       ]);
-      if (!homeRoster || !awayRoster) break;
+      if (!homeRoster || !awayRoster) continue;
 
       // 2) реальные заявки — из event.teams.home/away.players
       const declaredHomeNums = new Set(
@@ -264,8 +264,6 @@ export class MatchWatcherService implements OnApplicationBootstrap {
       };
 
       this.matchNotificationCacheService.handleEvent(payload);
-
-      break;
     }
   }
 }
