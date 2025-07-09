@@ -2,6 +2,14 @@ import { AggregateRoot } from '@nestjs/cqrs';
 import { Timestamp } from '../value-objects/timestamp.vo';
 import { IEvent } from '@nestjs/cqrs';
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: JsonValue }
+  | JsonValue[];
+
 export abstract class BaseEntity<T, P> extends AggregateRoot<IEvent> {
   protected readonly _id: T;
   protected readonly _createdAt: Timestamp;
@@ -58,11 +66,11 @@ export abstract class BaseEntity<T, P> extends AggregateRoot<IEvent> {
     return this.toString();
   }
 
-  public toJSON(): string {
-    return JSON.stringify(this.props);
+  public toJSON(): JsonValue {
+    return this.props as JsonValue;
   }
 
   public [Symbol.for('nodejs.util.inspect.custom')](): unknown {
-    return JSON.parse(this.toJSON()) as unknown;
+    return this.toJSON();
   }
 }

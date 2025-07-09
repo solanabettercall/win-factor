@@ -26,7 +26,7 @@ import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/applicat
 import { IRawMatch } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
 import { SaveMatchCommand } from '../commands/save-match.command';
 import { mapRawDetailedToMatch, mapRawToMatch } from '../mappers/match.mapper';
-import { IMatch, Match } from '../../domain/entities/match.entity';
+import { IMatch, IMatchProps, Match } from '../../domain/entities/match.entity';
 import { GetVolleystationMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-match.query';
 import { MatchId } from '../../domain/value-objects/match-id.vo';
 
@@ -98,9 +98,13 @@ export class ScraperService {
     console.log(`Команд: ${competition?.getTeamCount()}`);
     console.log(`Матчей: ${competition?.getMatchCount()}`);
 
-    const match = await this.queryBus.execute(new GetMatchQuery(matchId));
+    const match1 = await this.queryBus.execute(new GetMatchQuery(matchId));
+    const match2 = await this.queryBus.execute(
+      new GetMatchQuery(MatchId.create(2238762)),
+    );
 
-    console.log(match);
+    console.log(match1);
+    console.log(match2);
   }
 
   async fetchAndSaveMatch(competitionId: CompetitionId, matchId: MatchId) {
@@ -202,7 +206,7 @@ export class ScraperService {
       new GetVolleystationMatchesQuery(competition),
     );
 
-    const matches: IMatch[] = rawMatches.map(mapRawToMatch);
+    const matches: IMatchProps[] = rawMatches.map(mapRawToMatch);
 
     competition.addMatches(matches);
 

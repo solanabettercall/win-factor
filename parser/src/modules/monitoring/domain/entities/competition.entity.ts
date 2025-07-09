@@ -6,7 +6,7 @@ import { Team, ITeam } from './team.entity';
 import { TeamId } from '../value-objects/team-id.vo';
 import { IPlayer, Player } from './player.entity';
 import { PlayerId } from '../value-objects/player-id.vo';
-import { IMatch, Match } from './match.entity';
+import { IMatch, IMatchProps, Match } from './match.entity';
 import { MatchId } from '../value-objects/match-id.vo';
 import { CompetitionVersion } from '../value-objects/competition-version.vo';
 
@@ -163,7 +163,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
     return this.props.id;
   }
 
-  public addMatch(matchProps: IMatch): void {
+  public addMatch(matchProps: IMatchProps | IMatch): void {
     const existingMatch = this._matches.find((t) => t.id === matchProps.id);
     if (existingMatch) {
       throw new BadRequestException(
@@ -181,7 +181,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
     this.markAsUpdated();
   }
 
-  public addMatches(matchesProps: IMatch[]): void {
+  public addMatches(matchesProps: (IMatchProps | IMatch)[]): void {
     matchesProps.forEach((matchProps) => {
       try {
         this.addMatch(matchProps);

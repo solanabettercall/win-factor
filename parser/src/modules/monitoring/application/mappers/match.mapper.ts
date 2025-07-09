@@ -2,22 +2,18 @@ import {
   IRawDetailedMatch,
   IRawMatch,
 } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
-import { IMatch } from '../../domain/entities/match.entity';
+import { IMatchProps } from '../../domain/entities/match.entity';
 
-export function mapRawToMatch(raw: IRawMatch): IMatch {
+export function mapRawToMatch(raw: IRawMatch): IMatchProps {
   return {
     id: raw.id,
     matchUrl: raw.matchUrl,
-    away: null,
-    home: null,
   };
 }
 
-export function mapRawDetailedToMatch(raw: IRawDetailedMatch): IMatch {
+export function mapRawDetailedToMatch(raw: IRawDetailedMatch): IMatchProps {
   return {
     id: raw.id,
     matchUrl: raw.url,
-    away: null,
-    home: null,
   };
 }

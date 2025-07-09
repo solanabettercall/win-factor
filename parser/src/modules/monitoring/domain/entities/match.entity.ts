@@ -4,9 +4,12 @@ import { MatchId } from '../value-objects/match-id.vo';
 import { MatchCreatedEvent } from '../events/match-created.event';
 import { ITeam, Team } from './team.entity';
 
-export interface IMatch {
+export interface IMatchProps {
   id: MatchId;
   matchUrl: string;
+}
+
+export interface IMatch extends IMatchProps {
   home: Team | null;
   away: Team | null;
 }
@@ -14,25 +17,23 @@ export interface IMatch {
 export class Match extends BaseEntity<MatchId, IMatch> {
   private readonly logger = new Logger(this.constructor.name);
 
-  private constructor(props: IMatch) {
-    super(props.id, props);
-    const { away, home } = props;
-    this.props.away = away;
-    this.props.home = home;
+  private constructor(props: IMatchProps) {
+    super(props.id, {
+      ...props,
+      home: null,
+      away: null,
+    });
 
     this.apply(new MatchCreatedEvent(props));
   }
 
-  public static validate(props: IMatch) {
-    if (props.home && props.away && props.home.equals(props.away)) {
-      throw new Error('Home and away teams cannot be the same');
-    }
+  public static validate(props: IMatchProps) {
     if (!props.matchUrl || props.matchUrl.trim() === '') {
       throw new Error('Match URL is required');
     }
   }
 
-  public static create(props: IMatch) {
+  public static create(props: IMatchProps) {
     Match.validate(props);
 
     return new Match(props);
@@ -57,7 +58,7 @@ export class Match extends BaseEntity<MatchId, IMatch> {
       throw new Error('Home and away teams cannot be the same');
     }
 
-    this.props.home = _team;
+    (this.props as any).home = _team;
     this.markAsUpdated();
   }
 
@@ -68,7 +69,7 @@ export class Match extends BaseEntity<MatchId, IMatch> {
       throw new Error('Home and away teams cannot be the same');
     }
 
-    this.props.away = _team;
+    (this.props as any).away = _team;
     this.markAsUpdated();
   }
 
