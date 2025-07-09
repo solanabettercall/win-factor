@@ -15,23 +15,31 @@ import { PLAYER_REPOSITORY } from './domain/repositories/player.repository.inter
 import { ImMemoryPlayerRepository } from './infrastructure/repositories/in-memory-player.repository';
 import { SavePlayerCommandHandler } from './application/handlers/commands/save-player.handler';
 import { GetPlayerQueryHandler } from './application/handlers/queries/get-player.handler';
+import { MATCH_REPOSITORY } from './domain/repositories/match.repository.interface';
+import { ImMemoryMatchRepository } from './infrastructure/repositories/in-memory-match.repository';
+import { SaveMatchCommandHandler } from './application/handlers/commands/save-match.handler';
+import { GetMatchQueryHandler } from './application/handlers/queries/get-match.handler';
+import { MatchCreatedEventHandler } from './application/handlers/events/match-created.handler';
 
 const commandHandlers = [
   SaveCompetitionCommandHandler,
   SaveTeamCommandHandler,
   SavePlayerCommandHandler,
+  SaveMatchCommandHandler,
 ];
 
 const queryHandlers = [
   GetCompetitionQueryHandler,
   GetTeamQueryHandler,
   GetPlayerQueryHandler,
+  GetMatchQueryHandler,
 ];
 
 const eventHandlers = [
   CompetitionCreatedEventHandler,
   TeamCreatedEventHandler,
   PlayerCreatedEventHandler,
+  MatchCreatedEventHandler,
 ];
 
 @Module({
@@ -52,6 +60,10 @@ const eventHandlers = [
     {
       provide: PLAYER_REPOSITORY,
       useClass: ImMemoryPlayerRepository,
+    },
+    {
+      provide: MATCH_REPOSITORY,
+      useClass: ImMemoryMatchRepository,
     },
 
     ScraperService,

@@ -25,7 +25,7 @@ export class Player extends BaseEntity<PlayerId, IPlayer> {
   }
 
   public static create(props: IPlayer): Player {
-    this.validate(props);
+    Player.validate(props);
 
     return new Player(props);
   }

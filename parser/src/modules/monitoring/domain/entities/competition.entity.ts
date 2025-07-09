@@ -31,7 +31,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public static create(props: ICompetition) {
-    this.validate(props);
+    Competition.validate(props);
 
     return new Competition(props);
   }

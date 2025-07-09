@@ -22,7 +22,7 @@ export class Team extends BaseEntity<TeamId, ITeam> {
   }
 
   public static create(props: ITeam): Team {
-    this.validate(props);
+    Team.validate(props);
 
     return new Team(props);
   }

@@ -21,6 +21,12 @@ import { IRawPlayer } from 'src/modules/volleystation/infrastructure/volleystati
 import { GetVolleystationPlayersQuery } from 'src/modules/volleystation/application/queries/get-volleystation-players.query';
 import { IPlayer } from '../../domain/entities/player.entity';
 import { mapRawToPlayer } from '../mappers/player.mapper';
+import { GetMatchQuery } from '../queries/get-match.query';
+import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/application/queries/get-volleystation-matches.query';
+import { IRawMatch } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
+import { SaveMatchCommand } from '../commands/save-match.command';
+import { mapRawToMatch } from '../mappers/match.mapper';
+import { IMatch, Match } from '../../domain/entities/match.entity';
 
 @Injectable()
 export class ScraperService {
@@ -73,15 +79,39 @@ export class ScraperService {
 
   async onApplicationBootstrap() {
     const competitionId = CompetitionId.create(25);
+    // const matchId = CompetitionId.create(25);
     await this.fetchAndSaveCompetition(competitionId);
-    // await this.fetchAndSaveCompetition(competitionId);
-    await this.fetchAndSaveTeamsForCompetition(competitionId);
-    await this.fetchAndSavePlayersForCompetition(competitionId);
 
     const competition = await this.getCompetitionFromDb(competitionId);
+    if (!competition) {
+      this.logger.debug(`Турнир ${competitionId} не найден`);
+      return;
+    }
 
-    console.log(`Игроков: ${competition?.getPlayerCount()}`);
-    console.log(`Команд: ${competition?.getTeamCount()}`);
+    // // await this.fetchAndSaveCompetition(competitionId);
+    // await this.fetchAndSaveTeamsForCompetition(competitionId);
+    // await this.fetchAndSavePlayersForCompetition(competitionId);
+    // const competition = await this.getCompetitionFromDb(competitionId);
+    // console.log(`Игроков: ${competition?.getPlayerCount()}`);
+    // console.log(`Команд: ${competition?.getTeamCount()}`);
+
+    const rawMatches: IRawMatch[] = await this.queryBus.execute(
+      new GetVolleystationMatchesQuery(competition),
+    );
+    if (rawMatches.length < 1) {
+      this.logger.debug('Список матчей пуст');
+      return;
+    }
+
+    const matches: Match[] = rawMatches.map(mapRawToMatch).map(Match.create);
+
+    await this.commandBus.execute(new SaveMatchCommand(matches[0]));
+
+    // const matchFromDb = await this.queryBus.execute(
+    //   new GetMatchQuery(match.id),
+    // );
+
+    // const match = Match.create(matches[0]);
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
