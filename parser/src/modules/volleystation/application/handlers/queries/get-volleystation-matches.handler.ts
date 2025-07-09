@@ -21,13 +21,13 @@ export class GetVolleystationMatchesQueryHandler
     // TODO: Сделать потоком параллельным потоком с rxjs
     const resultMatches: IRawMatch[] =
       await this.volleystationMatchApiService.getMatches({
-        competitionBaseUrl: competition.getUrl(),
+        competition,
         type: MatchListType.Results,
       });
 
     const scheduleMatches: IRawMatch[] =
       await this.volleystationMatchApiService.getMatches({
-        competitionBaseUrl: competition.getUrl(),
+        competition,
         type: MatchListType.Schedule,
       });
 

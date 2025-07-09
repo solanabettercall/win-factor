@@ -27,7 +27,7 @@ export enum MatchListType {
   Results = 'results',
 }
 class GetMatchesDto {
-  competitionBaseUrl: string;
+  competition: Competition;
   type: MatchListType;
 }
 
@@ -180,9 +180,9 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
   }
 
   async getMatches(dto: GetMatchesDto): Promise<IRawMatch[]> {
-    const { competitionBaseUrl, type } = dto;
+    const { competition, type } = dto;
 
-    const url = new URL(competitionBaseUrl);
+    const url = new URL(competition.getUrl());
     url.pathname += `${type}/`;
 
     const { href: pageUrl } = url;

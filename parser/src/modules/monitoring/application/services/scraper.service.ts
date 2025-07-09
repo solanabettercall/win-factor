@@ -81,23 +81,37 @@ export class ScraperService {
 
   async onApplicationBootstrap() {
     const competitionId = CompetitionId.create(25);
-    // const matchId = CompetitionId.create(25);
+    const matchId = MatchId.create(2238712);
     await this.fetchAndSaveCompetition(competitionId);
-    // await Promise.all([
-    //   this.fetchAndSaveMatchesForCompetition(competitionId),
-    //   this.fetchAndSaveTeamsForCompetition(competitionId),
-    //   this.fetchAndSavePlayersForCompetition(competitionId),
-    // ]);
     const competition = await this.getCompetitionFromDb(competitionId);
     if (!competition) {
       this.logger.warn(`Турнир ${competitionId} не найден`);
       return;
     }
-    // console.log(`Игроков: ${competition?.getPlayerCount()}`);
-    // console.log(`Команд: ${competition?.getTeamCount()}`);
-    // console.log(`Матчей: ${competition?.getMatchCount()}`);
+    await Promise.all([
+      this.fetchAndSaveMatchesForCompetition(competitionId),
+      this.fetchAndSaveTeamsForCompetition(competitionId),
+      this.fetchAndSavePlayersForCompetition(competitionId),
+      this.fetchAndSaveMatch(competitionId, matchId),
+    ]);
+    console.log(`Игроков: ${competition?.getPlayerCount()}`);
+    console.log(`Команд: ${competition?.getTeamCount()}`);
+    console.log(`Матчей: ${competition?.getMatchCount()}`);
 
-    const matchId = MatchId.create(2238712);
+    const match = await this.queryBus.execute(new GetMatchQuery(matchId));
+
+    console.log(match);
+  }
+
+  async fetchAndSaveMatch(competitionId: CompetitionId, matchId: MatchId) {
+    const competition: Competition | null =
+      await this.getCompetitionFromDb(competitionId);
+
+    if (!competition) {
+      this.logger.warn(`Турнир ${competitionId} не найден`);
+      return;
+    }
+
     const rawMatch = await this.queryBus.execute(
       new GetVolleystationMatchQuery({
         competition,
@@ -123,7 +137,9 @@ export class ScraperService {
       new GetMatchQuery(matchId),
     );
 
-    console.log(createdMatch);
+    if (!createdMatch) return;
+
+    this.logger.log(`Матч ${createdMatch.getId()} сохранен`);
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
