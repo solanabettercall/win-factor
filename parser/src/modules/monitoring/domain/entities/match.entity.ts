@@ -18,7 +18,7 @@ export class Match extends BaseEntity<MatchId, IMatch> {
     super(props.id, props);
     const { away, home } = props;
     this.props.away = away;
-    this.props.away = home;
+    this.props.home = home;
 
     this.apply(new MatchCreatedEvent(props));
   }
