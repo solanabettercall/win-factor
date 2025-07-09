@@ -2,16 +2,18 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
+import { CompetitionVersion } from 'src/modules/monitoring/domain/value-objects/competition-version.vo';
 
 export interface IRawComptition {
   id: number;
   name: string;
   url: string;
+  version: CompetitionVersion;
 }
 
 class GetCompeitionDto {
   id: number;
-  version: 'website' | 'website2';
+  version: CompetitionVersion;
 }
 
 @Injectable()
@@ -46,6 +48,7 @@ export class VolleystationCompetitionApiService {
         id,
         name,
         url: finalUrl,
+        version,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {

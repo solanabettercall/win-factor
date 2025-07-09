@@ -8,12 +8,13 @@ import { IPlayer, Player } from './player.entity';
 import { PlayerId } from '../value-objects/player-id.vo';
 import { IMatch, Match } from './match.entity';
 import { MatchId } from '../value-objects/match-id.vo';
+import { CompetitionVersion } from '../value-objects/competition-version.vo';
 
 export interface ICompetition {
   id: CompetitionId;
   name: string;
   url: string;
-  version: string;
+  version: CompetitionVersion;
 }
 
 export class Competition extends BaseEntity<CompetitionId, ICompetition> {
@@ -213,5 +214,9 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
 
   public hasMatch(matchId: MatchId): boolean {
     return this._matches.some((m) => m.getId() === matchId);
+  }
+
+  public getVersion(): CompetitionVersion {
+    return this.props.version;
   }
 }

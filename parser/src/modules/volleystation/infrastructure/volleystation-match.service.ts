@@ -1,14 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
+import { MatchId } from 'src/modules/monitoring/domain/value-objects/match-id.vo';
+import { TeamId } from 'src/modules/monitoring/domain/value-objects/team-id.vo';
+import { Match } from 'src/modules/monitoring/domain/entities/match.entity';
+import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
+import { CompetitionId } from 'src/modules/monitoring/domain/value-objects/competition-id.vo';
+import { CompetitionVersion } from 'src/modules/monitoring/domain/value-objects/competition-version.vo';
 interface IRawTeam {
   name: string;
   logoUrl?: string;
 }
 
 export interface IRawMatch {
-  id: number;
+  id: MatchId;
   matchUrl: string;
   home: IRawTeam;
   away: IRawTeam;
@@ -18,17 +29,55 @@ export enum MatchListType {
   Schedule = 'schedule',
   Results = 'results',
 }
-
 class GetMatchesDto {
   competitionBaseUrl: string;
   type: MatchListType;
 }
 
+class GetMatch {
+  competition: Competition;
+  matchId: MatchId;
+}
+
+export interface IRawDetailedMatch {
+  id: MatchId;
+  url: string;
+  home: IRawDetailedTeam;
+  away: IRawDetailedTeam;
+}
+
+export interface IRawDetailedTeam {
+  id: TeamId;
+  name: string;
+  url: string;
+  logoUrl?: string;
+}
+
 @Injectable()
-export class VolleystationMatchApiService {
+export class VolleystationMatchApiService implements OnApplicationBootstrap {
   private readonly logger = new Logger(this.constructor.name);
 
   constructor(private readonly httpService: HttpClientService) {}
+
+  async onApplicationBootstrap() {
+    // const competition = Competition.create({
+    //   id: CompetitionId.create(221),
+    //   name: 'Test',
+    //   url: 'https://panel.volleystation.com/website/221/en/',
+    //   version: CompetitionVersion.create('website'),
+    // });
+    // const competition = Competition.create({
+    //   id: CompetitionId.create(221),
+    //   name: 'Test',
+    //   url: 'https://vnlm.volleystation.com/en/',
+    //   version: CompetitionVersion.create('website2'),
+    // });
+    // const match = await this.getMatch({
+    //   competition,
+    //   matchId: MatchId.create(2227672),
+    // });
+    // console.log(match);
+  }
 
   private parseMatchesV1(
     $: cheerio.CheerioAPI,
@@ -58,7 +107,7 @@ export class VolleystationMatchApiService {
         const awayName = away.find('div.name').text().trim();
 
         return {
-          id: matchId,
+          id: MatchId.create(matchId),
           matchUrl,
           home: {
             logoUrl: homeLogoUrl,
@@ -116,7 +165,7 @@ export class VolleystationMatchApiService {
         const awayName = away.find('.name').text().trim();
 
         matches.push({
-          id: matchId,
+          id: MatchId.create(matchId),
           matchUrl,
           home: {
             logoUrl: homeLogoUrl,
@@ -174,6 +223,150 @@ export class VolleystationMatchApiService {
         this.logger.error(`Ошибка при обработке ${pageUrl}: ${err.message}`);
       }
       return [];
+    }
+  }
+
+  async getMatch(dto: GetMatch): Promise<IRawDetailedMatch | null> {
+    const { competition, matchId } = dto;
+
+    const url = new URL(competition.getUrl());
+    url.pathname += `matches/${matchId}/`;
+    const pageUrl = url.href;
+
+    try {
+      const response = await this.httpService.get(pageUrl);
+      if (!response) return null;
+
+      const $ = cheerio.load(response.data);
+      const version = competition.getVersion();
+
+      const parsers = version.isV1()
+        ? [this.parseMatchV1, this.parseMatchV2]
+        : [this.parseMatchV2, this.parseMatchV1];
+
+      for (const parser of parsers) {
+        const match = parser.call(this, $, url, matchId);
+        if (match) {
+          this.logger.debug(
+            `Парсер ${parser.name} сработал: матч ${match.id} найден`,
+          );
+          return match;
+        }
+      }
+
+      return null;
+    } catch (err) {
+      if (err.response?.status === 404) {
+        this.logger.warn(`Страница не найдена: ${pageUrl}`);
+      } else {
+        this.logger.error(`Ошибка при обработке ${pageUrl}: ${err.message}`);
+      }
+      return null;
+    }
+  }
+
+  private parseMatchV1(
+    $: cheerio.CheerioAPI,
+    origin: URL,
+    matchId: MatchId,
+  ): IRawDetailedMatch | null {
+    try {
+      const extractTeam = (selector: string) => {
+        const el = $(selector);
+        const href = el.attr('href');
+        if (!href) {
+          throw new UnprocessableEntityException(
+            'Не удалось получить ссылку на команду',
+          );
+        }
+        const name = el.find('div.name').text().trim();
+        if (!name) {
+          throw new UnprocessableEntityException(
+            'Не удалось получить название команды',
+          );
+        }
+        const url = new URL(href, origin);
+        const match = url.pathname.match(/\d+-\w+/);
+        const id = match ? TeamId.create(match[0]) : TeamId.create('');
+
+        return { id, name, url: url.href };
+      };
+
+      const home = extractTeam('div.rivals a.home');
+      const away = extractTeam('div.rivals a.away');
+
+      if (!home || !away) {
+        return null;
+      }
+
+      return {
+        id: matchId,
+        url: origin.href,
+        home,
+        away,
+      };
+    } catch (err: unknown) {
+      if (err instanceof UnprocessableEntityException) {
+        this.logger.warn(`Парсер V1: ${err.message}`);
+      } else {
+        this.logger.warn('Парсер V1 не смог получить матч');
+      }
+      return null;
+    }
+  }
+
+  private parseMatchV2(
+    $: cheerio.CheerioAPI,
+    origin: URL,
+    matchId: MatchId,
+  ): IRawDetailedMatch | null {
+    try {
+      const extractTeam = (selector: string) => {
+        const el = $(selector);
+        const href = el.attr('href');
+        if (!href) {
+          throw new UnprocessableEntityException(
+            'Не удалось извлечь ссылку на команду',
+          );
+        }
+        const name = el.text().trim();
+        if (!name) {
+          throw new UnprocessableEntityException(
+            'Не удалось извлечь название команды',
+          );
+        }
+
+        const url = new URL(href, origin);
+        const match = url.pathname.match(/\d+-\w+/);
+        const id = match ? TeamId.create(match[0]) : TeamId.create('');
+
+        return { id, name, url: url.href };
+      };
+
+      const home = extractTeam(
+        'div.match-score-details div.team.home div.name a',
+      );
+      const away = extractTeam(
+        'div.match-score-details div.team.away div.name a',
+      );
+
+      if (!home || !away) {
+        return null;
+      }
+
+      return {
+        id: matchId,
+        url: origin.href,
+        home,
+        away,
+      };
+    } catch (err: unknown) {
+      if (err instanceof UnprocessableEntityException) {
+        this.logger.warn(`Парсер V2: ${err.message}`);
+      } else {
+        this.logger.warn('Парсер V2 не смог получить матч');
+      }
+      return null;
     }
   }
 }

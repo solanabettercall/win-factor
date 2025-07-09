@@ -78,20 +78,18 @@ export class ScraperService {
   }
 
   async onApplicationBootstrap() {
-    const competitionId = CompetitionId.create(25);
-    // const matchId = CompetitionId.create(25);
-    await this.fetchAndSaveCompetition(competitionId);
-
-    await Promise.all([
-      this.fetchAndSaveMatchesForCompetition(competitionId),
-      this.fetchAndSaveTeamsForCompetition(competitionId),
-      this.fetchAndSavePlayersForCompetition(competitionId),
-    ]);
-
-    const competition = await this.getCompetitionFromDb(competitionId);
-    console.log(`Игроков: ${competition?.getPlayerCount()}`);
-    console.log(`Команд: ${competition?.getTeamCount()}`);
-    console.log(`Матчей: ${competition?.getMatchCount()}`);
+    // const competitionId = CompetitionId.create(25);
+    // // const matchId = CompetitionId.create(25);
+    // await this.fetchAndSaveCompetition(competitionId);
+    // await Promise.all([
+    //   this.fetchAndSaveMatchesForCompetition(competitionId),
+    //   this.fetchAndSaveTeamsForCompetition(competitionId),
+    //   this.fetchAndSavePlayersForCompetition(competitionId),
+    // ]);
+    // const competition = await this.getCompetitionFromDb(competitionId);
+    // console.log(`Игроков: ${competition?.getPlayerCount()}`);
+    // console.log(`Команд: ${competition?.getTeamCount()}`);
+    // console.log(`Матчей: ${competition?.getMatchCount()}`);
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {

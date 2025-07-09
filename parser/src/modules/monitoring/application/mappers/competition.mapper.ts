@@ -7,6 +7,6 @@ export function mapRawToCompetition(raw: IRawComptition): ICompetition {
     id: CompetitionId.create(raw.id),
     name: raw.name,
     url: raw.url,
-    version: 'website',
+    version: raw.version,
   };
 }
