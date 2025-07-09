@@ -25,8 +25,10 @@ import { GetMatchQuery } from '../queries/get-match.query';
 import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/application/queries/get-volleystation-matches.query';
 import { IRawMatch } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
 import { SaveMatchCommand } from '../commands/save-match.command';
-import { mapRawToMatch } from '../mappers/match.mapper';
+import { mapRawDetailedToMatch, mapRawToMatch } from '../mappers/match.mapper';
 import { IMatch, Match } from '../../domain/entities/match.entity';
+import { GetVolleystationMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-match.query';
+import { MatchId } from '../../domain/value-objects/match-id.vo';
 
 @Injectable()
 export class ScraperService {
@@ -78,18 +80,50 @@ export class ScraperService {
   }
 
   async onApplicationBootstrap() {
-    // const competitionId = CompetitionId.create(25);
-    // // const matchId = CompetitionId.create(25);
-    // await this.fetchAndSaveCompetition(competitionId);
+    const competitionId = CompetitionId.create(25);
+    // const matchId = CompetitionId.create(25);
+    await this.fetchAndSaveCompetition(competitionId);
     // await Promise.all([
     //   this.fetchAndSaveMatchesForCompetition(competitionId),
     //   this.fetchAndSaveTeamsForCompetition(competitionId),
     //   this.fetchAndSavePlayersForCompetition(competitionId),
     // ]);
-    // const competition = await this.getCompetitionFromDb(competitionId);
+    const competition = await this.getCompetitionFromDb(competitionId);
+    if (!competition) {
+      this.logger.warn(`Турнир ${competitionId} не найден`);
+      return;
+    }
     // console.log(`Игроков: ${competition?.getPlayerCount()}`);
     // console.log(`Команд: ${competition?.getTeamCount()}`);
     // console.log(`Матчей: ${competition?.getMatchCount()}`);
+
+    const matchId = MatchId.create(2238712);
+    const rawMatch = await this.queryBus.execute(
+      new GetVolleystationMatchQuery({
+        competition,
+        matchId,
+      }),
+    );
+    if (!rawMatch) {
+      this.logger.warn(`Матч ${matchId} не найден`);
+
+      return;
+    }
+
+    const matchWithoutTeams = mapRawDetailedToMatch(rawMatch);
+
+    const match = Match.create(matchWithoutTeams);
+
+    match.updateAwayTeam(rawMatch.away);
+    match.updateHomeTeam(rawMatch.home);
+
+    await this.commandBus.execute(new SaveMatchCommand(match));
+
+    const createdMatch = await this.queryBus.execute(
+      new GetMatchQuery(matchId),
+    );
+
+    console.log(createdMatch);
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {

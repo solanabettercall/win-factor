@@ -9,10 +9,7 @@ import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
 import { MatchId } from 'src/modules/monitoring/domain/value-objects/match-id.vo';
 import { TeamId } from 'src/modules/monitoring/domain/value-objects/team-id.vo';
-import { Match } from 'src/modules/monitoring/domain/entities/match.entity';
 import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
-import { CompetitionId } from 'src/modules/monitoring/domain/value-objects/competition-id.vo';
-import { CompetitionVersion } from 'src/modules/monitoring/domain/value-objects/competition-version.vo';
 interface IRawTeam {
   name: string;
   logoUrl?: string;

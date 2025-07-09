@@ -7,7 +7,7 @@ import {
 import { GetVolleystationMatchQuery } from '../../queries/get-volleystation-match.query';
 
 @QueryHandler(GetVolleystationMatchQuery)
-export class GetVolleystationMatchesQueryHandler
+export class GetVolleystationMatchQueryHandler
   implements IQueryHandler<GetVolleystationMatchQuery>
 {
   constructor(

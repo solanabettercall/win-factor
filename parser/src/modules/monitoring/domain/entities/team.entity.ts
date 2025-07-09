@@ -15,6 +15,14 @@ export class Team extends BaseEntity<TeamId, ITeam> {
     this.apply(new TeamCreatedEvent(props));
   }
 
+  public [Symbol.for('nodejs.util.inspect.custom')]() {
+    return {
+      id: this.props.id,
+      name: this.props.name,
+      url: this.props.url,
+    };
+  }
+
   public static validate(props: ITeam) {
     if (props.name.length < 1) {
       throw new BadRequestException(`Название команды не должено быть пустым`);

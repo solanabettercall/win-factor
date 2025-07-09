@@ -2,7 +2,7 @@ import { BaseEntity } from 'src/shared/domain/entities/base.entity';
 import { Logger } from '@nestjs/common';
 import { MatchId } from '../value-objects/match-id.vo';
 import { MatchCreatedEvent } from '../events/match-created.event';
-import { Team } from './team.entity';
+import { ITeam, Team } from './team.entity';
 
 export interface IMatch {
   id: MatchId;
@@ -50,23 +50,25 @@ export class Match extends BaseEntity<MatchId, IMatch> {
     return Object.freeze(this.props.away);
   }
 
-  public updateHomeTeam(team: Team): void {
+  public updateHomeTeam(team: ITeam): void {
+    const _team = Team.create(team);
     this.logger.log(`Updating home team for match ${this.props.id}`);
-    if (this.props.away?.equals(team)) {
+    if (this.props.away?.equals(_team)) {
       throw new Error('Home and away teams cannot be the same');
     }
 
-    this.props.home = team;
+    this.props.home = _team;
     this.markAsUpdated();
   }
 
-  public updateAwayTeam(team: Team): void {
+  public updateAwayTeam(team: ITeam): void {
+    const _team = Team.create(team);
     this.logger.log(`Updating away team for match ${this.props.id}`);
-    if (this.props.home?.equals(team)) {
+    if (this.props.home?.equals(_team)) {
       throw new Error('Home and away teams cannot be the same');
     }
 
-    this.props.away = team;
+    this.props.away = _team;
     this.markAsUpdated();
   }
 
