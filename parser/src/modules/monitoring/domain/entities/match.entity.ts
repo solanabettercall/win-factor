@@ -14,16 +14,11 @@ export interface IMatch {
 export class Match extends BaseEntity<MatchId, IMatch> {
   private readonly logger = new Logger(this.constructor.name);
 
-  state: 'parsing';
-
-  private _home: Team | null;
-  private _away: Team | null;
-
   private constructor(props: IMatch) {
     super(props.id, props);
     const { away, home } = props;
-    this._away = away;
-    this._away = home;
+    this.props.away = away;
+    this.props.away = home;
 
     this.apply(new MatchCreatedEvent(props));
   }
@@ -57,17 +52,17 @@ export class Match extends BaseEntity<MatchId, IMatch> {
 
   public updateHomeTeam(team: Team): void {
     this.logger.log(`Updating home team for match ${this.props.id}`);
-    if (this._away?.equals(team)) {
+    if (this.props.away?.equals(team)) {
       throw new Error('Home and away teams cannot be the same');
     }
 
-    this._home = team;
+    this.props.home = team;
     this.markAsUpdated();
   }
 
   public updateAwayTeam(team: Team): void {
     this.logger.log(`Updating away team for match ${this.props.id}`);
-    if (this._home?.equals(team)) {
+    if (this.props.home?.equals(team)) {
       throw new Error('Home and away teams cannot be the same');
     }
 

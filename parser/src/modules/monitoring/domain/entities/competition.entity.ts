@@ -6,6 +6,8 @@ import { Team, ITeam } from './team.entity';
 import { TeamId } from '../value-objects/team-id.vo';
 import { IPlayer, Player } from './player.entity';
 import { PlayerId } from '../value-objects/player-id.vo';
+import { IMatch, Match } from './match.entity';
+import { MatchId } from '../value-objects/match-id.vo';
 
 export interface ICompetition {
   id: CompetitionId;
@@ -17,6 +19,7 @@ export interface ICompetition {
 export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   private _teams: Team[] = [];
   private _players: Player[] = [];
+  private _matches: Match[] = [];
   private readonly logger = new Logger(this.constructor.name);
 
   private constructor(props: ICompetition) {
@@ -114,7 +117,9 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
         this.addTeam(teamProps);
       } catch (error) {
         // Log but continue with other teams
-        console.warn(`Failed to add team ${teamProps.name}: ${error.message}`);
+        this.logger.warn(
+          `Failed to add team ${teamProps.name}: ${error.message}`,
+        );
       }
     });
   }
@@ -155,5 +160,58 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
 
   public getId() {
     return this.props.id;
+  }
+
+  public addMatch(matchProps: IMatch): void {
+    const existingMatch = this._matches.find((t) => t.id === matchProps.id);
+    if (existingMatch) {
+      throw new BadRequestException(
+        `Матч ${matchProps.id} уже добавлен в турнир`,
+      );
+    }
+
+    const match = Match.create(matchProps);
+    this._matches.push(match);
+
+    const matchEvents = match.getUncommittedEvents();
+    matchEvents.forEach((event) => this.apply(event));
+    match.commit();
+
+    this.markAsUpdated();
+  }
+
+  public addMatches(matchesProps: IMatch[]): void {
+    matchesProps.forEach((matchProps) => {
+      try {
+        this.addMatch(matchProps);
+      } catch (error) {
+        this.logger.warn(
+          `Не удалось добавить матч ${matchProps.id}: ${error.message}`,
+        );
+      }
+    });
+  }
+
+  public getMatchCount(): number {
+    return this._matches.length;
+  }
+
+  public removeMatch(matchId: MatchId): void {
+    const matchIndex = this._matches.findIndex(
+      (match) => match.getId() === matchId,
+    );
+    if (matchIndex === -1) {
+      throw new BadRequestException(`Матч с ID ${matchId} не найден в турнире`);
+    }
+
+    this._matches.splice(matchIndex, 1);
+    this.markAsUpdated();
+  }
+  public getMatches(): readonly Match[] {
+    return [...this._matches];
+  }
+
+  public hasMatch(matchId: MatchId): boolean {
+    return this._matches.some((m) => m.getId() === matchId);
   }
 }

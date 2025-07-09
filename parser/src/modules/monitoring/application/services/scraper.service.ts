@@ -82,36 +82,16 @@ export class ScraperService {
     // const matchId = CompetitionId.create(25);
     await this.fetchAndSaveCompetition(competitionId);
 
+    await Promise.all([
+      this.fetchAndSaveMatchesForCompetition(competitionId),
+      this.fetchAndSaveTeamsForCompetition(competitionId),
+      this.fetchAndSavePlayersForCompetition(competitionId),
+    ]);
+
     const competition = await this.getCompetitionFromDb(competitionId);
-    if (!competition) {
-      this.logger.debug(`Турнир ${competitionId} не найден`);
-      return;
-    }
-
-    // // await this.fetchAndSaveCompetition(competitionId);
-    // await this.fetchAndSaveTeamsForCompetition(competitionId);
-    // await this.fetchAndSavePlayersForCompetition(competitionId);
-    // const competition = await this.getCompetitionFromDb(competitionId);
-    // console.log(`Игроков: ${competition?.getPlayerCount()}`);
-    // console.log(`Команд: ${competition?.getTeamCount()}`);
-
-    const rawMatches: IRawMatch[] = await this.queryBus.execute(
-      new GetVolleystationMatchesQuery(competition),
-    );
-    if (rawMatches.length < 1) {
-      this.logger.debug('Список матчей пуст');
-      return;
-    }
-
-    const matches: Match[] = rawMatches.map(mapRawToMatch).map(Match.create);
-
-    await this.commandBus.execute(new SaveMatchCommand(matches[0]));
-
-    // const matchFromDb = await this.queryBus.execute(
-    //   new GetMatchQuery(match.id),
-    // );
-
-    // const match = Match.create(matches[0]);
+    console.log(`Игроков: ${competition?.getPlayerCount()}`);
+    console.log(`Команд: ${competition?.getTeamCount()}`);
+    console.log(`Матчей: ${competition?.getMatchCount()}`);
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
@@ -158,6 +138,30 @@ export class ScraperService {
 
     this.logger.log(
       `Добавлено ${competition.getTeamCount()} команд в турнир ${competition.getName()}`,
+    );
+  }
+
+  async fetchAndSaveMatchesForCompetition(competitionId: CompetitionId) {
+    const competition: Competition | null =
+      await this.getCompetitionFromDb(competitionId);
+
+    if (!competition) {
+      this.logger.warn(`Турнир ${competitionId} не найден`);
+      return;
+    }
+
+    const rawMatches: IRawMatch[] = await this.queryBus.execute(
+      new GetVolleystationMatchesQuery(competition),
+    );
+
+    const matches: IMatch[] = rawMatches.map(mapRawToMatch);
+
+    competition.addMatches(matches);
+
+    await this.commandBus.execute(new SaveCompetitionCommand(competition));
+
+    this.logger.log(
+      `Добавлено ${competition.getMatchCount()} матчей в турнир ${competition.getName()}`,
     );
   }
 }
