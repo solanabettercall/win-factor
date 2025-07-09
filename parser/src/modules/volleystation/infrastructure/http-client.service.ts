@@ -10,6 +10,8 @@ export interface HttpResponse<T> {
   finalUrl: string;
 }
 
+const CACHE_TTL_SEC = 5 * 60;
+
 @Injectable()
 export class HttpClientService {
   private readonly logger = new Logger(this.constructor.name);
@@ -78,7 +80,7 @@ export class HttpClientService {
           ),
 
           switchMap(async (result) => {
-            await this.redisService.setJson(url, result);
+            await this.redisService.setJson(url, result, CACHE_TTL_SEC);
             return result;
           }),
 
