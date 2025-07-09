@@ -8,6 +8,7 @@ import { VolleystationTeamApiService } from './infrastructure/volleystation-team
 import { GetVolleystationTeamsQueryHandler } from './application/handlers/queries/get-volleystation-teams.handler';
 import { VolleystationPlayerApiService } from './infrastructure/volleystation-player.service';
 import { GetVolleystationPlayersQueryHandler } from './application/handlers/queries/get-volleystation-players.handler';
+import { HttpClientService } from './infrastructure/http-client.service';
 
 const queryHandlers = [
   GetVolleystationCompetitionQueryHandler,
@@ -44,6 +45,7 @@ const queryHandlers = [
     VolleystationCompetitionApiService,
     VolleystationTeamApiService,
     VolleystationPlayerApiService,
+    HttpClientService,
   ],
   exports: [],
 })

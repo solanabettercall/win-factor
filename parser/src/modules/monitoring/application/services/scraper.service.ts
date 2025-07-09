@@ -29,22 +29,22 @@ export class ScraperService {
     private readonly queryBus: QueryBus,
   ) {}
 
-  async getCompetition(id: CompetitionId) {
+  async getCompetitionFromDb(id: CompetitionId) {
     return this.queryBus.execute(new GetCompetitionQuery(id));
   }
 
-  async saveCompetition(competition: ICompetition) {
+  async saveCompetitionToDb(competition: ICompetition) {
     const creatingCompetition = Competition.create(competition);
     await this.commandBus.execute(
       new SaveCompetitionCommand(creatingCompetition),
     );
   }
 
-  async getTeam(id: TeamId): Promise<Team | null> {
+  async getTeamFromDb(id: TeamId): Promise<Team | null> {
     return this.queryBus.execute(new GetTeamQuery(id));
   }
 
-  async saveTeam(team: ITeam) {
+  async saveTeamToDb(team: ITeam) {
     const creatingTeam = Team.create(team);
     await this.commandBus.execute(new SaveTeamCommand(creatingTeam));
   }
@@ -65,26 +65,27 @@ export class ScraperService {
 
     const mappedCompetition: ICompetition = mapRawToCompetition(rawCompetition);
 
-    await this.saveCompetition(mappedCompetition);
+    await this.saveCompetitionToDb(mappedCompetition);
 
-    const createdCompetition = await this.getCompetition(competitionId);
+    const createdCompetition = await this.getCompetitionFromDb(competitionId);
     console.log(createdCompetition);
   }
 
   async onApplicationBootstrap() {
-    const competitionId = CompetitionId.create(110);
+    const competitionId = CompetitionId.create(25);
     await this.fetchAndSaveCompetition(competitionId);
+    // await this.fetchAndSaveCompetition(competitionId);
     await this.fetchAndSaveTeamsForCompetition(competitionId);
     await this.fetchAndSavePlayersForCompetition(competitionId);
 
-    const competition = await this.getCompetition(competitionId);
+    const competition = await this.getCompetitionFromDb(competitionId);
 
     console.log(`Игроков: ${competition?.getPlayerCount()}`);
     console.log(`Команд: ${competition?.getTeamCount()}`);
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
-    const competition = await this.getCompetition(competitionId);
+    const competition = await this.getCompetitionFromDb(competitionId);
 
     if (!competition) {
       this.logger.warn(`Турнир ${competitionId} не найден`);
@@ -107,7 +108,8 @@ export class ScraperService {
   }
 
   async fetchAndSaveTeamsForCompetition(competitionId: CompetitionId) {
-    const competition = await this.getCompetition(competitionId);
+    const competition: Competition | null =
+      await this.getCompetitionFromDb(competitionId);
 
     if (!competition) {
       this.logger.warn(`Турнир ${competitionId} не найден`);
@@ -118,13 +120,10 @@ export class ScraperService {
       new GetVolleystationTeamsQuery(competition),
     );
 
-    // Map all teams
     const mappedTeams: ITeam[] = teams.map(mapRawToTeam);
 
-    // Add teams to competition aggregate
     competition.addTeams(mappedTeams);
 
-    // Save updated competition with teams
     await this.commandBus.execute(new SaveCompetitionCommand(competition));
 
     this.logger.log(

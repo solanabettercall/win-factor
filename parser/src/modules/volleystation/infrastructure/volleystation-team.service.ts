@@ -1,7 +1,7 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
+import { HttpClientService } from './http-client.service';
 
 export interface IRawTeam {
   id: string;
@@ -18,7 +18,7 @@ class GetTeamsDto {
 export class VolleystationTeamApiService implements OnApplicationBootstrap {
   private readonly logger = new Logger(this.constructor.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpClientService) {}
 
   async onApplicationBootstrap() {
     // const teams = await this.getTeams({
@@ -89,7 +89,8 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
     const { origin, href } = url;
 
     try {
-      const response = await this.httpService.axiosRef.get(href);
+      const response = await this.httpService.get(href);
+      if (!response) return [];
       const html = response.data;
       const $ = cheerio.load(html);
 

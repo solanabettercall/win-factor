@@ -1,5 +1,6 @@
 import {
   Injectable,
+  InternalServerErrorException,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
@@ -39,5 +40,48 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     this.client?.disconnect();
+  }
+
+  async get(key: string): Promise<string | null> {
+    return this.client.get(key);
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<'OK'> {
+    if (ttl) {
+      return this.client.set(key, value, 'EX', ttl);
+    }
+    return this.client.set(key, value);
+  }
+
+  async getJson<T extends object>(key: string): Promise<T | null> {
+    const result = await this.client.call('JSON.GET', key);
+    if (!result) return null;
+
+    const plain = JSON.parse(result as string) as T;
+
+    return plain;
+  }
+
+  async setJson<T extends object>(
+    key: string,
+    value: T,
+    ttl?: number,
+  ): Promise<'OK' | Error> {
+    const jsonString = JSON.stringify(value);
+
+    const result = await this.client.call('JSON.SET', key, '.', jsonString);
+
+    if (ttl) {
+      await this.client.expire(key, ttl);
+    }
+
+    if (result === 'OK') {
+      return 'OK';
+    } else {
+      throw new InternalServerErrorException(
+        value,
+        'Ошибка при установке JSON',
+      );
+    }
   }
 }

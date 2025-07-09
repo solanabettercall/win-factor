@@ -1,7 +1,7 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
+import { HttpClientService } from './http-client.service';
 
 export interface IRawComptition {
   id: number;
@@ -18,22 +18,15 @@ class GetCompeitionDto {
 export class VolleystationCompetitionApiService {
   private readonly logger = new Logger(this.constructor.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpClientService) {}
 
   async getCompetition(dto: GetCompeitionDto): Promise<IRawComptition | null> {
     const { id, version } = dto;
     const url = `https://panel.volleystation.com/${version}/${id}/en/`;
 
     try {
-      const response = await this.httpService.axiosRef.get(url, {
-        maxRedirects: 10,
-        validateStatus: (status) => status < 500,
-      });
-
-      if (!response || response.status === 403) {
-        return null;
-      }
-
+      const response = await this.httpService.get<string>(url);
+      if (!response) return null;
       const $ = cheerio.load(response.data);
 
       if (!$('meta[property="og:type"][content="website"]').length) {
@@ -47,7 +40,7 @@ export class VolleystationCompetitionApiService {
         .replaceAll('\n', '')
         .replace('Homepage - ', '');
 
-      const finalUrl = response.request.res?.responseUrl || url;
+      const finalUrl = response.finalUrl;
 
       return {
         id,

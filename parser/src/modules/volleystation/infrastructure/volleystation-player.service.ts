@@ -1,6 +1,6 @@
-import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import * as cheerio from 'cheerio';
+import { HttpClientService } from './http-client.service';
 
 export interface IRawPlayer {
   id: number;
@@ -19,7 +19,7 @@ interface GetPlayersDto {
 export class VolleystationPlayerApiService implements OnApplicationBootstrap {
   private readonly logger = new Logger(VolleystationPlayerApiService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(private readonly httpService: HttpClientService) {}
 
   async onApplicationBootstrap() {
     // const players = await this.getPlayers({
@@ -34,7 +34,8 @@ export class VolleystationPlayerApiService implements OnApplicationBootstrap {
     const pageUrl = url.href;
 
     try {
-      const response = await this.httpService.axiosRef.get(pageUrl);
+      const response = await this.httpService.get(pageUrl);
+      if (!response) return [];
       const $ = cheerio.load(response.data);
 
       let players = this.parsePlayersV1($, url.origin);

@@ -225,7 +225,7 @@ describe('Competition Entity', () => {
         // Should have CompetitionCreatedEvent + TeamCreatedEvent
         expect(events).toHaveLength(2);
         expect(events[1]).toBeInstanceOf(TeamCreatedEvent);
-        
+
         const teamCreatedEvent = events[1] as TeamCreatedEvent;
         expect(teamCreatedEvent.team).toEqual(validTeamProps);
       });
@@ -233,7 +233,9 @@ describe('Competition Entity', () => {
       it('should throw error when adding duplicate team', () => {
         competition.addTeam(validTeamProps);
 
-        expect(() => competition.addTeam(validTeamProps)).toThrow(BadRequestException);
+        expect(() => competition.addTeam(validTeamProps)).toThrow(
+          BadRequestException,
+        );
         expect(() => competition.addTeam(validTeamProps)).toThrow(
           'Команда Test Team уже добавлена в турнир',
         );
@@ -281,12 +283,12 @@ describe('Competition Entity', () => {
         ];
 
         const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-        
+
         competition.addTeams(teams);
 
         expect(competition.getTeamCount()).toBe(2); // First and third teams
         expect(consoleSpy).toHaveBeenCalled();
-        
+
         consoleSpy.mockRestore();
       });
     });
@@ -306,7 +308,9 @@ describe('Competition Entity', () => {
       it('should throw error when removing non-existent team', () => {
         const nonExistentTeamId = TeamId.create('999-XYZ');
 
-        expect(() => competition.removeTeam(nonExistentTeamId)).toThrow(BadRequestException);
+        expect(() => competition.removeTeam(nonExistentTeamId)).toThrow(
+          BadRequestException,
+        );
         expect(() => competition.removeTeam(nonExistentTeamId)).toThrow(
           'Команда с ID 999-XYZ не найдена в турнире',
         );
@@ -343,11 +347,11 @@ describe('Competition Entity', () => {
 
       it('should return readonly array of teams', () => {
         const teams = competition.getTeams();
-        
+
         expect(teams).toHaveLength(2);
         expect(teams[0].getName()).toBe('Team A');
         expect(teams[1].getName()).toBe('Team B');
-        
+
         // Readonly array, so let's try to modify through a new copy
         const modifiableTeams = teams.slice();
         modifiableTeams.pop();
