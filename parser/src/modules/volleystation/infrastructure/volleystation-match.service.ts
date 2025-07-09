@@ -34,7 +34,7 @@ class GetMatchesDto {
   type: MatchListType;
 }
 
-class GetMatch {
+export class GetRawDetailedMatchDto {
   competition: Competition;
   matchId: MatchId;
 }
@@ -46,7 +46,7 @@ export interface IRawDetailedMatch {
   away: IRawDetailedTeam;
 }
 
-export interface IRawDetailedTeam {
+interface IRawDetailedTeam {
   id: TeamId;
   name: string;
   url: string;
@@ -226,7 +226,9 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
     }
   }
 
-  async getMatch(dto: GetMatch): Promise<IRawDetailedMatch | null> {
+  async getMatch(
+    dto: GetRawDetailedMatchDto,
+  ): Promise<IRawDetailedMatch | null> {
     const { competition, matchId } = dto;
 
     const url = new URL(competition.getUrl());

@@ -17,6 +17,7 @@ const queryHandlers = [
   GetVolleystationTeamsQueryHandler,
   GetVolleystationPlayersQueryHandler,
   GetVolleystationMatchesQueryHandler,
+  GetVolleystationMatchesQueryHandler,
 ];
 
 @Module({
