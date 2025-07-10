@@ -6,7 +6,7 @@ import { TeamEntity } from '../../infrastructure/entities/team.entity';
 export class TeamMapper {
   static rawToDomain(raw: IRawTeam): ITeam {
     return {
-      id: TeamId.create(raw.id),
+      id: raw.id,
       name: raw.name,
       url: raw.url,
     };

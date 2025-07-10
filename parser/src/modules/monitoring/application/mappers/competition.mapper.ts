@@ -7,11 +7,12 @@ import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
 import { CompetitionVersion } from '../../domain/value-objects/competition-version.vo';
 import { CompetitionEntity } from '../../infrastructure/entities/competition.entity';
 import { TeamMapper } from './team.mapper';
+import { PlayerMapper } from './player.mapper';
 
 export class CompetitionMapper {
   static rawToDomain(raw: IRawComptition): ICompetition {
     return {
-      id: CompetitionId.create(raw.id),
+      id: raw.id,
       name: raw.name,
       url: raw.url,
       version: raw.version,
@@ -30,6 +31,11 @@ export class CompetitionMapper {
       entity.teams = teams.map(TeamMapper.domainToEntity);
     }
 
+    const players = competition.getPlayers();
+    if (players.length > 0) {
+      entity.players = players.map(PlayerMapper.domainToEntity);
+    }
+
     return entity;
   }
 
@@ -44,6 +50,11 @@ export class CompetitionMapper {
     if (entity.teams && entity.teams.length > 0) {
       const teams = entity.teams.map(TeamMapper.entityToDomain);
       competition.addTeams(teams);
+    }
+
+    if (entity.players && entity.players.length > 0) {
+      const players = entity.players.map(PlayerMapper.entityToDomain);
+      competition.addPlayers(players);
     }
 
     return competition;

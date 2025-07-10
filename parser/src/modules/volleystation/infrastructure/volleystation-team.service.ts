@@ -1,31 +1,26 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
+import { TeamId } from 'src/modules/monitoring/domain/value-objects/team-id.vo';
+import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
 
 export interface IRawTeam {
-  id: string;
+  id: TeamId;
   name: string;
   url: string;
   logoUrl: string | null;
 }
 
 class GetTeamsDto {
-  competitionBaseUrl: string;
+  competition: Competition;
 }
 
 @Injectable()
-export class VolleystationTeamApiService implements OnApplicationBootstrap {
+export class VolleystationTeamApiService {
   private readonly logger = new Logger(this.constructor.name);
 
   constructor(private readonly httpService: HttpClientService) {}
-
-  async onApplicationBootstrap() {
-    // const teams = await this.getTeams({
-    //   competitionBaseUrl: 'https://juniorkimmp.volleystation.com/en/',
-    // });
-    // console.log(teams[0]);
-  }
 
   private parseTeamsV1($: cheerio.CheerioAPI, origin: string): IRawTeam[] {
     const teamsSection = $('section.teams div.team-list');
@@ -44,7 +39,7 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
         const teamId = match ? match[1] : null;
         if (!teamId) return null;
         return {
-          id: teamId,
+          id: TeamId.create(teamId),
           logoUrl,
           name,
           url,
@@ -71,7 +66,7 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
         const teamId = match ? match[1] : null;
         if (!teamId) return null;
         return {
-          id: teamId,
+          id: TeamId.create(teamId),
           logoUrl,
           name,
           url,
@@ -82,9 +77,9 @@ export class VolleystationTeamApiService implements OnApplicationBootstrap {
   }
 
   async getTeams(dto: GetTeamsDto): Promise<IRawTeam[]> {
-    const { competitionBaseUrl } = dto;
+    const { competition } = dto;
 
-    const url = new URL(competitionBaseUrl);
+    const url = new URL(competition.getUrl());
     url.pathname += `teams/`;
     const { origin, href } = url;
 

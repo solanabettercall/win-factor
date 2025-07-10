@@ -8,7 +8,6 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { VolleystationModule } from './modules/volleystation/volleystation.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { CqrsModule } from '@nestjs/cqrs';
-import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [

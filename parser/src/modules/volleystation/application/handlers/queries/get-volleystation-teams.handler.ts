@@ -15,13 +15,8 @@ export class GetVolleystationTeamsQueryHandler
   ) {}
 
   async execute(query: GetVolleystationTeamsQuery): Promise<IRawTeam[]> {
-    const { competition } = query;
-    const competitionUrl = competition.getUrl();
-
     const rawTeams: IRawTeam[] =
-      await this.volleystationTeamApiService.getTeams({
-        competitionBaseUrl: competitionUrl,
-      });
+      await this.volleystationTeamApiService.getTeams(query);
 
     return rawTeams;
   }

@@ -13,6 +13,18 @@ export interface IPlayer {
 }
 
 export class Player extends BaseEntity<PlayerId, IPlayer> {
+  getPosition(): string {
+    return this.props.position;
+  }
+  getNumber(): number {
+    return this.props.number;
+  }
+  getPhotoUrl(): string | null {
+    return this.props.photoUrl;
+  }
+  public getUrl(): string {
+    return this.props.url;
+  }
   private constructor(props: IPlayer) {
     super(props.id, props);
     this.apply(new PlayerCreatedEvent(props));

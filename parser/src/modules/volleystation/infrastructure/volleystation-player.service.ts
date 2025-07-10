@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
 import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
@@ -18,17 +18,10 @@ interface GetPlayersDto {
 }
 
 @Injectable()
-export class VolleystationPlayerApiService implements OnApplicationBootstrap {
+export class VolleystationPlayerApiService {
   private readonly logger = new Logger(VolleystationPlayerApiService.name);
 
   constructor(private readonly httpService: HttpClientService) {}
-
-  async onApplicationBootstrap() {
-    // const players = await this.getPlayers({
-    //   competitionBaseUrl: 'https://juniorkimmp.volleystation.com/en/ ',
-    // });
-    // console.log(players[0]);
-  }
 
   async getPlayers(dto: GetPlayersDto): Promise<IRawPlayer[]> {
     const { competition } = dto;

@@ -3,16 +3,17 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
 import { CompetitionVersion } from 'src/modules/monitoring/domain/value-objects/competition-version.vo';
+import { CompetitionId } from 'src/modules/monitoring/domain/value-objects/competition-id.vo';
 
 export interface IRawComptition {
-  id: number;
+  id: CompetitionId;
   name: string;
   url: string;
   version: CompetitionVersion;
 }
 
 class GetCompeitionDto {
-  id: number;
+  id: CompetitionId;
   version: CompetitionVersion;
 }
 

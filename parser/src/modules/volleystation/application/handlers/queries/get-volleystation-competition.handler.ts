@@ -22,7 +22,7 @@ export class GetVolleystationCompetitionQueryHandler
 
     const competitionV1: IRawComptition | null =
       await this.volleystationCompetition.getCompetition({
-        id: id.value,
+        id,
         version: CompetitionVersion.create('website'),
       });
 
@@ -32,7 +32,7 @@ export class GetVolleystationCompetitionQueryHandler
 
     const competitionV2: IRawComptition | null =
       await this.volleystationCompetition.getCompetition({
-        id: id.value,
+        id,
         version: CompetitionVersion.create('website2'),
       });
 

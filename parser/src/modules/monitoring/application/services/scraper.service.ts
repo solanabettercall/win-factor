@@ -19,7 +19,6 @@ import { SaveTeamCommand } from '../commands/save-team.command';
 import { IRawPlayer } from 'src/modules/volleystation/infrastructure/volleystation-player.service';
 import { GetVolleystationPlayersQuery } from 'src/modules/volleystation/application/queries/get-volleystation-players.query';
 import { IPlayer } from '../../domain/entities/player.entity';
-import { mapRawToPlayer } from '../mappers/player.mapper';
 import { GetMatchQuery } from '../queries/get-match.query';
 import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/application/queries/get-volleystation-matches.query';
 import { IRawMatch } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
@@ -30,6 +29,7 @@ import { GetVolleystationMatchQuery } from 'src/modules/volleystation/applicatio
 import { MatchId } from '../../domain/value-objects/match-id.vo';
 import { CompetitionMapper } from '../mappers/competition.mapper';
 import { TeamMapper } from '../mappers/team.mapper';
+import { PlayerMapper } from '../mappers/player.mapper';
 
 @Injectable()
 export class ScraperService {
@@ -161,7 +161,7 @@ export class ScraperService {
       new GetVolleystationPlayersQuery(competition),
     );
 
-    const mappedPlayers: IPlayer[] = players.map(mapRawToPlayer);
+    const mappedPlayers: IPlayer[] = players.map(PlayerMapper.rawToDomain);
 
     competition.addPlayers(mappedPlayers);
 
