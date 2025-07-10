@@ -4,8 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { CompetitionSiteVersion } from '../../domain/value-objects/competition-version.vo';
+import { TeamEntity } from './team.entity';
 
 @Entity('competitions')
 export class CompetitionEntity {
@@ -21,14 +23,14 @@ export class CompetitionEntity {
   @Column({ type: 'varchar' })
   version: CompetitionSiteVersion;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  // @OneToMany(() => TeamEntity, team => team.competition)
-  // teams: TeamEntity[];
+  @OneToMany(() => TeamEntity, (team) => team.competition, { cascade: true })
+  teams: TeamEntity[];
 
   // @OneToMany(() => MatchEntity, match => match.competition)
   // matches: MatchEntity[];

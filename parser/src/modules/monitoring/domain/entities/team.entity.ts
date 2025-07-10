@@ -34,6 +34,9 @@ export class Team extends BaseEntity<TeamId, ITeam> {
 
     return new Team(props);
   }
+  public getUrl(): string {
+    return this.props.url;
+  }
 
   public getName(): string {
     return this.props.name;

@@ -26,20 +26,31 @@ export class TeamId extends ValueObject<ITeamId> {
     return compostiteId;
   }
 
-  public static create(compositeId: string): TeamId {
-    const [numericString, code] = compositeId.split('-');
+  public static create(compositeId: string): TeamId;
+  public static create(numeric: number, code: string): TeamId;
+  public static create(arg1: string | number, arg2?: string) {
+    if (typeof arg1 === 'string') {
+      const [numericString, code] = arg1.split('-');
 
-    if (!code) {
-      throw new BadRequestException(`Не удалось извлечь code`);
+      if (!code) {
+        throw new BadRequestException(`Не удалось извлечь code`);
+      }
+
+      const numeric = parseInt(numericString);
+
+      if (isNaN(numeric)) {
+        throw new BadRequestException(`Не удалось извлечь numeric`);
+      }
+
+      return new TeamId({ code, numeric });
+    } else {
+      if (!arg2) {
+        throw new BadRequestException(
+          `Code is required when creating TeamId with numeric`,
+        );
+      }
+      return new TeamId({ numeric: arg1, code: arg2 });
     }
-
-    const numeric = parseInt(numericString);
-
-    if (!numeric) {
-      throw new BadRequestException(`Не удалось извлечь numeric`);
-    }
-
-    return new TeamId({ code, numeric });
   }
 
   public get value(): string {
@@ -56,5 +67,13 @@ export class TeamId extends ValueObject<ITeamId> {
 
   public [Symbol.for('nodejs.util.inspect.custom')](): string {
     return this.toCompostiteId();
+  }
+
+  public get numeric(): number {
+    return this.props.numeric;
+  }
+
+  public get code(): string {
+    return this.props.code;
   }
 }

@@ -9,7 +9,6 @@ import {
 } from '../../domain/entities/competition.entity';
 import { GetVolleystationCompetitionQuery } from 'src/modules/volleystation/application/queries/get-volleystation-competition.query';
 import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
-import { mapRawToCompetition } from '../mappers/competition.mapper';
 import { GetVolleystationTeamsQuery } from 'src/modules/volleystation/application/queries/get-volleystation-teams.query';
 import { IRawTeam } from 'src/modules/volleystation/infrastructure/volleystation-team.service';
 import { mapRawToTeam } from '../mappers/team.mapper';
@@ -26,9 +25,10 @@ import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/applicat
 import { IRawMatch } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
 import { SaveMatchCommand } from '../commands/save-match.command';
 import { mapRawDetailedToMatch, mapRawToMatch } from '../mappers/match.mapper';
-import { IMatch, IMatchProps, Match } from '../../domain/entities/match.entity';
+import { IMatchProps, Match } from '../../domain/entities/match.entity';
 import { GetVolleystationMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-match.query';
 import { MatchId } from '../../domain/value-objects/match-id.vo';
+import { CompetitionMapper } from '../mappers/competition.mapper';
 
 @Injectable()
 export class ScraperService {
@@ -39,21 +39,20 @@ export class ScraperService {
 
   async onApplicationBootstrap() {
     const competitionId = CompetitionId.create(25);
-    // const matchId = MatchId.create(2238712);
+    const matchId = MatchId.create(2238712);
     // await this.fetchAndSaveCompetition(competitionId);
     const competition = await this.getCompetitionFromDb(competitionId);
     if (!competition) {
       this.logger.warn(`Турнир ${competitionId} не найден`);
       return;
     }
-    console.log(competition);
 
-    // await Promise.all([
-    //   this.fetchAndSaveMatchesForCompetition(competitionId),
-    //   this.fetchAndSaveTeamsForCompetition(competitionId),
-    //   this.fetchAndSavePlayersForCompetition(competitionId),
-    //   this.fetchAndSaveMatch(competitionId, matchId),
-    // ]);
+    await Promise.all([
+      this.fetchAndSaveMatchesForCompetition(competitionId),
+      this.fetchAndSaveTeamsForCompetition(competitionId),
+      this.fetchAndSavePlayersForCompetition(competitionId),
+      this.fetchAndSaveMatch(competitionId, matchId),
+    ]);
     // console.log(`Игроков: ${competition?.getPlayerCount()}`);
     // console.log(`Команд: ${competition?.getTeamCount()}`);
     // console.log(`Матчей: ${competition?.getMatchCount()}`);
@@ -101,7 +100,8 @@ export class ScraperService {
       return;
     }
 
-    const mappedCompetition: ICompetition = mapRawToCompetition(rawCompetition);
+    const mappedCompetition: ICompetition =
+      CompetitionMapper.rawToDomain(rawCompetition);
 
     await this.saveCompetitionToDb(mappedCompetition);
 

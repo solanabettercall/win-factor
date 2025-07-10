@@ -23,6 +23,7 @@ import { MatchCreatedEventHandler } from './application/handlers/events/match-cr
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CompetitionEntity } from './infrastructure/entities/competition.entity';
 import { appConfig } from 'src/config/parser.config';
+import { TeamEntity } from './infrastructure/entities/team.entity';
 
 const commandHandlers = [
   SaveCompetitionCommandHandler,
@@ -59,12 +60,12 @@ const eventHandlers = [
           username,
           password,
           database,
-          entities: [CompetitionEntity],
+          entities: [CompetitionEntity, TeamEntity],
           synchronize: true,
         };
       },
     }),
-    TypeOrmModule.forFeature([CompetitionEntity]),
+    TypeOrmModule.forFeature([CompetitionEntity, TeamEntity]),
   ],
   providers: [
     ...commandHandlers,
