@@ -23,7 +23,9 @@ export class TeamEntity {
   @Column()
   url: string;
 
-  @ManyToOne(() => CompetitionEntity, (competition) => competition.teams)
+  @ManyToOne(() => CompetitionEntity, (competition) => competition.teams, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'competition_id' })
   competition: CompetitionEntity;
 
