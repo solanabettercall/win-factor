@@ -28,19 +28,11 @@ export class PostgresCompetitionRepository implements ICompetitionRepository {
       return null;
     }
 
-    return this.mapEntityToDomain(entity);
+    return CompetitionMapper.fromEntity(entity).toDomain();
   }
 
   async save(competition: Competition): Promise<void> {
-    const entity = this.mapDomainToEntity(competition);
+    const entity = CompetitionMapper.fromDomain(competition).toEntity();
     await this.competitionRepository.save(entity);
-  }
-
-  private mapEntityToDomain(entity: CompetitionEntity): Competition {
-    return CompetitionMapper.entityToDomain(entity);
-  }
-
-  private mapDomainToEntity(competition: Competition): CompetitionEntity {
-    return CompetitionMapper.domainToEntity(competition);
   }
 }

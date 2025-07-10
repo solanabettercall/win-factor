@@ -23,19 +23,11 @@ export class PostgresPlayerRepository implements IPlayerRepository {
       return null;
     }
 
-    return this.mapEntityToDomain(entity);
+    return PlayerMapper.fromEntity(entity).toDomain();
   }
 
   async save(competition: Player): Promise<void> {
-    const entity = this.mapDomainToEntity(competition);
+    const entity = PlayerMapper.fromDomain(competition).toEntity();
     await this.playerRepository.save(entity);
-  }
-
-  private mapEntityToDomain(entity: PlayerEntity): Player {
-    return PlayerMapper.entityToDomain(entity);
-  }
-
-  private mapDomainToEntity(competition: Player): PlayerEntity {
-    return PlayerMapper.domainToEntity(competition);
   }
 }

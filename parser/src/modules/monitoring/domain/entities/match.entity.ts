@@ -2,14 +2,16 @@ import { BaseEntity } from 'src/shared/domain/entities/base.entity';
 import { BadRequestException, Logger } from '@nestjs/common';
 import { MatchId } from '../value-objects/match-id.vo';
 import { MatchCreatedEvent } from '../events/match-created.event';
-import { Team } from './team.entity';
+import { ITeam, Team } from './team.entity';
 
 export interface IMatchProps {
   id: MatchId;
   url: string;
+  home?: ITeam;
+  away?: ITeam;
 }
 
-interface IMatch extends IMatchProps {
+interface IMatch extends Omit<IMatchProps, 'home' | 'away'> {
   home: Team | null;
   away: Team | null;
 }
@@ -18,10 +20,18 @@ export class Match extends BaseEntity<MatchId, IMatch> {
   private readonly logger = new Logger(this.constructor.name);
 
   private constructor(props: IMatchProps) {
+    let home: Team | null = null;
+    let away: Team | null = null;
+
+    if (props.away && props.home) {
+      home = Team.create(props.home);
+      away = Team.create(props.away);
+    }
+
     super(props.id, {
       ...props,
-      home: null,
-      away: null,
+      home,
+      away,
     });
 
     this.apply(new MatchCreatedEvent(props));
@@ -43,12 +53,12 @@ export class Match extends BaseEntity<MatchId, IMatch> {
     return this.props.id;
   }
 
-  public getHomeTeam(): Readonly<Team | null> {
-    return Object.freeze(this.props.home);
+  public getHomeTeam(): Team | null {
+    return this.props.home;
   }
 
-  public getAwayTeam(): Readonly<Team | null> {
-    return Object.freeze(this.props.away);
+  public getAwayTeam(): Team | null {
+    return this.props.away;
   }
 
   public updateHomeTeam(team: Team): void {

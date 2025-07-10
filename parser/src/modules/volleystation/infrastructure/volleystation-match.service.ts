@@ -10,16 +10,16 @@ import { HttpClientService } from './http-client.service';
 import { MatchId } from 'src/modules/monitoring/domain/value-objects/match-id.vo';
 import { TeamId } from 'src/modules/monitoring/domain/value-objects/team-id.vo';
 import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
-interface IRawTeam {
-  name: string;
-  logoUrl?: string;
-}
+// interface IRawTeam {
+//   name: string;
+//   logoUrl?: string;
+// }
 
 export interface IRawMatch {
   id: MatchId;
   url: string;
-  home: IRawTeam;
-  away: IRawTeam;
+  // home: IRawTeam;
+  // away: IRawTeam;
 }
 
 export enum MatchListType {
@@ -47,7 +47,6 @@ interface IRawDetailedTeam {
   id: TeamId;
   name: string;
   url: string;
-  logoUrl?: string;
 }
 
 @Injectable()
@@ -95,25 +94,23 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         if (!matchId) return null;
         const { href: url } = new URL(matchHref, origin);
 
-        const home = $(el).find('div.home');
-        const homeLogoUrl = home.find('div.logo img').attr('src');
-        const homeName = home.find('div.name').text().trim();
+        // const home = $(el).find('div.home');
+        // const homeLogoUrl = home.find('div.logo img').attr('src');
+        // const homeName = home.find('div.name').text().trim();
 
-        const away = $(el).find('div.away');
-        const awayLogoUrl = away.find('div.logo img').attr('src');
-        const awayName = away.find('div.name').text().trim();
+        // const away = $(el).find('div.away');
+        // const awayLogoUrl = away.find('div.logo img').attr('src');
+        // const awayName = away.find('div.name').text().trim();
 
         return {
           id: MatchId.create(matchId),
           url,
-          home: {
-            logoUrl: homeLogoUrl,
-            name: homeName,
-          },
-          away: {
-            logoUrl: awayLogoUrl,
-            name: awayName,
-          },
+          // home: {
+          //   name: homeName,
+          // },
+          // away: {
+          //   name: awayName,
+          // },
         };
       })
       .toArray()
@@ -151,27 +148,27 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         if (!matchId) return false;
         const { href: url } = new URL(matchHref, origin);
 
-        const teams = $(el).find('.team');
-        const home = teams.eq(0);
-        const away = teams.eq(1);
+        // const teams = $(el).find('.team');
+        // const home = teams.eq(0);
+        // const away = teams.eq(1);
 
-        const homeLogoUrl = home.find('.team-badge img').attr('src');
-        const homeName = home.find('.name').text().trim();
+        // const homeLogoUrl = home.find('.team-badge img').attr('src');
+        // const homeName = home.find('.name').text().trim();
 
-        const awayLogoUrl = away.find('.team-badge img').attr('src');
-        const awayName = away.find('.name').text().trim();
+        // const awayLogoUrl = away.find('.team-badge img').attr('src');
+        // const awayName = away.find('.name').text().trim();
 
         matches.push({
           id: MatchId.create(matchId),
           url,
-          home: {
-            logoUrl: homeLogoUrl,
-            name: homeName,
-          },
-          away: {
-            logoUrl: awayLogoUrl,
-            name: awayName,
-          },
+          // home: {
+          //   logoUrl: homeLogoUrl,
+          //   name: homeName,
+          // },
+          // away: {
+          //   logoUrl: awayLogoUrl,
+          //   name: awayName,
+          // },
         });
       });
     });

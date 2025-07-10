@@ -26,19 +26,11 @@ export class PostgresTeamRepository implements ITeamRepository {
       return null;
     }
 
-    return this.mapEntityToDomain(entity);
+    return TeamMapper.fromEntity(entity).toDomain();
   }
 
   async save(team: Team): Promise<void> {
-    const entity = this.mapDomainToEntity(team);
+    const entity = TeamMapper.fromDomain(team).toEntity();
     await this.teamRepository.save(entity);
-  }
-
-  private mapEntityToDomain(entity: TeamEntity): Team {
-    return TeamMapper.entityToDomain(entity);
-  }
-
-  private mapDomainToEntity(team: Team): TeamEntity {
-    return TeamMapper.domainToEntity(team);
   }
 }

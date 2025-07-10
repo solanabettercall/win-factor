@@ -6,7 +6,6 @@ import { MatchId } from '../../domain/value-objects/match-id.vo';
 import { IMatchRepository } from '../../domain/repositories/match.repository.interface';
 import { MatchEntity } from '../entities/match.entity';
 import { MatchMapper } from '../../application/mappers/match.mapper';
-import { TeamMapper } from '../../application/mappers/team.mapper';
 
 @Injectable()
 export class PostgresMatchRepository implements IMatchRepository {
@@ -28,46 +27,44 @@ export class PostgresMatchRepository implements IMatchRepository {
       return null;
     }
 
-    return this.mapEntityToDomain(entity);
+    return MatchMapper.fromEntity(entity).toDomain();
   }
 
   async save(match: Match): Promise<void> {
-    const entity = this.mapDomainToEntity(match);
+    const entity = MatchMapper.fromDomain(match).toEntity();
     await this.matchRepository.save(entity);
   }
 
-  private mapEntityToDomain(entity: MatchEntity): Match {
-    const matchProps = MatchMapper.entityToDomain(entity);
-    const match = Match.create(matchProps);
+  // private mapEntityToDomain(entity: MatchEntity): Match {
+  //   const matchProps = MatchMapper.fromEntity(entity).toDomain();
+  //   const match = Match.create(matchProps);
 
-    // Добавляем команды если они есть
-    if (entity.homeTeam) {
-      const homeTeam = TeamMapper.entityToDomain(entity.homeTeam);
-      match.updateHomeTeam(homeTeam);
-    }
+  //   if (entity.homeTeam) {
+  //     const homeTeam = TeamMapper.fromEntity(entity.homeTeam).toDomain();
+  //     match.updateHomeTeam(homeTeam);
+  //   }
 
-    if (entity.awayTeam) {
-      const awayTeam = TeamMapper.entityToDomain(entity.awayTeam);
-      match.updateAwayTeam(awayTeam);
-    }
+  //   if (entity.awayTeam) {
+  //     const awayTeam = TeamMapper.fromEntity(entity.awayTeam).toDomain();
+  //     match.updateAwayTeam(awayTeam);
+  //   }
 
-    return match;
-  }
+  //   return match;
+  // }
 
-  private mapDomainToEntity(match: Match): MatchEntity {
-    const entity = MatchMapper.domainToEntity(match);
+  // private mapDomainToEntity(match: Match): MatchEntity {
+  //   const entity = MatchMapper.domainToEntity(match);
 
-    // Устанавливаем связи с командами только если они есть
-    const homeTeam = match.getHomeTeam();
-    if (homeTeam) {
-      entity.homeTeam = TeamMapper.domainToEntity(homeTeam);
-    }
+  //   const homeTeam = match.getHomeTeam();
+  //   if (homeTeam) {
+  //     entity.homeTeam = TeamMapper.fromDomain(homeTeam).toEntity();
+  //   }
 
-    const awayTeam = match.getAwayTeam();
-    if (awayTeam) {
-      entity.awayTeam = TeamMapper.domainToEntity(awayTeam);
-    }
+  //   const awayTeam = match.getAwayTeam();
+  //   if (awayTeam) {
+  //     entity.awayTeam = TeamMapper.fromDomain(awayTeam).toEntity();
+  //   }
 
-    return entity;
-  }
+  //   return entity;
+  // }
 }

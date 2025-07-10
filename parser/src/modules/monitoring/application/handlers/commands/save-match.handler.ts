@@ -25,6 +25,7 @@ export class SaveMatchCommandHandler
 
     if (matchEntity) {
       const match = Match.create(props);
+
       this.eventPublisher.mergeObjectContext(match);
       await this.matchRepository.save(match);
       match.commit();

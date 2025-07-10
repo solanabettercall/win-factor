@@ -18,19 +18,14 @@ import { GetTeamQuery } from '../queries/get-team.query';
 import { SaveTeamCommand } from '../commands/save-team.command';
 import { IRawPlayer } from 'src/modules/volleystation/infrastructure/volleystation-player.service';
 import { GetVolleystationPlayersQuery } from 'src/modules/volleystation/application/queries/get-volleystation-players.query';
-import { IPlayer } from '../../domain/entities/player.entity';
 import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/application/queries/get-volleystation-matches.query';
 import {
   IRawDetailedMatch,
   IRawMatch,
 } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
 import { SaveMatchCommand } from '../commands/save-match.command';
-import { mapRawDetailedToMatch, MatchMapper } from '../mappers/match.mapper';
-import { IMatchProps } from '../../domain/entities/match.entity';
 import { GetVolleystationMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-match.query';
 import { MatchId } from '../../domain/value-objects/match-id.vo';
-import { TeamMapper } from '../mappers/team.mapper';
-import { PlayerMapper } from '../mappers/player.mapper';
 
 import {
   catchError,
@@ -65,9 +60,9 @@ export class ScraperService {
     }
 
     await Promise.all([
-      this.fetchAndSaveMatchesForCompetition(competitionId),
-      this.fetchAndSaveTeamsForCompetition(competitionId),
-      this.fetchAndSavePlayersForCompetition(competitionId),
+      // this.fetchAndSaveMatchesForCompetition(competitionId),
+      // this.fetchAndSaveTeamsForCompetition(competitionId),
+      // this.fetchAndSavePlayersForCompetition(competitionId),
       this.fetchAndSaveMatch(competitionId, matchId),
     ]);
     // console.log(`Игроков: ${competition?.getPlayerCount()}`);
@@ -141,9 +136,7 @@ export class ScraperService {
       return;
     }
 
-    const matchProps: IMatchProps = mapRawDetailedToMatch(rawMatch);
-
-    await this.commandBus.execute(new SaveMatchCommand(matchProps));
+    await this.commandBus.execute(new SaveMatchCommand(rawMatch));
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
@@ -158,8 +151,6 @@ export class ScraperService {
       new GetVolleystationPlayersQuery(competition),
     );
 
-    const players: IPlayer[] = rawPlayers.map(PlayerMapper.rawToDomain);
-
     type error = {
       playerId: PlayerId;
       error: unknown;
@@ -172,7 +163,7 @@ export class ScraperService {
     };
 
     return lastValueFrom(
-      from(players).pipe(
+      from(rawPlayers).pipe(
         mergeMap(
           (player) =>
             from(this.commandBus.execute(new SavePlayerCommand(player))).pipe(
@@ -193,7 +184,7 @@ export class ScraperService {
           const count = processed + 1;
           if (count % 10 === 0) {
             this.logger.verbose(
-              `Обработано ${count}/${players.length} игроков`,
+              `Обработано ${count}/${rawPlayers.length} игроков`,
             );
           }
           return count;
@@ -219,11 +210,9 @@ export class ScraperService {
       return;
     }
 
-    const rawTeams: IRawTeam[] = await this.queryBus.execute(
+    const teams: IRawTeam[] = await this.queryBus.execute(
       new GetVolleystationTeamsQuery(competition),
     );
-
-    const teams: ITeam[] = rawTeams.map(TeamMapper.rawToDomain);
 
     type error = {
       teamId: TeamId;
@@ -286,8 +275,6 @@ export class ScraperService {
       new GetVolleystationMatchesQuery(competition),
     );
 
-    const matches: IMatchProps[] = rawMatches.map(MatchMapper.rawToDomain);
-    this.logger.debug(`matches: ${matches.length}`);
     type error = {
       matchId: MatchId;
       error: unknown;
@@ -299,7 +286,7 @@ export class ScraperService {
     };
 
     return lastValueFrom(
-      from(matches).pipe(
+      from(rawMatches).pipe(
         mergeMap(
           (match) =>
             from(this.commandBus.execute(new SaveMatchCommand(match))).pipe(
@@ -319,7 +306,9 @@ export class ScraperService {
         scan((processed) => {
           const count = processed + 1;
           if (count % 10 === 0) {
-            this.logger.verbose(`Обработано ${count}/${matches.length} матчей`);
+            this.logger.verbose(
+              `Обработано ${count}/${rawMatches.length} матчей`,
+            );
           }
           return count;
         }, 0),
