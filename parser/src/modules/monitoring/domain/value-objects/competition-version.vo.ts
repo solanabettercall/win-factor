@@ -1,6 +1,6 @@
 import { ValueObject } from 'src/shared/domain/value-objects/base/value-object';
 
-type CompetitionSiteVersion = 'website' | 'website2';
+export type CompetitionSiteVersion = 'website' | 'website2';
 
 interface ICompetitionVersion {
   value: CompetitionSiteVersion;

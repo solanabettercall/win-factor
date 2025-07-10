@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './shared/infrastructure/cache/redis.module';
-import { MongooseModule } from '@nestjs/mongoose';
 import { appConfig } from './config/parser.config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
@@ -9,6 +8,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { VolleystationModule } from './modules/volleystation/volleystation.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { CqrsModule } from '@nestjs/cqrs';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
@@ -33,19 +33,6 @@ import { CqrsModule } from '@nestjs/cqrs';
           },
         };
         return options;
-      },
-    }),
-    MongooseModule.forRootAsync({
-      useFactory: () => {
-        const { host, password, port, username, database } =
-          appConfig().mongodb;
-        const uri =
-          `mongodb://${username}:${password}` +
-          `@${host}:${port}/${database}?authSource=admin`;
-        return {
-          uri,
-          dbName: database,
-        };
       },
     }),
     EventEmitterModule.forRoot(),

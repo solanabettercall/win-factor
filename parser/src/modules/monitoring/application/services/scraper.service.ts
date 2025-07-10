@@ -37,6 +37,36 @@ export class ScraperService {
     private readonly queryBus: QueryBus,
   ) {}
 
+  async onApplicationBootstrap() {
+    const competitionId = CompetitionId.create(25);
+    // const matchId = MatchId.create(2238712);
+    // await this.fetchAndSaveCompetition(competitionId);
+    const competition = await this.getCompetitionFromDb(competitionId);
+    if (!competition) {
+      this.logger.warn(`Турнир ${competitionId} не найден`);
+      return;
+    }
+    console.log(competition);
+
+    // await Promise.all([
+    //   this.fetchAndSaveMatchesForCompetition(competitionId),
+    //   this.fetchAndSaveTeamsForCompetition(competitionId),
+    //   this.fetchAndSavePlayersForCompetition(competitionId),
+    //   this.fetchAndSaveMatch(competitionId, matchId),
+    // ]);
+    // console.log(`Игроков: ${competition?.getPlayerCount()}`);
+    // console.log(`Команд: ${competition?.getTeamCount()}`);
+    // console.log(`Матчей: ${competition?.getMatchCount()}`);
+
+    // const match1 = await this.queryBus.execute(new GetMatchQuery(matchId));
+    // const match2 = await this.queryBus.execute(
+    //   new GetMatchQuery(MatchId.create(2238762)),
+    // );
+
+    // console.log(match1);
+    // console.log(match2);
+  }
+
   async getCompetitionFromDb(id: CompetitionId) {
     return this.queryBus.execute(new GetCompetitionQuery(id));
   }
@@ -77,34 +107,6 @@ export class ScraperService {
 
     const createdCompetition = await this.getCompetitionFromDb(competitionId);
     console.log(createdCompetition);
-  }
-
-  async onApplicationBootstrap() {
-    const competitionId = CompetitionId.create(25);
-    const matchId = MatchId.create(2238712);
-    await this.fetchAndSaveCompetition(competitionId);
-    const competition = await this.getCompetitionFromDb(competitionId);
-    if (!competition) {
-      this.logger.warn(`Турнир ${competitionId} не найден`);
-      return;
-    }
-    await Promise.all([
-      this.fetchAndSaveMatchesForCompetition(competitionId),
-      this.fetchAndSaveTeamsForCompetition(competitionId),
-      this.fetchAndSavePlayersForCompetition(competitionId),
-      this.fetchAndSaveMatch(competitionId, matchId),
-    ]);
-    console.log(`Игроков: ${competition?.getPlayerCount()}`);
-    console.log(`Команд: ${competition?.getTeamCount()}`);
-    console.log(`Матчей: ${competition?.getMatchCount()}`);
-
-    const match1 = await this.queryBus.execute(new GetMatchQuery(matchId));
-    const match2 = await this.queryBus.execute(
-      new GetMatchQuery(MatchId.create(2238762)),
-    );
-
-    console.log(match1);
-    console.log(match2);
   }
 
   async fetchAndSaveMatch(competitionId: CompetitionId, matchId: MatchId) {

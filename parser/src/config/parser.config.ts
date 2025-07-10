@@ -19,18 +19,19 @@ export interface IRedisConfig {
   port: number;
 }
 
+export interface IPostgresConfig {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+}
+
 const validEnvs: Environment[] = [
   Environment.local,
   Environment.development,
   Environment.production,
 ];
-export interface IMongodbConfig {
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database?: string;
-}
 export interface ITelegramConfig {
   botToken: string;
   channelId: number;
@@ -44,7 +45,7 @@ interface IAppConfig {
   isLocal: boolean;
   proxy?: IProxy;
   redis: IRedisConfig;
-  mongodb: IMongodbConfig;
+  posgtres: IPostgresConfig;
   telegram: ITelegramConfig;
 }
 
@@ -89,14 +90,14 @@ export const appConfig = (): IAppConfig => {
         ? parseInt(process.env.REDIS_PORT, 10)
         : 6379,
     },
-    mongodb: {
-      host: process.env.MONGODB_HOST ?? 'mongodb',
-      port: process.env.MONGODB_POPT
-        ? parseInt(process.env.MONGODB_POPT, 10)
-        : 27017,
-      username: process.env.MONGODB_USERNAME ?? 'mongouser',
-      password: process.env.MONGODB_PASSWORD ?? 'mongopass',
-      database: process.env.MONGODB_DATABASE ?? 'monitoring',
+    posgtres: {
+      host: process.env.POSTGRES_HOST ?? 'postgres',
+      port: process.env.POSTGRES_PORT
+        ? parseInt(process.env.POSTGRES_PORT, 10)
+        : 5432,
+      database: process.env.POSTGRES_DB ?? 'win_factor_db',
+      username: process.env.POSTGRES_USER ?? 'default',
+      password: process.env.POSTGRES_PASSWORD ?? 'default',
     },
     telegram: {
       botToken: process.env.TELEGRAM_BOT_TOKEN,

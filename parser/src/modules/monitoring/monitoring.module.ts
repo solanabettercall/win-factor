@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { COMPETITION_REPOSITORY } from './domain/repositories/competition.repository.interface';
-import { ImMemoryCompetitionRepository } from './infrastructure/repositories/in-memory-competition.repository';
+import { PostgresCompetitionRepository } from './infrastructure/repositories/postgres-competition.repository';
 import { ScraperService } from './application/services/scraper.service';
 import { SaveCompetitionCommandHandler } from './application/handlers/commands/save-competition.handler';
 import { GetCompetitionQueryHandler } from './application/handlers/queries/get-competition.handler';
@@ -20,6 +20,9 @@ import { ImMemoryMatchRepository } from './infrastructure/repositories/in-memory
 import { SaveMatchCommandHandler } from './application/handlers/commands/save-match.handler';
 import { GetMatchQueryHandler } from './application/handlers/queries/get-match.handler';
 import { MatchCreatedEventHandler } from './application/handlers/events/match-created.handler';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { CompetitionEntity } from './infrastructure/entities/competition.entity';
+import { appConfig } from 'src/config/parser.config';
 
 const commandHandlers = [
   SaveCompetitionCommandHandler,
@@ -43,14 +46,33 @@ const eventHandlers = [
 ];
 
 @Module({
-  imports: [],
+  imports: [
+    TypeOrmModule.forRootAsync({
+      useFactory() {
+        const { host, port, database, username, password } =
+          appConfig().posgtres;
+
+        return {
+          type: 'postgres',
+          host,
+          port,
+          username,
+          password,
+          database,
+          entities: [CompetitionEntity],
+          synchronize: true,
+        };
+      },
+    }),
+    TypeOrmModule.forFeature([CompetitionEntity]),
+  ],
   providers: [
     ...commandHandlers,
     ...queryHandlers,
     ...eventHandlers,
     {
       provide: COMPETITION_REPOSITORY,
-      useClass: ImMemoryCompetitionRepository,
+      useClass: PostgresCompetitionRepository,
     },
 
     {
