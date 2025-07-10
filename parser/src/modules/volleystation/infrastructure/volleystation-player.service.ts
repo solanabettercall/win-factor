@@ -1,9 +1,11 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
+import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
+import { PlayerId } from 'src/modules/monitoring/domain/value-objects/player-id.vo';
 
 export interface IRawPlayer {
-  id: number;
+  id: PlayerId;
   name: string;
   url: string;
   photoUrl: string | null;
@@ -12,7 +14,7 @@ export interface IRawPlayer {
 }
 
 interface GetPlayersDto {
-  competitionBaseUrl: string;
+  competition: Competition;
 }
 
 @Injectable()
@@ -29,7 +31,8 @@ export class VolleystationPlayerApiService implements OnApplicationBootstrap {
   }
 
   async getPlayers(dto: GetPlayersDto): Promise<IRawPlayer[]> {
-    const url = new URL(dto.competitionBaseUrl);
+    const { competition } = dto;
+    const url = new URL(competition.getUrl());
     url.pathname += 'players/';
     const pageUrl = url.href;
 
@@ -123,7 +126,7 @@ export class VolleystationPlayerApiService implements OnApplicationBootstrap {
         const position = $(el).find(selectors.position).text().trim() ?? null;
 
         return {
-          id,
+          id: PlayerId.create(id),
           url: playerUrl,
           photoUrl,
           number,
