@@ -77,7 +77,7 @@ describe('PostgresMatchRepository', () => {
       // Arrange
       const match = Match.create({
         id: MatchId.create(1),
-        matchUrl: 'https://example.com/match/1',
+        url: 'https://example.com/match/1',
       });
 
       const expectedEntity = new MatchEntity();
@@ -96,7 +96,7 @@ describe('PostgresMatchRepository', () => {
         expect.objectContaining({
           id: 1,
           matchUrl: 'https://example.com/match/1',
-        })
+        }),
       );
     });
   });

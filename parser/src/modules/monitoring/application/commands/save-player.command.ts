@@ -1,8 +1,8 @@
 import { Command } from '@nestjs/cqrs';
-import { Player } from '../../domain/entities/player.entity';
+import { IPlayer } from '../../domain/entities/player.entity';
 
 export class SavePlayerCommand extends Command<void> {
-  constructor(public readonly player: Player) {
+  constructor(public readonly props: IPlayer) {
     super();
   }
 }

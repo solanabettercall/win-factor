@@ -5,6 +5,7 @@ import {
   PLAYER_REPOSITORY,
   IPlayerRepository,
 } from 'src/modules/monitoring/domain/repositories/player.repository.interface';
+import { Player } from 'src/modules/monitoring/domain/entities/player.entity';
 
 @CommandHandler(SavePlayerCommand)
 export class SavePlayerCommandHandler
@@ -17,10 +18,23 @@ export class SavePlayerCommandHandler
   ) {}
 
   async execute(command: SavePlayerCommand) {
-    const { player } = command;
+    const { props } = command;
 
-    this.eventPublisher.mergeObjectContext(player);
-    await this.playerRepository.save(player);
-    player.commit();
+    const { id } = props;
+    const playerEntity = await this.playerRepository.findById(id);
+
+    if (playerEntity) {
+      const player = Player.create(props);
+      this.eventPublisher.mergeObjectContext(player);
+      await this.playerRepository.save(player);
+      player.commit();
+    } else {
+      // TODO обновлять, вместо создания
+      const player = Player.create(props);
+      this.eventPublisher.mergeObjectContext(player);
+      await this.playerRepository.save(player);
+      // TODO Комитить, только если успешно сохранилось
+      player.commit();
+    }
   }
 }

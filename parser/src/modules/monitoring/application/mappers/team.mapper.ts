@@ -22,11 +22,13 @@ export abstract class TeamMapper {
     return entity;
   }
 
-  static entityToDomain(entity: TeamEntity): ITeam {
-    return {
+  static entityToDomain(entity: TeamEntity): Team {
+    const team = Team.create({
       id: TeamId.create(entity.numeric, entity.code),
       name: entity.name,
       url: entity.url,
-    };
+    });
+
+    return team;
   }
 }

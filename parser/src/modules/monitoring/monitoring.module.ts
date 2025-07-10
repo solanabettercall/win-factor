@@ -6,13 +6,11 @@ import { SaveCompetitionCommandHandler } from './application/handlers/commands/s
 import { GetCompetitionQueryHandler } from './application/handlers/queries/get-competition.handler';
 import { CompetitionCreatedEventHandler } from './application/handlers/events/competition-created.handler';
 import { TEAM_REPOSITORY } from './domain/repositories/team.repository.interface';
-import { ImMemoryTeamRepository } from './infrastructure/repositories/in-memory-team.repository';
 import { SaveTeamCommandHandler } from './application/handlers/commands/save-team.handler';
 import { GetTeamQueryHandler } from './application/handlers/queries/get-team.handler';
 import { TeamCreatedEventHandler } from './application/handlers/events/team-created.handler';
 import { PlayerCreatedEventHandler } from './application/handlers/events/player-created.handler';
 import { PLAYER_REPOSITORY } from './domain/repositories/player.repository.interface';
-import { ImMemoryPlayerRepository } from './infrastructure/repositories/in-memory-player.repository';
 import { SavePlayerCommandHandler } from './application/handlers/commands/save-player.handler';
 import { GetPlayerQueryHandler } from './application/handlers/queries/get-player.handler';
 import { MATCH_REPOSITORY } from './domain/repositories/match.repository.interface';
@@ -26,6 +24,8 @@ import { TeamEntity } from './infrastructure/entities/team.entity';
 import { PlayerEntity } from './infrastructure/entities/player.entity';
 import { MatchEntity } from './infrastructure/entities/match.entity';
 import { appConfig } from 'src/config/parser.config';
+import { PostgresPlayerRepository } from './infrastructure/repositories/postgres-player.repository';
+import { PostgresTeamRepository } from './infrastructure/repositories/postgres-team.repository';
 
 const commandHandlers = [
   SaveCompetitionCommandHandler,
@@ -62,12 +62,17 @@ const eventHandlers = [
           username,
           password,
           database,
-      entities: [CompetitionEntity, TeamEntity, PlayerEntity, MatchEntity],
+          entities: [CompetitionEntity, TeamEntity, PlayerEntity, MatchEntity],
           synchronize: true,
         };
       },
     }),
-    TypeOrmModule.forFeature([CompetitionEntity, TeamEntity, PlayerEntity, MatchEntity]),
+    TypeOrmModule.forFeature([
+      CompetitionEntity,
+      TeamEntity,
+      PlayerEntity,
+      MatchEntity,
+    ]),
   ],
   providers: [
     ...commandHandlers,
@@ -80,11 +85,11 @@ const eventHandlers = [
 
     {
       provide: TEAM_REPOSITORY,
-      useClass: ImMemoryTeamRepository,
+      useClass: PostgresTeamRepository,
     },
     {
       provide: PLAYER_REPOSITORY,
-      useClass: ImMemoryPlayerRepository,
+      useClass: PostgresPlayerRepository,
     },
     {
       provide: MATCH_REPOSITORY,

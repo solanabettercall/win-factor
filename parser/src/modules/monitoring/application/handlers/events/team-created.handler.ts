@@ -8,7 +8,7 @@ export class TeamCreatedEventHandler
 {
   private readonly logger = new Logger(this.constructor.name);
   handle(event: TeamCreatedEvent) {
-    const { team } = event;
+    const { props: team } = event;
     this.logger.debug(`Добавлена команда: ${team.name.toString()}`);
   }
 }

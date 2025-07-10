@@ -29,7 +29,9 @@ export class PlayerEntity {
   @Column({ type: 'varchar' })
   position: string;
 
-  @ManyToOne(() => CompetitionEntity, (competition) => competition.players)
+  @ManyToOne(() => CompetitionEntity, (competition) => competition.players, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'competition_id' })
   competition: CompetitionEntity;
 

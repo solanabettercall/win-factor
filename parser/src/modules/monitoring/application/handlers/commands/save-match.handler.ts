@@ -5,6 +5,7 @@ import {
   IMatchRepository,
   MATCH_REPOSITORY,
 } from 'src/modules/monitoring/domain/repositories/match.repository.interface';
+import { Match } from 'src/modules/monitoring/domain/entities/match.entity';
 
 @CommandHandler(SaveMatchCommand)
 export class SaveMatchCommandHandler
@@ -17,10 +18,21 @@ export class SaveMatchCommandHandler
   ) {}
 
   async execute(command: SaveMatchCommand) {
-    const { match } = command;
+    const { props } = command;
 
-    this.eventPublisher.mergeObjectContext(match);
-    await this.matchRepository.save(match);
-    match.commit();
+    const { id } = props;
+    const matchEntity = await this.matchRepository.findById(id);
+
+    if (matchEntity) {
+      const match = Match.create(props);
+      this.eventPublisher.mergeObjectContext(match);
+      await this.matchRepository.save(match);
+      match.commit();
+    } else {
+      const match = Match.create(props);
+      this.eventPublisher.mergeObjectContext(match);
+      await this.matchRepository.save(match);
+      match.commit();
+    }
   }
 }

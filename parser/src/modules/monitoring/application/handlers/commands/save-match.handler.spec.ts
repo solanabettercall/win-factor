@@ -45,7 +45,7 @@ describe('SaveMatchCommandHandler', () => {
     // Arrange
     const match = Match.create({
       id: MatchId.create(1),
-      matchUrl: 'https://example.com/match/1',
+      url: 'https://example.com/match/1',
     });
 
     // Mock the commit method

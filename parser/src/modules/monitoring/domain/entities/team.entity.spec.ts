@@ -31,7 +31,7 @@ describe('Team Entity', () => {
 
       expect(events).toHaveLength(1);
       expect(events[0]).toBeInstanceOf(TeamCreatedEvent);
-      expect((events[0] as TeamCreatedEvent).team).toEqual(validTeamProps);
+      expect((events[0] as TeamCreatedEvent).props).toEqual(validTeamProps);
     });
 
     it('should throw BadRequestException when name is empty', () => {

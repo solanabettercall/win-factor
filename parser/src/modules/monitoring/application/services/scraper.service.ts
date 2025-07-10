@@ -5,7 +5,7 @@ import { GetCompetitionQuery } from '../queries/get-competition.query';
 import { SaveCompetitionCommand } from '../commands/save-competition.command';
 import {
   Competition,
-  ICompetitionProps,
+  ICompetition,
 } from '../../domain/entities/competition.entity';
 import { GetVolleystationCompetitionQuery } from 'src/modules/volleystation/application/queries/get-volleystation-competition.query';
 import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
@@ -19,17 +19,33 @@ import { SaveTeamCommand } from '../commands/save-team.command';
 import { IRawPlayer } from 'src/modules/volleystation/infrastructure/volleystation-player.service';
 import { GetVolleystationPlayersQuery } from 'src/modules/volleystation/application/queries/get-volleystation-players.query';
 import { IPlayer } from '../../domain/entities/player.entity';
-import { GetMatchQuery } from '../queries/get-match.query';
 import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/application/queries/get-volleystation-matches.query';
-import { IRawMatch } from 'src/modules/volleystation/infrastructure/volleystation-match.service';
+import {
+  IRawDetailedMatch,
+  IRawMatch,
+} from 'src/modules/volleystation/infrastructure/volleystation-match.service';
 import { SaveMatchCommand } from '../commands/save-match.command';
-import { mapRawDetailedToMatch, mapRawToMatch } from '../mappers/match.mapper';
-import { IMatchProps, Match } from '../../domain/entities/match.entity';
+import { mapRawDetailedToMatch, MatchMapper } from '../mappers/match.mapper';
+import { IMatchProps } from '../../domain/entities/match.entity';
 import { GetVolleystationMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-match.query';
 import { MatchId } from '../../domain/value-objects/match-id.vo';
-import { CompetitionMapper } from '../mappers/competition.mapper';
 import { TeamMapper } from '../mappers/team.mapper';
 import { PlayerMapper } from '../mappers/player.mapper';
+
+import {
+  catchError,
+  finalize,
+  from,
+  lastValueFrom,
+  map,
+  mergeMap,
+  of,
+  scan,
+  tap,
+  toArray,
+} from 'rxjs';
+import { SavePlayerCommand } from '../commands/save-player.command';
+import { PlayerId } from '../../domain/value-objects/player-id.vo';
 
 @Injectable()
 export class ScraperService {
@@ -71,7 +87,7 @@ export class ScraperService {
     return this.queryBus.execute(new GetCompetitionQuery(id));
   }
 
-  async saveCompetitionToDb(competition: ICompetitionProps) {
+  async saveCompetitionToDb(competition: ICompetition) {
     const creatingCompetition = Competition.create(competition);
     await this.commandBus.execute(
       new SaveCompetitionCommand(creatingCompetition),
@@ -83,8 +99,7 @@ export class ScraperService {
   }
 
   async saveTeamToDb(team: ITeam) {
-    const creatingTeam = Team.create(team);
-    await this.commandBus.execute(new SaveTeamCommand(creatingTeam));
+    await this.commandBus.execute(new SaveTeamCommand(team));
   }
 
   private readonly logger = new Logger(this.constructor.name);
@@ -101,12 +116,7 @@ export class ScraperService {
       return;
     }
 
-    const mappedCompetition = CompetitionMapper.rawToDomain(rawCompetition);
-
-    await this.saveCompetitionToDb(mappedCompetition);
-
-    const createdCompetition = await this.getCompetitionFromDb(competitionId);
-    // console.log(createdCompetition);
+    await this.saveCompetitionToDb(rawCompetition);
   }
 
   async fetchAndSaveMatch(competitionId: CompetitionId, matchId: MatchId) {
@@ -118,34 +128,22 @@ export class ScraperService {
       return;
     }
 
-    const rawMatch = await this.queryBus.execute(
+    const rawMatch: IRawDetailedMatch | null = await this.queryBus.execute(
       new GetVolleystationMatchQuery({
         competition,
         matchId,
       }),
     );
+
     if (!rawMatch) {
       this.logger.warn(`Матч ${matchId} не найден`);
 
       return;
     }
 
-    const matchWithoutTeams = mapRawDetailedToMatch(rawMatch);
+    const matchProps: IMatchProps = mapRawDetailedToMatch(rawMatch);
 
-    const match = Match.create(matchWithoutTeams);
-
-    match.updateAwayTeam(rawMatch.away);
-    match.updateHomeTeam(rawMatch.home);
-
-    await this.commandBus.execute(new SaveMatchCommand(match));
-
-    const createdMatch = await this.queryBus.execute(
-      new GetMatchQuery(matchId),
-    );
-
-    if (!createdMatch) return;
-
-    this.logger.log(`Матч ${createdMatch.getId()} сохранен`);
+    await this.commandBus.execute(new SaveMatchCommand(matchProps));
   }
 
   async fetchAndSavePlayersForCompetition(competitionId: CompetitionId) {
@@ -156,21 +154,62 @@ export class ScraperService {
       return;
     }
 
-    const players: IRawPlayer[] = await this.queryBus.execute(
+    const rawPlayers: IRawPlayer[] = await this.queryBus.execute(
       new GetVolleystationPlayersQuery(competition),
     );
 
-    const mappedPlayers: IPlayer[] = players.map(PlayerMapper.rawToDomain);
+    const players: IPlayer[] = rawPlayers.map(PlayerMapper.rawToDomain);
 
-    competition.addPlayers(mappedPlayers);
+    type error = {
+      playerId: PlayerId;
+      error: unknown;
+    };
 
-    await this.commandBus.execute(new SaveCompetitionCommand(competition));
+    const results: { success: number; failed: number; errors: error[] } = {
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
 
-    this.logger.log(
-      `Добавлено ${competition.getPlayerCount()} игроков в турнир ${competition.getName()}`,
+    return lastValueFrom(
+      from(players).pipe(
+        mergeMap(
+          (player) =>
+            from(this.commandBus.execute(new SavePlayerCommand(player))).pipe(
+              tap(() => results.success++),
+              catchError((error) => {
+                results.failed++;
+                results.errors.push({ playerId: player.id, error });
+                this.logger.error(
+                  `Ошибка сохранения игрока ${player.id}:`,
+                  error,
+                );
+                return of(null);
+              }),
+            ),
+          5,
+        ),
+        scan((processed) => {
+          const count = processed + 1;
+          if (count % 10 === 0) {
+            this.logger.verbose(
+              `Обработано ${count}/${players.length} игроков`,
+            );
+          }
+          return count;
+        }, 0),
+        toArray(),
+        map(() => results),
+        finalize(() => {
+          this.logger.verbose(
+            `Завершено. Успешно: ${results.success}, Ошибок: ${results.failed}`,
+          );
+        }),
+      ),
     );
   }
 
+  // TODO: Only develop: REFACTOR this for production
   async fetchAndSaveTeamsForCompetition(competitionId: CompetitionId) {
     const competition: Competition | null =
       await this.getCompetitionFromDb(competitionId);
@@ -180,21 +219,60 @@ export class ScraperService {
       return;
     }
 
-    const teams: IRawTeam[] = await this.queryBus.execute(
+    const rawTeams: IRawTeam[] = await this.queryBus.execute(
       new GetVolleystationTeamsQuery(competition),
     );
 
-    const mappedTeams: ITeam[] = teams.map(TeamMapper.rawToDomain);
+    const teams: ITeam[] = rawTeams.map(TeamMapper.rawToDomain);
 
-    competition.addTeams(mappedTeams);
+    type error = {
+      teamId: TeamId;
+      error: unknown;
+    };
 
-    await this.commandBus.execute(new SaveCompetitionCommand(competition));
+    const results: { success: number; failed: number; errors: error[] } = {
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
 
-    this.logger.log(
-      `Добавлено ${competition.getTeamCount()} команд в турнир ${competition.getName()}`,
+    return lastValueFrom(
+      from(teams).pipe(
+        mergeMap(
+          (team) =>
+            from(this.commandBus.execute(new SaveTeamCommand(team))).pipe(
+              tap(() => results.success++),
+              catchError((error) => {
+                results.failed++;
+                results.errors.push({ teamId: team.id, error });
+                this.logger.error(
+                  `Ошибка сохранения команды ${team.id}:`,
+                  error,
+                );
+                return of(null);
+              }),
+            ),
+          5,
+        ),
+        scan((processed) => {
+          const count = processed + 1;
+          if (count % 10 === 0) {
+            this.logger.verbose(`Обработано ${count}/${teams.length} команд`);
+          }
+          return count;
+        }, 0),
+        toArray(),
+        map(() => results),
+        finalize(() => {
+          this.logger.verbose(
+            `Завершено. Успешно: ${results.success}, Ошибок: ${results.failed}`,
+          );
+        }),
+      ),
     );
   }
 
+  // TODO: Only develop: REFACTOR this for production
   async fetchAndSaveMatchesForCompetition(competitionId: CompetitionId) {
     const competition: Competition | null =
       await this.getCompetitionFromDb(competitionId);
@@ -208,14 +286,51 @@ export class ScraperService {
       new GetVolleystationMatchesQuery(competition),
     );
 
-    const matches: IMatchProps[] = rawMatches.map(mapRawToMatch);
+    const matches: IMatchProps[] = rawMatches.map(MatchMapper.rawToDomain);
+    this.logger.debug(`matches: ${matches.length}`);
+    type error = {
+      matchId: MatchId;
+      error: unknown;
+    };
+    const results: { success: number; failed: number; errors: error[] } = {
+      success: 0,
+      failed: 0,
+      errors: [],
+    };
 
-    competition.addMatches(matches);
-
-    await this.commandBus.execute(new SaveCompetitionCommand(competition));
-
-    this.logger.log(
-      `Добавлено ${competition.getMatchCount()} матчей в турнир ${competition.getName()}`,
+    return lastValueFrom(
+      from(matches).pipe(
+        mergeMap(
+          (match) =>
+            from(this.commandBus.execute(new SaveMatchCommand(match))).pipe(
+              tap(() => results.success++),
+              catchError((error) => {
+                results.failed++;
+                results.errors.push({ matchId: match.id, error });
+                this.logger.error(
+                  `Ошибка сохранения матча ${match.id}:`,
+                  error,
+                );
+                return of(null);
+              }),
+            ),
+          5,
+        ),
+        scan((processed) => {
+          const count = processed + 1;
+          if (count % 10 === 0) {
+            this.logger.verbose(`Обработано ${count}/${matches.length} матчей`);
+          }
+          return count;
+        }, 0),
+        toArray(),
+        map(() => results),
+        finalize(() => {
+          this.logger.verbose(
+            `Завершено. Успешно: ${results.success}, Ошибок: ${results.failed}`,
+          );
+        }),
+      ),
     );
   }
 }

@@ -17,7 +17,7 @@ interface IRawTeam {
 
 export interface IRawMatch {
   id: MatchId;
-  matchUrl: string;
+  url: string;
   home: IRawTeam;
   away: IRawTeam;
 }
@@ -93,7 +93,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         const match = matchHref?.match(/\/matches\/(\d+)/);
         const matchId = match ? parseInt(match[1]) : null;
         if (!matchId) return null;
-        const { href: matchUrl } = new URL(matchHref, origin);
+        const { href: url } = new URL(matchHref, origin);
 
         const home = $(el).find('div.home');
         const homeLogoUrl = home.find('div.logo img').attr('src');
@@ -105,7 +105,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
 
         return {
           id: MatchId.create(matchId),
-          matchUrl,
+          url,
           home: {
             logoUrl: homeLogoUrl,
             name: homeName,
@@ -149,7 +149,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         const match = matchHref?.match(/\/matches\/(\d+)/);
         const matchId = match ? parseInt(match[1]) : null;
         if (!matchId) return false;
-        const { href: matchUrl } = new URL(matchHref, origin);
+        const { href: url } = new URL(matchHref, origin);
 
         const teams = $(el).find('.team');
         const home = teams.eq(0);
@@ -163,7 +163,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
 
         matches.push({
           id: MatchId.create(matchId),
-          matchUrl,
+          url,
           home: {
             logoUrl: homeLogoUrl,
             name: homeName,

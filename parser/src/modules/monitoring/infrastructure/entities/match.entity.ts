@@ -18,21 +18,23 @@ export class MatchEntity {
   @Column({ name: 'match_url' })
   matchUrl: string;
 
-  @ManyToOne(() => TeamEntity, { nullable: true })
+  @ManyToOne(() => TeamEntity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn([
     { name: 'home_team_numeric', referencedColumnName: 'numeric' },
-    { name: 'home_team_code', referencedColumnName: 'code' }
+    { name: 'home_team_code', referencedColumnName: 'code' },
   ])
   homeTeam: TeamEntity | null;
 
-  @ManyToOne(() => TeamEntity, { nullable: true })
+  @ManyToOne(() => TeamEntity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn([
     { name: 'away_team_numeric', referencedColumnName: 'numeric' },
-    { name: 'away_team_code', referencedColumnName: 'code' }
+    { name: 'away_team_code', referencedColumnName: 'code' },
   ])
   awayTeam: TeamEntity | null;
 
-  @ManyToOne(() => CompetitionEntity, (competition) => competition.matches)
+  @ManyToOne(() => CompetitionEntity, (competition) => competition.matches, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'competition_id' })
   competition: CompetitionEntity;
 

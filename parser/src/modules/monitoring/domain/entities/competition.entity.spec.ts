@@ -227,7 +227,7 @@ describe('Competition Entity', () => {
         expect(events[1]).toBeInstanceOf(TeamCreatedEvent);
 
         const teamCreatedEvent = events[1] as TeamCreatedEvent;
-        expect(teamCreatedEvent.team).toEqual(validTeamProps);
+        expect(teamCreatedEvent.props).toEqual(validTeamProps);
       });
 
       it('should throw error when adding duplicate team', () => {

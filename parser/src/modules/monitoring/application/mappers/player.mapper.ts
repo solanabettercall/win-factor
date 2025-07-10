@@ -26,14 +26,16 @@ export abstract class PlayerMapper {
     return entity;
   }
 
-  static entityToDomain(entity: PlayerEntity): IPlayer {
-    return {
+  static entityToDomain(entity: PlayerEntity): Player {
+    const player = Player.create({
       id: PlayerId.create(entity.id),
       name: entity.name,
       url: entity.url,
       photoUrl: entity.photoUrl,
       number: entity.number,
       position: entity.position,
-    };
+    });
+
+    return player;
   }
 }

@@ -11,14 +11,14 @@ export abstract class MatchMapper {
   static rawToDomain(raw: IRawMatch): IMatchProps {
     return {
       id: raw.id,
-      matchUrl: raw.matchUrl,
+      url: raw.url,
     };
   }
 
   static rawDetailedToDomain(raw: IRawDetailedMatch): IMatchProps {
     return {
       id: raw.id,
-      matchUrl: raw.url,
+      url: raw.url,
     };
   }
 
@@ -43,7 +43,7 @@ export abstract class MatchMapper {
   static entityToDomain(entity: MatchEntity): IMatchProps {
     return {
       id: MatchId.create(entity.id),
-      matchUrl: entity.matchUrl,
+      url: entity.matchUrl,
     };
   }
 }

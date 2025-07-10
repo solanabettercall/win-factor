@@ -176,7 +176,7 @@ describe('Monitoring Domain Entities Integration', () => {
       const teamEvent = team.getUncommittedEvents()[0] as TeamCreatedEvent;
 
       expect(competitionEvent.competition.name).toBe('Test Competition');
-      expect(teamEvent.team.name).toBe('Test Team');
+      expect(teamEvent.props.name).toBe('Test Team');
     });
 
     it('should commit events independently', () => {
