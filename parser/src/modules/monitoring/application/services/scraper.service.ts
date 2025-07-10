@@ -5,7 +5,7 @@ import { GetCompetitionQuery } from '../queries/get-competition.query';
 import { SaveCompetitionCommand } from '../commands/save-competition.command';
 import {
   Competition,
-  ICompetition,
+  ICompetitionProps,
 } from '../../domain/entities/competition.entity';
 import { GetVolleystationCompetitionQuery } from 'src/modules/volleystation/application/queries/get-volleystation-competition.query';
 import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
@@ -71,7 +71,7 @@ export class ScraperService {
     return this.queryBus.execute(new GetCompetitionQuery(id));
   }
 
-  async saveCompetitionToDb(competition: ICompetition) {
+  async saveCompetitionToDb(competition: ICompetitionProps) {
     const creatingCompetition = Competition.create(competition);
     await this.commandBus.execute(
       new SaveCompetitionCommand(creatingCompetition),
@@ -101,13 +101,12 @@ export class ScraperService {
       return;
     }
 
-    const mappedCompetition: ICompetition =
-      CompetitionMapper.rawToDomain(rawCompetition);
+    const mappedCompetition = CompetitionMapper.rawToDomain(rawCompetition);
 
     await this.saveCompetitionToDb(mappedCompetition);
 
     const createdCompetition = await this.getCompetitionFromDb(competitionId);
-    console.log(createdCompetition);
+    // console.log(createdCompetition);
   }
 
   async fetchAndSaveMatch(competitionId: CompetitionId, matchId: MatchId) {

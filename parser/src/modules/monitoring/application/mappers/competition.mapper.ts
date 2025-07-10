@@ -1,6 +1,6 @@
 import {
-  ICompetition,
   Competition,
+  ICompetitionProps,
 } from '../../domain/entities/competition.entity';
 import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
 import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
@@ -11,7 +11,7 @@ import { PlayerMapper } from './player.mapper';
 import { MatchMapper } from './match.mapper';
 
 export abstract class CompetitionMapper {
-  static rawToDomain(raw: IRawComptition): ICompetition {
+  static rawToDomain(raw: IRawComptition): ICompetitionProps {
     return {
       id: raw.id,
       name: raw.name,

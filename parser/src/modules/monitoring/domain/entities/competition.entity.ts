@@ -6,54 +6,65 @@ import { Team, ITeam } from './team.entity';
 import { TeamId } from '../value-objects/team-id.vo';
 import { IPlayer, Player } from './player.entity';
 import { PlayerId } from '../value-objects/player-id.vo';
-import { IMatch, IMatchProps, Match } from './match.entity';
+import { IMatchProps, Match } from './match.entity';
 import { MatchId } from '../value-objects/match-id.vo';
 import { CompetitionVersion } from '../value-objects/competition-version.vo';
 
-export interface ICompetition {
+export interface ICompetitionProps {
   id: CompetitionId;
   name: string;
   url: string;
   version: CompetitionVersion;
 }
 
+interface ICompetition extends ICompetitionProps {
+  teams: Team[];
+  players: Player[];
+  matches: Match[];
+}
+
 export class Competition extends BaseEntity<CompetitionId, ICompetition> {
-  private _teams: Team[] = [];
-  private _players: Player[] = [];
-  private _matches: Match[] = [];
   private readonly logger = new Logger(this.constructor.name);
 
-  private constructor(props: ICompetition) {
-    super(props.id, props);
-    this.apply(new CompetitionCreatedEvent(props));
+  private constructor(props: ICompetitionProps) {
+    const competition: ICompetition = {
+      ...props,
+      matches: [],
+      players: [],
+      teams: [],
+    };
+    super(props.id, competition);
+    this.apply(new CompetitionCreatedEvent(competition));
   }
 
-  public static validate(props: ICompetition) {
+  public static validate(props: ICompetitionProps) {
     if (props.name.length < 1) {
       throw new BadRequestException(`Название турнира не должено быть пустым`);
     }
   }
 
-  public static create(props: ICompetition) {
+  public static create(props: ICompetitionProps) {
     Competition.validate(props);
 
     return new Competition(props);
   }
 
-  public addPlayer(props: IPlayer): void {
-    const existingPlayer = this._players.find((t) => t.id.equals(props.id));
-    if (existingPlayer) {
-      throw new BadRequestException(
-        `Игрок ${props.name} уже добавлен в турнир`,
-      );
+  public upsertPlayer(props: IPlayer): void {
+    const existingPlayerIndex = this.props.players.findIndex((t) =>
+      t.id.equals(props.id),
+    );
+    if (existingPlayerIndex !== -1) {
+      // Обновляем существующего игрока
+      this.props.players[existingPlayerIndex] = Player.create(props);
+    } else {
+      // Добавляем нового игрока
+      const player = Player.create(props);
+      this.props.players.push(player);
+
+      const playerEvents = player.getUncommittedEvents();
+      playerEvents.forEach((event) => this.apply(event));
+      player.commit();
     }
-
-    const player = Player.create(props);
-    this._players.push(player);
-
-    const playerEvents = player.getUncommittedEvents();
-    playerEvents.forEach((event) => this.apply(event));
-    player.commit();
 
     this.markAsUpdated();
   }
@@ -61,7 +72,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   public addPlayers(props: IPlayer[]): void {
     props.forEach((playerProps) => {
       try {
-        this.addPlayer(playerProps);
+        this.upsertPlayer(playerProps);
       } catch (error) {
         this.logger.warn(`Не удалось добавить игрока: ${error.message}`);
       }
@@ -69,43 +80,44 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public removePlayer(id: PlayerId): void {
-    const playerIndex = this._players.findIndex((t) => t.id.equals(id));
+    const playerIndex = this.props.players.findIndex((t) => t.id.equals(id));
+
     if (playerIndex === -1) {
       throw new BadRequestException(`Команда с ID ${id} не найдена в турнире`);
     }
 
-    this._players.splice(playerIndex, 1);
+    this.props.players.splice(playerIndex, 1);
     this.markAsUpdated();
   }
 
   public getPlayers(): readonly Player[] {
-    return [...this._players];
+    return [...this.props.players];
   }
 
   public getPlayerCount(): number {
-    return this._players.length;
+    return this.props.players.length;
   }
 
   public hasPlayer(id: PlayerId): boolean {
-    return this._players.some((t) => t.id.equals(id));
+    return this.props.players.some((t) => t.id.equals(id));
   }
 
-  public addTeam(teamProps: ITeam): void {
-    const existingTeam = this._teams.find((t) =>
+  public upsertTeam(teamProps: ITeam): void {
+    const existingTeamIndex = this.props.teams.findIndex((t) =>
       t.getId().equals(teamProps.id),
     );
-    if (existingTeam) {
-      throw new BadRequestException(
-        `Команда ${teamProps.name} уже добавлена в турнир`,
-      );
+    if (existingTeamIndex !== -1) {
+      // Обновляем существующую команду
+      this.props.teams[existingTeamIndex] = Team.create(teamProps);
+    } else {
+      // Добавляем новую команду
+      const team = Team.create(teamProps);
+      this.props.teams.push(team);
+
+      const teamEvents = team.getUncommittedEvents();
+      teamEvents.forEach((event) => this.apply(event));
+      team.commit();
     }
-
-    const team = Team.create(teamProps);
-    this._teams.push(team);
-
-    const teamEvents = team.getUncommittedEvents();
-    teamEvents.forEach((event) => this.apply(event));
-    team.commit();
 
     this.markAsUpdated();
   }
@@ -113,7 +125,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   public addTeams(teamsProps: ITeam[]): void {
     teamsProps.forEach((teamProps) => {
       try {
-        this.addTeam(teamProps);
+        this.upsertTeam(teamProps);
       } catch (error) {
         this.logger.warn(`Не удалось добавить команду: ${error.message}`);
       }
@@ -121,27 +133,29 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public removeTeam(teamId: TeamId): void {
-    const teamIndex = this._teams.findIndex((t) => t.getId().equals(teamId));
+    const teamIndex = this.props.teams.findIndex((t) =>
+      t.getId().equals(teamId),
+    );
     if (teamIndex === -1) {
       throw new BadRequestException(
         `Команда с ID ${teamId.value} не найдена в турнире`,
       );
     }
 
-    this._teams.splice(teamIndex, 1);
+    this.props.teams.splice(teamIndex, 1);
     this.markAsUpdated();
   }
 
   public getTeams(): readonly Team[] {
-    return [...this._teams];
+    return [...this.props.teams];
   }
 
   public getTeamCount(): number {
-    return this._teams.length;
+    return this.props.teams.length;
   }
 
   public hasTeam(teamId: TeamId): boolean {
-    return this._teams.some((t) => t.getId().equals(teamId));
+    return this.props.teams.some((t) => t.getId().equals(teamId));
   }
 
   public getName() {
@@ -156,28 +170,30 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
     return this.props.id;
   }
 
-  public addMatch(matchProps: IMatchProps | IMatch): void {
-    const existingMatch = this._matches.find((t) => t.id.equals(matchProps.id));
-    if (existingMatch) {
-      throw new BadRequestException(
-        `Матч ${matchProps.id} уже добавлен в турнир`,
-      );
+  public upsertMatch(matchProps: IMatchProps): void {
+    const existingMatchIndex = this.props.matches.findIndex((t) =>
+      t.id.equals(matchProps.id),
+    );
+    if (existingMatchIndex !== -1) {
+      // Обновляем существующий матч
+      this.props.matches[existingMatchIndex] = Match.create(matchProps);
+    } else {
+      // Добавляем новый матч
+      const match = Match.create(matchProps);
+      this.props.matches.push(match);
+
+      const matchEvents = match.getUncommittedEvents();
+      matchEvents.forEach((event) => this.apply(event));
+      match.commit();
     }
-
-    const match = Match.create(matchProps);
-    this._matches.push(match);
-
-    const matchEvents = match.getUncommittedEvents();
-    matchEvents.forEach((event) => this.apply(event));
-    match.commit();
 
     this.markAsUpdated();
   }
 
-  public addMatches(matchesProps: (IMatchProps | IMatch)[]): void {
+  public addMatches(matchesProps: IMatchProps[]): void {
     matchesProps.forEach((matchProps) => {
       try {
-        this.addMatch(matchProps);
+        this.upsertMatch(matchProps);
       } catch (error) {
         this.logger.warn(`Не удалось добавить матч: ${error.message}`);
       }
@@ -185,26 +201,26 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public getMatchCount(): number {
-    return this._matches.length;
+    return this.props.matches.length;
   }
 
   public removeMatch(matchId: MatchId): void {
-    const matchIndex = this._matches.findIndex((match) =>
+    const matchIndex = this.props.matches.findIndex((match) =>
       match.getId().equals(matchId),
     );
     if (matchIndex === -1) {
       throw new BadRequestException(`Матч с ID ${matchId} не найден в турнире`);
     }
 
-    this._matches.splice(matchIndex, 1);
+    this.props.matches.splice(matchIndex, 1);
     this.markAsUpdated();
   }
   public getMatches(): readonly Match[] {
-    return [...this._matches];
+    return [...this.props.matches];
   }
 
   public hasMatch(matchId: MatchId): boolean {
-    return this._matches.some((m) => m.getId().equals(matchId));
+    return this.props.matches.some((m) => m.getId().equals(matchId));
   }
 
   public getVersion(): CompetitionVersion {

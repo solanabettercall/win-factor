@@ -9,7 +9,7 @@ export interface IMatchProps {
   matchUrl: string;
 }
 
-export interface IMatch extends IMatchProps {
+interface IMatch extends IMatchProps {
   home: Team | null;
   away: Team | null;
 }
