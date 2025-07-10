@@ -10,7 +10,7 @@ import { TeamMapper } from './team.mapper';
 import { PlayerMapper } from './player.mapper';
 import { MatchMapper } from './match.mapper';
 
-export class CompetitionMapper {
+export abstract class CompetitionMapper {
   static rawToDomain(raw: IRawComptition): ICompetition {
     return {
       id: raw.id,

@@ -3,7 +3,7 @@ import { ITeam, Team } from '../../domain/entities/team.entity';
 import { TeamId } from '../../domain/value-objects/team-id.vo';
 import { TeamEntity } from '../../infrastructure/entities/team.entity';
 
-export class TeamMapper {
+export abstract class TeamMapper {
   static rawToDomain(raw: IRawTeam): ITeam {
     return {
       id: raw.id,

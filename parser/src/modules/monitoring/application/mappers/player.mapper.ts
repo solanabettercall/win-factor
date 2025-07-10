@@ -3,7 +3,7 @@ import { IPlayer, Player } from '../../domain/entities/player.entity';
 import { PlayerId } from '../../domain/value-objects/player-id.vo';
 import { PlayerEntity } from '../../infrastructure/entities/player.entity';
 
-export class PlayerMapper {
+export abstract class PlayerMapper {
   static rawToDomain(raw: IRawPlayer): IPlayer {
     return {
       id: raw.id,

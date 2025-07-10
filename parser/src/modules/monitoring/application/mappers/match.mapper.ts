@@ -7,7 +7,7 @@ import { MatchId } from '../../domain/value-objects/match-id.vo';
 import { MatchEntity } from '../../infrastructure/entities/match.entity';
 import { TeamMapper } from './team.mapper';
 
-export class MatchMapper {
+export abstract class MatchMapper {
   static rawToDomain(raw: IRawMatch): IMatchProps {
     return {
       id: raw.id,
