@@ -9,6 +9,7 @@ import {
 import { CompetitionSiteVersion } from '../../domain/value-objects/competition-version.vo';
 import { TeamEntity } from './team.entity';
 import { PlayerEntity } from './player.entity';
+import { MatchEntity } from './match.entity';
 
 @Entity('competitions')
 export class CompetitionEntity {
@@ -38,6 +39,6 @@ export class CompetitionEntity {
   })
   players: PlayerEntity[];
 
-  // @OneToMany(() => MatchEntity, match => match.competition)
-  // matches: MatchEntity[];
+  @OneToMany(() => MatchEntity, (match) => match.competition, { cascade: true })
+  matches: MatchEntity[];
 }

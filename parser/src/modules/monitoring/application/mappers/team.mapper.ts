@@ -12,7 +12,7 @@ export class TeamMapper {
     };
   }
 
-  static domainToEntity(team: Team): TeamEntity {
+  static domainToEntity(team: Team | Readonly<Team>): TeamEntity {
     const entity = new TeamEntity();
     const teamId = team.getId();
     entity.numeric = teamId.numeric;

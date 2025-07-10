@@ -41,7 +41,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public addPlayer(props: IPlayer): void {
-    const existingPlayer = this._players.find((t) => t.id === props.id);
+    const existingPlayer = this._players.find((t) => t.id.equals(props.id));
     if (existingPlayer) {
       throw new BadRequestException(
         `Игрок ${props.name} уже добавлен в турнир`,
@@ -63,15 +63,13 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
       try {
         this.addPlayer(playerProps);
       } catch (error) {
-        this.logger.warn(
-          `Не удалось добавить игрока ${playerProps.name}: ${error.message}`,
-        );
+        this.logger.warn(`Не удалось добавить игрока: ${error.message}`);
       }
     });
   }
 
   public removePlayer(id: PlayerId): void {
-    const playerIndex = this._players.findIndex((t) => t.id === id);
+    const playerIndex = this._players.findIndex((t) => t.id.equals(id));
     if (playerIndex === -1) {
       throw new BadRequestException(`Команда с ID ${id} не найдена в турнире`);
     }
@@ -89,12 +87,12 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public hasPlayer(id: PlayerId): boolean {
-    return this._players.some((t) => t.id === id);
+    return this._players.some((t) => t.id.equals(id));
   }
 
   public addTeam(teamProps: ITeam): void {
-    const existingTeam = this._teams.find(
-      (t) => t.getId().value === teamProps.id.value,
+    const existingTeam = this._teams.find((t) =>
+      t.getId().equals(teamProps.id),
     );
     if (existingTeam) {
       throw new BadRequestException(
@@ -117,18 +115,13 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
       try {
         this.addTeam(teamProps);
       } catch (error) {
-        // Log but continue with other teams
-        this.logger.warn(
-          `Failed to add team ${teamProps.name}: ${error.message}`,
-        );
+        this.logger.warn(`Не удалось добавить команду: ${error.message}`);
       }
     });
   }
 
   public removeTeam(teamId: TeamId): void {
-    const teamIndex = this._teams.findIndex(
-      (t) => t.getId().value === teamId.value,
-    );
+    const teamIndex = this._teams.findIndex((t) => t.getId().equals(teamId));
     if (teamIndex === -1) {
       throw new BadRequestException(
         `Команда с ID ${teamId.value} не найдена в турнире`,
@@ -148,7 +141,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public hasTeam(teamId: TeamId): boolean {
-    return this._teams.some((t) => t.getId().value === teamId.value);
+    return this._teams.some((t) => t.getId().equals(teamId));
   }
 
   public getName() {
@@ -164,7 +157,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public addMatch(matchProps: IMatchProps | IMatch): void {
-    const existingMatch = this._matches.find((t) => t.id === matchProps.id);
+    const existingMatch = this._matches.find((t) => t.id.equals(matchProps.id));
     if (existingMatch) {
       throw new BadRequestException(
         `Матч ${matchProps.id} уже добавлен в турнир`,
@@ -186,9 +179,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
       try {
         this.addMatch(matchProps);
       } catch (error) {
-        this.logger.warn(
-          `Не удалось добавить матч ${matchProps.id}: ${error.message}`,
-        );
+        this.logger.warn(`Не удалось добавить матч: ${error.message}`);
       }
     });
   }
@@ -198,8 +189,8 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public removeMatch(matchId: MatchId): void {
-    const matchIndex = this._matches.findIndex(
-      (match) => match.getId() === matchId,
+    const matchIndex = this._matches.findIndex((match) =>
+      match.getId().equals(matchId),
     );
     if (matchIndex === -1) {
       throw new BadRequestException(`Матч с ID ${matchId} не найден в турнире`);
@@ -213,7 +204,7 @@ export class Competition extends BaseEntity<CompetitionId, ICompetition> {
   }
 
   public hasMatch(matchId: MatchId): boolean {
-    return this._matches.some((m) => m.getId() === matchId);
+    return this._matches.some((m) => m.getId().equals(matchId));
   }
 
   public getVersion(): CompetitionVersion {

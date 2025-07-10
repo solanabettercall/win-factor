@@ -17,7 +17,11 @@ export class PostgresCompetitionRepository implements ICompetitionRepository {
   async findById(id: CompetitionId): Promise<Competition | null> {
     const entity = await this.competitionRepository.findOne({
       where: { id: id.value },
-      relations: ['teams', 'players'],
+      relations: {
+        teams: true,
+        players: true,
+        matches: true,
+      },
     });
 
     if (!entity) {

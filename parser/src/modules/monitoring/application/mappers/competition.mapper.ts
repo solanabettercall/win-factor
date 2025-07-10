@@ -8,6 +8,7 @@ import { CompetitionVersion } from '../../domain/value-objects/competition-versi
 import { CompetitionEntity } from '../../infrastructure/entities/competition.entity';
 import { TeamMapper } from './team.mapper';
 import { PlayerMapper } from './player.mapper';
+import { MatchMapper } from './match.mapper';
 
 export class CompetitionMapper {
   static rawToDomain(raw: IRawComptition): ICompetition {
@@ -36,6 +37,11 @@ export class CompetitionMapper {
       entity.players = players.map(PlayerMapper.domainToEntity);
     }
 
+    const matches = competition.getMatches();
+    if (matches.length > 0) {
+      entity.matches = matches.map(MatchMapper.domainToEntity);
+    }
+
     return entity;
   }
 
@@ -55,6 +61,11 @@ export class CompetitionMapper {
     if (entity.players && entity.players.length > 0) {
       const players = entity.players.map(PlayerMapper.entityToDomain);
       competition.addPlayers(players);
+    }
+
+    if (entity.matches && entity.matches.length > 0) {
+      const matches = entity.matches.map(MatchMapper.entityToDomain);
+      competition.addMatches(matches);
     }
 
     return competition;

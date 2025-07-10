@@ -16,7 +16,7 @@ import { ImMemoryPlayerRepository } from './infrastructure/repositories/in-memor
 import { SavePlayerCommandHandler } from './application/handlers/commands/save-player.handler';
 import { GetPlayerQueryHandler } from './application/handlers/queries/get-player.handler';
 import { MATCH_REPOSITORY } from './domain/repositories/match.repository.interface';
-import { ImMemoryMatchRepository } from './infrastructure/repositories/in-memory-match.repository';
+import { PostgresMatchRepository } from './infrastructure/repositories/postgres-match.repository';
 import { SaveMatchCommandHandler } from './application/handlers/commands/save-match.handler';
 import { GetMatchQueryHandler } from './application/handlers/queries/get-match.handler';
 import { MatchCreatedEventHandler } from './application/handlers/events/match-created.handler';
@@ -24,6 +24,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CompetitionEntity } from './infrastructure/entities/competition.entity';
 import { TeamEntity } from './infrastructure/entities/team.entity';
 import { PlayerEntity } from './infrastructure/entities/player.entity';
+import { MatchEntity } from './infrastructure/entities/match.entity';
 import { appConfig } from 'src/config/parser.config';
 
 const commandHandlers = [
@@ -61,12 +62,12 @@ const eventHandlers = [
           username,
           password,
           database,
-          entities: [CompetitionEntity, TeamEntity, PlayerEntity],
+      entities: [CompetitionEntity, TeamEntity, PlayerEntity, MatchEntity],
           synchronize: true,
         };
       },
     }),
-    TypeOrmModule.forFeature([CompetitionEntity, TeamEntity, PlayerEntity]),
+    TypeOrmModule.forFeature([CompetitionEntity, TeamEntity, PlayerEntity, MatchEntity]),
   ],
   providers: [
     ...commandHandlers,
@@ -87,7 +88,7 @@ const eventHandlers = [
     },
     {
       provide: MATCH_REPOSITORY,
-      useClass: ImMemoryMatchRepository,
+      useClass: PostgresMatchRepository,
     },
 
     ScraperService,

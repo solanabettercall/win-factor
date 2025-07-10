@@ -1,5 +1,5 @@
 import { BaseEntity } from 'src/shared/domain/entities/base.entity';
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { MatchId } from '../value-objects/match-id.vo';
 import { MatchCreatedEvent } from '../events/match-created.event';
 import { ITeam, Team } from './team.entity';
@@ -29,7 +29,7 @@ export class Match extends BaseEntity<MatchId, IMatch> {
 
   public static validate(props: IMatchProps) {
     if (!props.matchUrl || props.matchUrl.trim() === '') {
-      throw new Error('Match URL is required');
+      throw new BadRequestException('Ссылка на матч обязательна');
     }
   }
 
@@ -53,9 +53,11 @@ export class Match extends BaseEntity<MatchId, IMatch> {
 
   public updateHomeTeam(team: ITeam): void {
     const _team = Team.create(team);
-    this.logger.log(`Updating home team for match ${this.props.id}`);
+
     if (this.props.away?.equals(_team)) {
-      throw new Error('Home and away teams cannot be the same');
+      throw new BadRequestException(
+        'Домашняя и гостевые команды не могут совпадать',
+      );
     }
 
     (this.props as any).home = _team;
@@ -64,9 +66,11 @@ export class Match extends BaseEntity<MatchId, IMatch> {
 
   public updateAwayTeam(team: ITeam): void {
     const _team = Team.create(team);
-    this.logger.log(`Updating away team for match ${this.props.id}`);
+
     if (this.props.home?.equals(_team)) {
-      throw new Error('Home and away teams cannot be the same');
+      throw new BadRequestException(
+        'Домашняя и гостевые команды не могут совпадать',
+      );
     }
 
     (this.props as any).away = _team;
