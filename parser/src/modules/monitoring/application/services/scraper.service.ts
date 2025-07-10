@@ -11,7 +11,7 @@ import { GetVolleystationCompetitionQuery } from 'src/modules/volleystation/appl
 import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
 import { GetVolleystationTeamsQuery } from 'src/modules/volleystation/application/queries/get-volleystation-teams.query';
 import { IRawTeam } from 'src/modules/volleystation/infrastructure/volleystation-team.service';
-import { mapRawToTeam } from '../mappers/team.mapper';
+
 import { ITeam, Team } from '../../domain/entities/team.entity';
 import { TeamId } from '../../domain/value-objects/team-id.vo';
 import { GetTeamQuery } from '../queries/get-team.query';
@@ -29,6 +29,7 @@ import { IMatchProps, Match } from '../../domain/entities/match.entity';
 import { GetVolleystationMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-match.query';
 import { MatchId } from '../../domain/value-objects/match-id.vo';
 import { CompetitionMapper } from '../mappers/competition.mapper';
+import { TeamMapper } from '../mappers/team.mapper';
 
 @Injectable()
 export class ScraperService {
@@ -40,7 +41,7 @@ export class ScraperService {
   async onApplicationBootstrap() {
     const competitionId = CompetitionId.create(25);
     const matchId = MatchId.create(2238712);
-    // await this.fetchAndSaveCompetition(competitionId);
+    await this.fetchAndSaveCompetition(competitionId);
     const competition = await this.getCompetitionFromDb(competitionId);
     if (!competition) {
       this.logger.warn(`Турнир ${competitionId} не найден`);
@@ -184,7 +185,7 @@ export class ScraperService {
       new GetVolleystationTeamsQuery(competition),
     );
 
-    const mappedTeams: ITeam[] = teams.map(mapRawToTeam);
+    const mappedTeams: ITeam[] = teams.map(TeamMapper.rawToDomain);
 
     competition.addTeams(mappedTeams);
 

@@ -5,9 +5,8 @@ import {
 import { IRawComptition } from 'src/modules/volleystation/infrastructure/volleystation-competition.service';
 import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
 import { CompetitionVersion } from '../../domain/value-objects/competition-version.vo';
-import { TeamId } from '../../domain/value-objects/team-id.vo';
 import { CompetitionEntity } from '../../infrastructure/entities/competition.entity';
-import { TeamEntity } from '../../infrastructure/entities/team.entity';
+import { TeamMapper } from './team.mapper';
 
 export class CompetitionMapper {
   static rawToDomain(raw: IRawComptition): ICompetition {
@@ -28,15 +27,7 @@ export class CompetitionMapper {
 
     const teams = competition.getTeams();
     if (teams.length > 0) {
-      entity.teams = teams.map((team) => {
-        const teamEntity = new TeamEntity();
-        const teamId = team.getId();
-        teamEntity.numeric = teamId.numeric;
-        teamEntity.code = teamId.code;
-        teamEntity.name = team.getName();
-        teamEntity.url = team.getUrl();
-        return teamEntity;
-      });
+      entity.teams = teams.map(TeamMapper.domainToEntity);
     }
 
     return entity;
@@ -51,11 +42,7 @@ export class CompetitionMapper {
     });
 
     if (entity.teams && entity.teams.length > 0) {
-      const teams = entity.teams.map((teamEntity) => ({
-        id: TeamId.create(teamEntity.numeric, teamEntity.code),
-        name: teamEntity.name,
-        url: teamEntity.url,
-      }));
+      const teams = entity.teams.map(TeamMapper.entityToDomain);
       competition.addTeams(teams);
     }
 
