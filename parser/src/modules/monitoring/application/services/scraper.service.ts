@@ -60,9 +60,9 @@ export class ScraperService {
     }
 
     await Promise.all([
-      // this.fetchAndSaveMatchesForCompetition(competitionId),
-      // this.fetchAndSaveTeamsForCompetition(competitionId),
-      // this.fetchAndSavePlayersForCompetition(competitionId),
+      this.fetchAndSaveMatchesForCompetition(competitionId),
+      this.fetchAndSaveTeamsForCompetition(competitionId),
+      this.fetchAndSavePlayersForCompetition(competitionId),
       this.fetchAndSaveMatch(competitionId, matchId),
     ]);
     // console.log(`Игроков: ${competition?.getPlayerCount()}`);
