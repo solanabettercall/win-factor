@@ -3,15 +3,20 @@ import { BadRequestException } from '@nestjs/common';
 import { TeamId } from '../value-objects/team-id.vo';
 import { TeamCreatedEvent } from '../events/team-created.event';
 import { CompetitionId } from '../value-objects/competition-id.vo';
+import { PlayerId } from '../value-objects/player-id.vo';
 
 export interface ITeam {
   id: TeamId;
   competitionId: CompetitionId;
   name: string;
   url: string;
+  playerIds?: PlayerId[];
 }
 
 export class Team extends BaseEntity<TeamId, ITeam> {
+  public getPlayerIds(): PlayerId[] {
+    return this.props.playerIds ?? [];
+  }
   public getCompetitionId(): CompetitionId {
     return this.props.competitionId;
   }
@@ -22,6 +27,7 @@ export class Team extends BaseEntity<TeamId, ITeam> {
       competitionId: props.competitionId,
       name: props.name,
       url: props.url,
+      playerIds: props.playerIds,
     });
     this.apply(new TeamCreatedEvent(props));
   }

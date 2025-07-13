@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ITeamRepository } from '../../domain/repositories/team.repository.interface';
 import { TeamEntity } from '../entities/team.entity';
 import { Team } from '../../domain/entities/team.entity';
 import { TeamId } from '../../domain/value-objects/team-id.vo';
 import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
 import { CompetitionEntity } from '../entities/competition.entity';
+import { PlayerId } from '../../domain/value-objects/player-id.vo';
+import { PlayerEntity } from '../entities/player.entity';
 
 @Injectable()
 export class PostgresTeamRepository implements ITeamRepository {
@@ -15,6 +17,8 @@ export class PostgresTeamRepository implements ITeamRepository {
     private readonly teamRepository: Repository<TeamEntity>,
     @InjectRepository(CompetitionEntity)
     private readonly competitionRepository: Repository<CompetitionEntity>,
+    @InjectRepository(PlayerEntity)
+    private readonly playerRepository: Repository<PlayerEntity>,
   ) {}
 
   async findById(id: TeamId): Promise<Team | null> {
@@ -25,6 +29,7 @@ export class PostgresTeamRepository implements ITeamRepository {
       },
       relations: {
         competition: true,
+        players: true,
       },
     });
 
@@ -46,13 +51,23 @@ export class PostgresTeamRepository implements ITeamRepository {
         id: team.getCompetitionId().value,
       },
     });
-    return TeamEntity.create({
+
+    const players = await this.playerRepository.find({
+      where: {
+        id: In(team.getPlayerIds().map((p) => p.value)),
+      },
+    });
+
+    const entity = TeamEntity.create({
       code: team.getId().code,
       numeric: team.getId().numeric,
       name: team.getName(),
       url: team.getUrl(),
       competition,
     });
+    entity.players = players;
+
+    return entity;
   }
 
   private entityToDomain(team: TeamEntity): Team {
@@ -63,6 +78,7 @@ export class PostgresTeamRepository implements ITeamRepository {
       name: team.name,
       url: team.url,
       competitionId,
+      playerIds: team.players.map((p) => PlayerId.create(p.id)),
     });
   }
 }

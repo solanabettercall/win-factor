@@ -12,10 +12,12 @@ import { HttpClientService } from './infrastructure/http-client.service';
 import { GetVolleystationMatchesQueryHandler } from './application/handlers/queries/get-volleystation-matches.handler';
 import { VolleystationMatchApiService } from './infrastructure/volleystation-match.service';
 import { GetVolleystationMatchQueryHandler } from './application/handlers/queries/get-volleystation-match.handler';
+import { GetVolleystationTeamQueryHandler } from './application/handlers/queries/get-volleystation-team.handler';
 
 const queryHandlers = [
   GetVolleystationCompetitionQueryHandler,
   GetVolleystationTeamsQueryHandler,
+  GetVolleystationTeamQueryHandler,
   GetVolleystationPlayersQueryHandler,
   GetVolleystationMatchesQueryHandler,
   GetVolleystationMatchQueryHandler,
