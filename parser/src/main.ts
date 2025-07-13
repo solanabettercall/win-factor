@@ -16,8 +16,8 @@ async function bootstrap() {
     logger.error(err);
   });
 
-  process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.on('unhandledRejection', (data) => {
+    console.log(data);
   });
 
   await app.listen(port, () => {

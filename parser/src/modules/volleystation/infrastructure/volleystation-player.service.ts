@@ -3,9 +3,11 @@ import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
 import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
 import { PlayerId } from 'src/modules/monitoring/domain/value-objects/player-id.vo';
+import { CompetitionId } from 'src/modules/monitoring/domain/value-objects/competition-id.vo';
 
 export interface IRawPlayer {
   id: PlayerId;
+  competitionId: CompetitionId;
   name: string;
   url: string;
   photoUrl: string | null;
@@ -34,14 +36,14 @@ export class VolleystationPlayerApiService {
       if (!response) return [];
       const $ = cheerio.load(response.data);
 
-      let players = this.parsePlayersV1($, url.origin);
+      let players = this.parsePlayersV1($, url.origin, competition.getId());
       if (players.length) {
         this.logger.debug(`Парсер V1 сработал: ${players.length} игроков`);
         return players;
       }
 
       this.logger.warn(`Парсер V1 не нашёл игроков, пробуем V2: ${pageUrl}`);
-      players = this.parsePlayersV2($, url.origin);
+      players = this.parsePlayersV2($, url.origin, competition.getId());
 
       if (players.length) {
         this.logger.debug(`Парсер V2 сработал: ${players.length} игроков`);
@@ -60,7 +62,11 @@ export class VolleystationPlayerApiService {
     }
   }
 
-  private parsePlayersV1($: cheerio.CheerioAPI, origin: string): IRawPlayer[] {
+  private parsePlayersV1(
+    $: cheerio.CheerioAPI,
+    origin: string,
+    competitionId: CompetitionId,
+  ): IRawPlayer[] {
     const SELECTORS = {
       container: 'a.player-box',
       photoUrl: 'div.image-photo img',
@@ -69,10 +75,14 @@ export class VolleystationPlayerApiService {
       position: 'div.text-position',
     };
 
-    return this.parseGeneric($, SELECTORS, origin);
+    return this.parseGeneric($, SELECTORS, origin, competitionId);
   }
 
-  private parsePlayersV2($: cheerio.CheerioAPI, origin: string): IRawPlayer[] {
+  private parsePlayersV2(
+    $: cheerio.CheerioAPI,
+    origin: string,
+    competitionId: CompetitionId,
+  ): IRawPlayer[] {
     const SELECTORS = {
       container: 'a.player-personal-card',
       photoUrl: 'div.personal-data-box div.image img',
@@ -81,7 +91,7 @@ export class VolleystationPlayerApiService {
       position: 'div.personal-data div.position',
     };
 
-    return this.parseGeneric($, SELECTORS, origin);
+    return this.parseGeneric($, SELECTORS, origin, competitionId);
   }
 
   private parseGeneric(
@@ -94,6 +104,7 @@ export class VolleystationPlayerApiService {
       position: string;
     },
     origin: string,
+    competitionId: CompetitionId,
   ): IRawPlayer[] {
     const PLAYER_ID_REGEX = /\/players\/(\d+)\//;
 
@@ -120,6 +131,7 @@ export class VolleystationPlayerApiService {
 
         return {
           id: PlayerId.create(id),
+          competitionId,
           url: playerUrl,
           photoUrl,
           number,

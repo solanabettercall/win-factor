@@ -2,9 +2,13 @@ import { BadRequestException } from '@nestjs/common';
 import { BaseEntity } from 'src/shared/domain/entities/base.entity';
 import { PlayerId } from '../value-objects/player-id.vo';
 import { PlayerCreatedEvent } from '../events/player-created.event';
+import { CompetitionId } from '../value-objects/competition-id.vo';
+import { TeamId } from '../value-objects/team-id.vo';
 
 export interface IPlayer {
   id: PlayerId;
+  competitionId: CompetitionId;
+  teamId?: TeamId;
   name: string;
   url: string;
   photoUrl: string | null;
@@ -13,6 +17,13 @@ export interface IPlayer {
 }
 
 export class Player extends BaseEntity<PlayerId, IPlayer> {
+  getTeamId(): TeamId | null {
+    return this.props.teamId ?? null;
+  }
+  getCompetitionId(): CompetitionId {
+    return this.props.competitionId;
+  }
+
   getPosition(): string {
     return this.props.position;
   }
@@ -34,6 +45,10 @@ export class Player extends BaseEntity<PlayerId, IPlayer> {
     if (props.name.length < 1) {
       throw new BadRequestException(`Имя игрока не должено быть пустым`);
     }
+  }
+
+  public setTeam(id: TeamId) {
+    this.props.teamId = id;
   }
 
   public static create(props: IPlayer): Player {

@@ -18,14 +18,22 @@ export class MatchEntity {
   @Column({ name: 'match_url' })
   matchUrl: string;
 
-  @ManyToOne(() => TeamEntity, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => TeamEntity, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    cascade: ['insert'],
+  })
   @JoinColumn([
     { name: 'home_team_numeric', referencedColumnName: 'numeric' },
     { name: 'home_team_code', referencedColumnName: 'code' },
   ])
   homeTeam: TeamEntity | null;
 
-  @ManyToOne(() => TeamEntity, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => TeamEntity, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    cascade: ['insert'],
+  })
   @JoinColumn([
     { name: 'away_team_numeric', referencedColumnName: 'numeric' },
     { name: 'away_team_code', referencedColumnName: 'code' },
@@ -34,6 +42,7 @@ export class MatchEntity {
 
   @ManyToOne(() => CompetitionEntity, (competition) => competition.matches, {
     onDelete: 'CASCADE',
+    nullable: false,
   })
   @JoinColumn({ name: 'competition_id' })
   competition: CompetitionEntity;
@@ -43,4 +52,12 @@ export class MatchEntity {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  static create(
+    props: Omit<MatchEntity, 'createdAt' | 'updatedAt'>,
+  ): MatchEntity {
+    const entity = new MatchEntity();
+    Object.assign(entity, props);
+    return entity;
+  }
 }

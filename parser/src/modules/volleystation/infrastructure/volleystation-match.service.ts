@@ -10,16 +10,12 @@ import { HttpClientService } from './http-client.service';
 import { MatchId } from 'src/modules/monitoring/domain/value-objects/match-id.vo';
 import { TeamId } from 'src/modules/monitoring/domain/value-objects/team-id.vo';
 import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
-// interface IRawTeam {
-//   name: string;
-//   logoUrl?: string;
-// }
+import { CompetitionId } from 'src/modules/monitoring/domain/value-objects/competition-id.vo';
 
 export interface IRawMatch {
   id: MatchId;
   url: string;
-  // home: IRawTeam;
-  // away: IRawTeam;
+  competitionId: CompetitionId;
 }
 
 export enum MatchListType {
@@ -39,11 +35,12 @@ export class GetRawDetailedMatchDto {
 export interface IRawDetailedMatch {
   id: MatchId;
   url: string;
-  home: IRawDetailedTeam;
-  away: IRawDetailedTeam;
+  competitionId: CompetitionId;
+  homeTeamId: TeamId;
+  awayTeamId: TeamId;
 }
 
-interface IRawDetailedTeam {
+export interface IRawDetailedMatchTeam {
   id: TeamId;
   name: string;
   url: string;
@@ -78,6 +75,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
   private parseMatchesV1(
     $: cheerio.CheerioAPI,
     origin: string,
+    competitionId: CompetitionId,
     type: MatchListType,
   ): IRawMatch[] {
     const mainSection = $(`section.match-${type}`);
@@ -101,17 +99,12 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         // const away = $(el).find('div.away');
         // const awayLogoUrl = away.find('div.logo img').attr('src');
         // const awayName = away.find('div.name').text().trim();
-
-        return {
+        const rawMatch: IRawMatch = {
           id: MatchId.create(matchId),
           url,
-          // home: {
-          //   name: homeName,
-          // },
-          // away: {
-          //   name: awayName,
-          // },
+          competitionId,
         };
+        return rawMatch;
       })
       .toArray()
       .filter(Boolean);
@@ -122,6 +115,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
   private parseMatchesV2(
     $: cheerio.CheerioAPI,
     origin: string,
+    competitionId: CompetitionId,
     type: MatchListType,
   ): IRawMatch[] {
     const selectedValue = $(
@@ -161,14 +155,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         matches.push({
           id: MatchId.create(matchId),
           url,
-          // home: {
-          //   logoUrl: homeLogoUrl,
-          //   name: homeName,
-          // },
-          // away: {
-          //   logoUrl: awayLogoUrl,
-          //   name: awayName,
-          // },
+          competitionId,
         });
       });
     });
@@ -192,7 +179,12 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
       const matchType =
         type === MatchListType.Results ? 'прошедших' : 'запланированых';
 
-      const matchesV1 = this.parseMatchesV1($, url.origin, type);
+      const matchesV1 = this.parseMatchesV1(
+        $,
+        url.origin,
+        competition.getId(),
+        type,
+      );
       if (matchesV1.length) {
         this.logger.debug(
           `Парсер V1 сработал: ${matchesV1.length} ${matchType} матчей`,
@@ -200,7 +192,12 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         return matchesV1;
       }
 
-      const matchesV2 = this.parseMatchesV2($, url.origin, type);
+      const matchesV2 = this.parseMatchesV2(
+        $,
+        url.origin,
+        competition.getId(),
+        type,
+      );
 
       if (matchesV2.length) {
         this.logger.debug(
@@ -241,7 +238,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
         : [this.parseMatchV2, this.parseMatchV1];
 
       for (const parser of parsers) {
-        const match = parser.call(this, $, url, matchId);
+        const match = parser.call(this, $, url, competition.getId(), matchId);
         if (match) {
           this.logger.debug(
             `Парсер ${parser.name} сработал: матч ${match.id} найден`,
@@ -264,6 +261,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
   private parseMatchV1(
     $: cheerio.CheerioAPI,
     origin: URL,
+    competitionId: CompetitionId,
     matchId: MatchId,
   ): IRawDetailedMatch | null {
     try {
@@ -298,8 +296,9 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
       return {
         id: matchId,
         url: origin.href,
-        home,
-        away,
+        competitionId,
+        homeTeamId: home.id,
+        awayTeamId: away.id,
       };
     } catch (err: unknown) {
       if (err instanceof UnprocessableEntityException) {
@@ -314,6 +313,7 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
   private parseMatchV2(
     $: cheerio.CheerioAPI,
     origin: URL,
+    competitionId: CompetitionId,
     matchId: MatchId,
   ): IRawDetailedMatch | null {
     try {
@@ -353,8 +353,9 @@ export class VolleystationMatchApiService implements OnApplicationBootstrap {
       return {
         id: matchId,
         url: origin.href,
-        home,
-        away,
+        competitionId,
+        homeTeamId: home.id,
+        awayTeamId: away.id,
       };
     } catch (err: unknown) {
       if (err instanceof UnprocessableEntityException) {

@@ -4,9 +4,11 @@ import * as cheerio from 'cheerio';
 import { HttpClientService } from './http-client.service';
 import { TeamId } from 'src/modules/monitoring/domain/value-objects/team-id.vo';
 import { Competition } from 'src/modules/monitoring/domain/entities/competition.entity';
+import { CompetitionId } from 'src/modules/monitoring/domain/value-objects/competition-id.vo';
 
 export interface IRawTeam {
   id: TeamId;
+  competitionId: CompetitionId;
   name: string;
   url: string;
   logoUrl: string | null;
@@ -22,7 +24,11 @@ export class VolleystationTeamApiService {
 
   constructor(private readonly httpService: HttpClientService) {}
 
-  private parseTeamsV1($: cheerio.CheerioAPI, origin: string): IRawTeam[] {
+  private parseTeamsV1(
+    $: cheerio.CheerioAPI,
+    origin: string,
+    competitionId: CompetitionId,
+  ): IRawTeam[] {
     const teamsSection = $('section.teams div.team-list');
 
     return $(teamsSection)
@@ -38,18 +44,24 @@ export class VolleystationTeamApiService {
         const match = decodedHref?.match(/\/teams\/([^/]+)\//);
         const teamId = match ? match[1] : null;
         if (!teamId) return null;
-        return {
+        const rawTeam: IRawTeam = {
           id: TeamId.create(teamId),
           logoUrl,
           name,
           url,
+          competitionId,
         };
+        return rawTeam;
       })
       .get()
       .filter((team) => !!team.id);
   }
 
-  private parseTeamsV2($: cheerio.CheerioAPI, origin: string): IRawTeam[] {
+  private parseTeamsV2(
+    $: cheerio.CheerioAPI,
+    origin: string,
+    competitionId: CompetitionId,
+  ): IRawTeam[] {
     const teamsSection = $('div.grid.team-grid');
 
     return $(teamsSection)
@@ -70,6 +82,7 @@ export class VolleystationTeamApiService {
           logoUrl,
           name,
           url,
+          competitionId,
         };
       })
       .get()
@@ -89,13 +102,13 @@ export class VolleystationTeamApiService {
       const html = response.data;
       const $ = cheerio.load(html);
 
-      let teams = this.parseTeamsV1($, origin);
+      let teams = this.parseTeamsV1($, origin, competition.getId());
       if (teams.length) {
         this.logger.debug(`Парсер V1 найден: ${teams.length} команд`);
         return teams;
       }
 
-      teams = this.parseTeamsV2($, origin);
+      teams = this.parseTeamsV2($, origin, competition.getId());
       if (teams.length) {
         this.logger.debug(`Парсер V2 найден: ${teams.length} команд`);
         return teams;

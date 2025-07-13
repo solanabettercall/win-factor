@@ -41,4 +41,15 @@ export class CompetitionEntity {
 
   @OneToMany(() => MatchEntity, (match) => match.competition, { cascade: true })
   matches: MatchEntity[];
+
+  static create(
+    props: Omit<
+      CompetitionEntity,
+      'createdAt' | 'updatedAt' | 'teams' | 'players' | 'matches'
+    >,
+  ): CompetitionEntity {
+    const entity = new CompetitionEntity();
+    Object.assign(entity, props);
+    return entity;
+  }
 }

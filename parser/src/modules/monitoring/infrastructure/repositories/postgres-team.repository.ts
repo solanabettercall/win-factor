@@ -5,13 +5,16 @@ import { ITeamRepository } from '../../domain/repositories/team.repository.inter
 import { TeamEntity } from '../entities/team.entity';
 import { Team } from '../../domain/entities/team.entity';
 import { TeamId } from '../../domain/value-objects/team-id.vo';
-import { TeamMapper } from '../../application/mappers/team.mapper';
+import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
+import { CompetitionEntity } from '../entities/competition.entity';
 
 @Injectable()
 export class PostgresTeamRepository implements ITeamRepository {
   constructor(
     @InjectRepository(TeamEntity)
     private readonly teamRepository: Repository<TeamEntity>,
+    @InjectRepository(CompetitionEntity)
+    private readonly competitionRepository: Repository<CompetitionEntity>,
   ) {}
 
   async findById(id: TeamId): Promise<Team | null> {
@@ -20,17 +23,46 @@ export class PostgresTeamRepository implements ITeamRepository {
         code: id.code,
         numeric: id.numeric,
       },
+      relations: {
+        competition: true,
+      },
     });
 
     if (!entity) {
       return null;
     }
 
-    return TeamMapper.fromEntity(entity).toDomain();
+    return this.entityToDomain(entity);
   }
 
   async save(team: Team): Promise<void> {
-    const entity = TeamMapper.fromDomain(team).toEntity();
+    const entity: TeamEntity = await this.domainToEntity(team);
     await this.teamRepository.save(entity);
+  }
+
+  private async domainToEntity(team: Team): Promise<TeamEntity> {
+    const competition = await this.competitionRepository.findOneOrFail({
+      where: {
+        id: team.getCompetitionId().value,
+      },
+    });
+    return TeamEntity.create({
+      code: team.getId().code,
+      numeric: team.getId().numeric,
+      name: team.getName(),
+      url: team.getUrl(),
+      competition,
+    });
+  }
+
+  private entityToDomain(team: TeamEntity): Team {
+    const id = TeamId.create(team.numeric, team.code);
+    const competitionId = CompetitionId.create(team.competition.id);
+    return Team.create({
+      id,
+      name: team.name,
+      url: team.url,
+      competitionId,
+    });
   }
 }

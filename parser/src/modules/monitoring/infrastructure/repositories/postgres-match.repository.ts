@@ -5,13 +5,20 @@ import { Match } from '../../domain/entities/match.entity';
 import { MatchId } from '../../domain/value-objects/match-id.vo';
 import { IMatchRepository } from '../../domain/repositories/match.repository.interface';
 import { MatchEntity } from '../entities/match.entity';
-import { MatchMapper } from '../../application/mappers/match.mapper';
+import { CompetitionId } from '../../domain/value-objects/competition-id.vo';
+import { TeamId } from '../../domain/value-objects/team-id.vo';
+import { CompetitionEntity } from '../entities/competition.entity';
+import { TeamEntity } from '../entities/team.entity';
 
 @Injectable()
 export class PostgresMatchRepository implements IMatchRepository {
   constructor(
     @InjectRepository(MatchEntity)
     private readonly matchRepository: Repository<MatchEntity>,
+    @InjectRepository(CompetitionEntity)
+    private readonly competitionRepository: Repository<CompetitionEntity>,
+    @InjectRepository(TeamEntity)
+    private readonly teamRepository: Repository<TeamEntity>,
   ) {}
 
   async findById(id: MatchId): Promise<Match | null> {
@@ -20,6 +27,7 @@ export class PostgresMatchRepository implements IMatchRepository {
       relations: {
         homeTeam: true,
         awayTeam: true,
+        competition: true,
       },
     });
 
@@ -27,44 +35,77 @@ export class PostgresMatchRepository implements IMatchRepository {
       return null;
     }
 
-    return MatchMapper.fromEntity(entity).toDomain();
+    return this.entityToDomain(entity);
   }
 
   async save(match: Match): Promise<void> {
-    const entity = MatchMapper.fromDomain(match).toEntity();
+    const entity: MatchEntity = await this.domainToEntity(match);
     await this.matchRepository.save(entity);
   }
 
-  // private mapEntityToDomain(entity: MatchEntity): Match {
-  //   const matchProps = MatchMapper.fromEntity(entity).toDomain();
-  //   const match = Match.create(matchProps);
+  private async domainToEntity(match: Match): Promise<MatchEntity> {
+    const competition = await this.competitionRepository.findOneOrFail({
+      where: {
+        id: match.getCompetitionId().value,
+      },
+    });
 
-  //   if (entity.homeTeam) {
-  //     const homeTeam = TeamMapper.fromEntity(entity.homeTeam).toDomain();
-  //     match.updateHomeTeam(homeTeam);
-  //   }
+    const entity = MatchEntity.create({
+      id: match.getId().value,
+      competition,
+      matchUrl: match.getMatchUrl(),
+      awayTeam: null,
+      homeTeam: null,
+    });
+    const homeTeamId = match.getHomeTeamId();
+    const awayTeamId = match.getAwayTeamId();
 
-  //   if (entity.awayTeam) {
-  //     const awayTeam = TeamMapper.fromEntity(entity.awayTeam).toDomain();
-  //     match.updateAwayTeam(awayTeam);
-  //   }
+    if (homeTeamId && awayTeamId) {
+      const homeTeam: TeamEntity | null = await this.teamRepository.findOne({
+        where: {
+          code: homeTeamId?.code,
+          numeric: homeTeamId?.numeric,
+        },
+      });
 
-  //   return match;
-  // }
+      const awayTeam: TeamEntity | null = await this.teamRepository.findOne({
+        where: {
+          code: awayTeamId?.code,
+          numeric: awayTeamId?.numeric,
+        },
+      });
 
-  // private mapDomainToEntity(match: Match): MatchEntity {
-  //   const entity = MatchMapper.domainToEntity(match);
+      entity.homeTeam = homeTeam;
+      entity.awayTeam = awayTeam;
+    }
 
-  //   const homeTeam = match.getHomeTeam();
-  //   if (homeTeam) {
-  //     entity.homeTeam = TeamMapper.fromDomain(homeTeam).toEntity();
-  //   }
+    return entity;
+  }
 
-  //   const awayTeam = match.getAwayTeam();
-  //   if (awayTeam) {
-  //     entity.awayTeam = TeamMapper.fromDomain(awayTeam).toEntity();
-  //   }
+  private entityToDomain(match: MatchEntity): Match {
+    const id = MatchId.create(match.id);
+    const competitionId = CompetitionId.create(match.competition.id);
 
-  //   return entity;
-  // }
+    const domain = Match.create({
+      id,
+      competitionId,
+      url: match.matchUrl,
+    });
+
+    if (match?.awayTeam && match?.homeTeam) {
+      const homeTeamId = TeamId.create(
+        match.homeTeam.numeric,
+        match.homeTeam.code,
+      );
+      domain.updateAwayTeam(homeTeamId);
+
+      const awayTeamId = TeamId.create(
+        match.awayTeam.numeric,
+        match.awayTeam.code,
+      );
+      domain.updateAwayTeam(awayTeamId);
+    }
+
+    return domain;
+  }
 }

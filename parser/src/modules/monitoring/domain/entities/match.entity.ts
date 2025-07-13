@@ -2,37 +2,25 @@ import { BaseEntity } from 'src/shared/domain/entities/base.entity';
 import { BadRequestException, Logger } from '@nestjs/common';
 import { MatchId } from '../value-objects/match-id.vo';
 import { MatchCreatedEvent } from '../events/match-created.event';
-import { ITeam, Team } from './team.entity';
+import { TeamId } from '../value-objects/team-id.vo';
+import { CompetitionId } from '../value-objects/competition-id.vo';
 
 export interface IMatchProps {
   id: MatchId;
   url: string;
-  home?: ITeam;
-  away?: ITeam;
+  competitionId: CompetitionId;
+  homeTeamId?: TeamId;
+  awayTeamId?: TeamId;
 }
 
-interface IMatch extends Omit<IMatchProps, 'home' | 'away'> {
-  home: Team | null;
-  away: Team | null;
-}
-
-export class Match extends BaseEntity<MatchId, IMatch> {
+export class Match extends BaseEntity<MatchId, IMatchProps> {
+  public getCompetitionId(): CompetitionId {
+    return this.props.competitionId;
+  }
   private readonly logger = new Logger(this.constructor.name);
 
   private constructor(props: IMatchProps) {
-    let home: Team | null = null;
-    let away: Team | null = null;
-
-    if (props.away && props.home) {
-      home = Team.create(props.home);
-      away = Team.create(props.away);
-    }
-
-    super(props.id, {
-      ...props,
-      home,
-      away,
-    });
+    super(props.id, props);
 
     this.apply(new MatchCreatedEvent(props));
   }
@@ -53,33 +41,33 @@ export class Match extends BaseEntity<MatchId, IMatch> {
     return this.props.id;
   }
 
-  public getHomeTeam(): Team | null {
-    return this.props.home;
+  public getHomeTeamId(): TeamId | null {
+    return this.props.homeTeamId ?? null;
   }
 
-  public getAwayTeam(): Team | null {
-    return this.props.away;
+  public getAwayTeamId(): TeamId | null {
+    return this.props.awayTeamId ?? null;
   }
 
-  public updateHomeTeam(team: Team): void {
-    if (this.props.away?.equals(team)) {
+  public updateHomeTeam(teamId: TeamId): void {
+    if (this.props.awayTeamId?.equals(teamId)) {
       throw new BadRequestException(
         'Домашняя и гостевые команды не могут совпадать',
       );
     }
 
-    this.props.home = team;
+    this.props.homeTeamId = teamId;
     this.markAsUpdated();
   }
 
-  public updateAwayTeam(team: Team): void {
-    if (this.props.home?.equals(team)) {
+  public updateAwayTeam(teamId: TeamId): void {
+    if (this.props.homeTeamId?.equals(teamId)) {
       throw new BadRequestException(
         'Домашняя и гостевые команды не могут совпадать',
       );
     }
 
-    this.props.away = team;
+    this.props.awayTeamId = teamId;
     this.markAsUpdated();
   }
 
@@ -87,15 +75,15 @@ export class Match extends BaseEntity<MatchId, IMatch> {
     return this.props.url;
   }
 
-  public isHomeTeam(team: Team): boolean {
-    return !!this.props.home && this.props.home.equals(team);
+  public isHomeTeam(teamId: TeamId): boolean {
+    return !!this.props.homeTeamId && this.props.homeTeamId.equals(teamId);
   }
 
-  public isAwayTeam(team: Team): boolean {
-    return !!this.props.away && this.props.away.equals(team);
+  public isAwayTeam(teamId: TeamId): boolean {
+    return !!this.props.awayTeamId && this.props.awayTeamId.equals(teamId);
   }
 
-  public hasTeam(team: Team): boolean {
-    return this.isHomeTeam(team) || this.isAwayTeam(team);
+  public hasTeam(teamId: TeamId): boolean {
+    return this.isHomeTeam(teamId) || this.isAwayTeam(teamId);
   }
 }
