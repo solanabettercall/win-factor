@@ -6,9 +6,14 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  ManyToMany,
+  JoinTable,
+  OneToMany,
 } from 'typeorm';
 import { CompetitionEntity } from './competition.entity';
 import { TeamEntity } from './team.entity';
+import { PlayerEntity } from './player.entity';
+import { MatchStartingLineupEntity } from './match-starting-lineup.entity';
 
 @Entity('matches')
 export class MatchEntity {
@@ -46,6 +51,19 @@ export class MatchEntity {
   })
   @JoinColumn({ name: 'competition_id' })
   competition: CompetitionEntity;
+
+  @ManyToMany(() => PlayerEntity)
+  @JoinTable({
+    name: 'match_players',
+    joinColumn: { name: 'match_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'player_id', referencedColumnName: 'id' },
+  })
+  declaredPlayers: PlayerEntity[];
+
+@OneToMany(() => MatchStartingLineupEntity, (lineup) => lineup.match, {
+    cascade: true,
+  })
+  startingLineups: MatchStartingLineupEntity[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

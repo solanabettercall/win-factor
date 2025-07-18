@@ -13,6 +13,8 @@ import { GetVolleystationMatchesQueryHandler } from './application/handlers/quer
 import { VolleystationMatchApiService } from './infrastructure/volleystation-match.service';
 import { GetVolleystationMatchQueryHandler } from './application/handlers/queries/get-volleystation-match.handler';
 import { GetVolleystationTeamQueryHandler } from './application/handlers/queries/get-volleystation-team.handler';
+import { VolleystationLiveMatchApiService } from './infrastructure/volleystation-live-match.service';
+import { GetVolleystationLiveMatchQueryHandler } from './application/handlers/queries/get-volleystation-live-match.handler';
 
 const queryHandlers = [
   GetVolleystationCompetitionQueryHandler,
@@ -21,6 +23,7 @@ const queryHandlers = [
   GetVolleystationPlayersQueryHandler,
   GetVolleystationMatchesQueryHandler,
   GetVolleystationMatchQueryHandler,
+  GetVolleystationLiveMatchQueryHandler,
 ];
 
 @Module({
@@ -53,6 +56,7 @@ const queryHandlers = [
     VolleystationTeamApiService,
     VolleystationPlayerApiService,
     VolleystationMatchApiService,
+    VolleystationLiveMatchApiService,
     HttpClientService,
   ],
   exports: [],

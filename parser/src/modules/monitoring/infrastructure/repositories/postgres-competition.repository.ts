@@ -33,6 +33,15 @@ export class PostgresCompetitionRepository implements ICompetitionRepository {
 
   async save(competition: Competition): Promise<void> {
     const entity: CompetitionEntity = this.domainToEntity(competition);
+
+    const existingCompetition = await this.competitionRepository.findOne({
+      where: { url: entity.url },
+    });
+
+    if (existingCompetition) {
+      return;
+    }
+
     await this.competitionRepository.save(entity);
   }
 

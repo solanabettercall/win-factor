@@ -26,6 +26,7 @@ import { MatchEntity } from './infrastructure/entities/match.entity';
 import { appConfig } from 'src/config/parser.config';
 import { PostgresPlayerRepository } from './infrastructure/repositories/postgres-player.repository';
 import { PostgresTeamRepository } from './infrastructure/repositories/postgres-team.repository';
+import { MatchStartingLineupEntity } from './infrastructure/entities/match-starting-lineup.entity';
 
 const commandHandlers = [
   SaveCompetitionCommandHandler,
@@ -62,7 +63,13 @@ const eventHandlers = [
           username,
           password,
           database,
-          entities: [CompetitionEntity, TeamEntity, PlayerEntity, MatchEntity],
+          entities: [
+            CompetitionEntity,
+            TeamEntity,
+            PlayerEntity,
+            MatchEntity,
+            MatchStartingLineupEntity,
+          ],
           synchronize: true,
         };
       },
@@ -72,6 +79,7 @@ const eventHandlers = [
       TeamEntity,
       PlayerEntity,
       MatchEntity,
+      MatchStartingLineupEntity,
     ]),
   ],
   providers: [

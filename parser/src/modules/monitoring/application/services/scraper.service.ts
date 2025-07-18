@@ -33,6 +33,10 @@ import { GetPlayerQuery } from '../queries/get-player.query';
 import { GetVolleystationTeamQuery } from 'src/modules/volleystation/application/queries/get-volleystation-team.query';
 import { GetTeamQuery } from '../queries/get-team.query';
 import { GetVolleystationMatchesQuery } from 'src/modules/volleystation/application/queries/get-volleystation-matches.query';
+import { GetVolleystationLiveMatchQuery } from 'src/modules/volleystation/application/queries/get-volleystation-live-match.query';
+import { IPlayByPlayEvent } from 'src/modules/volleystation/infrastructure/volleystation-live-match.service';
+import { from, mergeMap } from 'rxjs';
+import { PlayerId } from '../../domain/value-objects/player-id.vo';
 
 @Injectable()
 export class ScraperService {
@@ -44,93 +48,95 @@ export class ScraperService {
   private readonly logger = new Logger(this.constructor.name);
 
   async onApplicationBootstrap() {
-    const competitionId = CompetitionId.create(285);
     const teamId = TeamId.create(2215385, '7471');
-    const matchId = MatchId.create(2237827);
-    const rawCompetition: IRawComptition | null = await this.queryBus.execute(
-      new GetVolleystationCompetitionQuery(competitionId),
+    const matchId = MatchId.create(2227488);
+    const competitionId = CompetitionId.create(222);
+
+    // const ids = Array.from({ length: 1990 }, (_, i) => i + 10); // от 10 до 1999
+
+    // from(ids)
+    //   .pipe(
+    //     mergeMap(async (id) => {
+    //       const competitionId = CompetitionId.create(id);
+    //       try {
+    //         const rawCompetition: IRawComptition | null =
+    //           await this.queryBus.execute(
+    //             new GetVolleystationCompetitionQuery(competitionId),
+    //           );
+    //         if (!rawCompetition) {
+    //           this.logger.warn(`Турнир ${competitionId} не найден`);
+    //           return;
+    //         }
+    //         const competition = Competition.create(rawCompetition);
+    //         await this.commandBus.execute(
+    //           new SaveCompetitionCommand(competition),
+    //         );
+    //       } catch (error) {
+    //         this.logger.error(
+    //           `Ошибка обработки турнира ${competitionId}:`,
+    //           error,
+    //         );
+    //       }
+    //     }, 5), // 5 параллельных потоков
+    //   )
+    //   .subscribe({
+    //     complete: () => {
+    //       this.logger.log('Все турниры обработаны');
+    //     },
+    //   });
+
+    const competition = await this.queryBus.execute(
+      new GetCompetitionQuery(competitionId),
     );
-    if (!rawCompetition) {
+    if (!competition) {
       this.logger.warn(`Турнир ${competitionId} не найден`);
       return;
     }
 
-    const competition = Competition.create(rawCompetition);
+    // await this.fetchAndSaveTeams(competition);
+    // await this.fetchAndSavePlayers(competition);
+    // await this.fetchAndSaveMatches(competition);
+    // await this.fetchAndSaveDetailedMatch(competition, matchId);
+    // await this.fetchAndSaveTeam(competition, teamId);
+    await this.fetchAndSaveLiveMatch(matchId);
+  }
 
-    await this.commandBus.execute(new SaveCompetitionCommand(competition));
-    // const competitionFromDb = await this.queryBus.execute(
-    //   new GetCompetitionQuery(competitionId),
-    // );
+  private async fetchAndSaveLiveMatch(matchId: MatchId) {
+    const playByPlayEvent: IPlayByPlayEvent | null =
+      await this.queryBus.execute(new GetVolleystationLiveMatchQuery(matchId));
 
-    //#region Команды
-    const rawTeams: IRawTeam[] = await this.queryBus.execute(
-      new GetVolleystationTeamsQuery(competition),
+    if (!playByPlayEvent) {
+      this.logger.warn(`Матч ${matchId} не найден API`);
+      return;
+    }
+
+    const matchFromDb2 = await this.queryBus.execute(
+      new GetMatchQuery(matchId),
     );
-    const teams: Team[] = rawTeams.map(Team.create);
 
-    await Promise.all(
-      teams.map((team) => this.commandBus.execute(new SaveTeamCommand(team))),
-    );
-    // await this.commandBus.execute(new SaveTeamCommand(teams[0]));
+    if (!matchFromDb2) {
+      this.logger.warn(`Матч ${matchId} не найден в БД`);
+      return;
+    }
 
-    // const team = await this.queryBus.execute(
-    //   new GetTeamQuery(teams[0].getId()),
-    // );
-    //#endregion
-
-    //#region
-    const rawPlayers: IRawPlayer[] = await this.queryBus.execute(
-      new GetVolleystationPlayersQuery(competition),
-    );
-    const players: Player[] = rawPlayers.map(Player.create);
-
-    await Promise.all(
-      players.map((player) =>
-        this.commandBus.execute(new SavePlayerCommand(player)),
-      ),
-    );
-    //#endregion
-
-    // //#region Список матчей
-    // const rawMatches: IRawMatch[] = await this.queryBus.execute(
-    //   new GetVolleystationMatchesQuery(competition),
-    // );
-    // const matches: Match[] = rawMatches.map(Match.create);
-    // // const firstMatch = matches[0];
-
-    // await Promise.all(
-    //   matches.map((match) =>
-    //     this.commandBus.execute(new SaveMatchCommand(match)),
-    //   ),
-    // );
-
-    // // await this.commandBus.execute(new SaveMatchCommand(firstMatch));
-    // // const match1 = await this.queryBus.execute(
-    // //   new GetMatchQuery(firstMatch.getId()),
-    // // );
-    // // console.log(match1);
-    // //#endregion
-
-    // // #region Матч
-    // const rawDetailedMatch: IRawDetailedMatch | null =
-    //   await this.queryBus.execute(
-    //     new GetVolleystationMatchQuery({
-    //       competition,
-    //       matchId,
-    //     }),
-    //   );
-    // if (!rawDetailedMatch) {
-    //   this.logger.warn(`Матч ${matchId} не найден`);
-    //   return;
+    // for(const player of playByPlayEvent.teams.home.players){
+    // // matchFromDb2.addDeclaredPlayer(PlayerId.create(2220668));
     // }
 
-    // const match: Match = Match.create(rawDetailedMatch);
+    // matchFromDb2.addDeclaredPlayer(PlayerId.create(2220668));
+    // matchFromDb2.addDeclaredPlayer(PlayerId.create(2221758));
 
-    // await this.commandBus.execute(new SaveMatchCommand(match));
-    // const matchFromDb = await this.queryBus.execute(new GetMatchQuery(matchId));
-    // // #endregion;
+    // matchFromDb2.addStartingLineup(1, [
+    //   PlayerId.create(2220668),
+    //   PlayerId.create(2221758),
+    // ]);
 
-    //#region Команда
+    // await this.commandBus.execute(new SaveMatchCommand(matchFromDb2));
+    // const match = await this.queryBus.execute(new GetMatchQuery(matchId));
+    // console.log(match?.getStartingLineups());
+  }
+
+  private async fetchAndSaveTeam(competition: Competition, teamId: TeamId) {
     const rawDetailedTeam: IRawDetailedTeam | null =
       await this.queryBus.execute(
         new GetVolleystationTeamQuery({
@@ -138,17 +144,67 @@ export class ScraperService {
           teamId,
         }),
       );
-
     if (!rawDetailedTeam) {
       this.logger.warn(`Команда ${teamId} не найдена`);
       return;
     }
-
     const team: Team = Team.create(rawDetailedTeam);
-    console.log(team);
     await this.commandBus.execute(new SaveTeamCommand(team));
-    const teamFromDb = await this.queryBus.execute(new GetTeamQuery(teamId));
-    console.log(teamFromDb);
-    //#endregion
+    // const teamFromDb = await this.queryBus.execute(new GetTeamQuery(teamId));
+    // console.log(teamFromDb);
+  }
+
+  private async fetchAndSaveDetailedMatch(
+    competition: Competition,
+    matchId: MatchId,
+  ) {
+    const rawDetailedMatch: IRawDetailedMatch | null =
+      await this.queryBus.execute(
+        new GetVolleystationMatchQuery({
+          competition,
+          matchId,
+        }),
+      );
+    if (!rawDetailedMatch) {
+      this.logger.warn(`Матч ${matchId} не найден`);
+      return;
+    }
+    const match: Match = Match.create(rawDetailedMatch);
+    await this.commandBus.execute(new SaveMatchCommand(match));
+  }
+
+  private async fetchAndSaveMatches(competition: Competition) {
+    const rawMatches: IRawMatch[] = await this.queryBus.execute(
+      new GetVolleystationMatchesQuery(competition),
+    );
+    const matches: Match[] = rawMatches.map(Match.create);
+    // const firstMatch = matches[0];
+    await Promise.all(
+      matches.map((match) =>
+        this.commandBus.execute(new SaveMatchCommand(match)),
+      ),
+    );
+  }
+
+  private async fetchAndSavePlayers(competition: Competition) {
+    const rawPlayers: IRawPlayer[] = await this.queryBus.execute(
+      new GetVolleystationPlayersQuery(competition),
+    );
+    const players: Player[] = rawPlayers.map(Player.create);
+    await Promise.all(
+      players.map((player) =>
+        this.commandBus.execute(new SavePlayerCommand(player)),
+      ),
+    );
+  }
+
+  private async fetchAndSaveTeams(competition: Competition) {
+    const rawTeams: IRawTeam[] = await this.queryBus.execute(
+      new GetVolleystationTeamsQuery(competition),
+    );
+    const teams: Team[] = rawTeams.map(Team.create);
+    await Promise.all(
+      teams.map((team) => this.commandBus.execute(new SaveTeamCommand(team))),
+    );
   }
 }
