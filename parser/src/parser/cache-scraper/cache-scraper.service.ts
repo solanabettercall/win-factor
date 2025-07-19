@@ -64,9 +64,10 @@ export class CacheScraperService implements OnApplicationBootstrap {
     // await this.processCompetitions();
   }
 
+  @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
   async processCompetitions() {
     this.logger.log('Запуск поиска турниров');
-    for (let id = 20; id <= 700; id++) {
+    for (let id = 20; id <= 1000; id++) {
       const competition: ICompetition | null = await lastValueFrom(
         this.volleystationCacheService.getCompetition(id),
       );
@@ -105,7 +106,6 @@ export class CacheScraperService implements OnApplicationBootstrap {
             this.volleystationCacheService.getMatchInfo(id),
           );
           if (!matchInfo) {
-            this.logger.debug(`Не удалось получить подробности матча ${id}`);
             continue;
           }
           const formattedDate = format(
