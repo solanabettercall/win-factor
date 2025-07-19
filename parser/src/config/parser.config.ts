@@ -76,7 +76,7 @@ export const appConfig = (): IAppConfig => {
     },
     mongodb: {
       host: process.env.MONGODB_HOST,
-      port: parseInt(process.env.MONGODB_POPT, 10),
+      port: parseInt(process.env.MONGODB_PORT, 10),
       username: process.env.MONGODB_USERNAME,
       password: process.env.MONGODB_PASSWORD,
       database: process.env.MONGODB_DATABASE ?? 'monitoring',

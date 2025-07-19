@@ -92,6 +92,9 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     const matches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
     );
+    const todayMatches = matches.filter((match) =>
+      isToday(match.event.startDate),
+    );
     // const upcomingMatches: UpcomingMatcheDto[] = [];
 
     // const upcomingMatches = matches
@@ -101,11 +104,14 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     //       b.event.startDate.getUTCMilliseconds(),
     //   )
     //   .slice(0, 1);
-    this.logger.debug(`Найдено ${matches.length} матчей сегодня`);
+    this.logger.debug(`Найдено ${todayMatches.length} матчей сегодня`);
     for (const { competition, event } of matches) {
       if (!isToday(event.startDate)) continue;
 
-      // 1) берём кеши для полной информации об игроках
+      if (!event?.teams?.home?.code || !event?.teams?.away?.code) {
+        this.logger.warn('Не удалось получить код команды');
+        return;
+      }
       const [homeRoster, awayRoster] = await Promise.all([
         firstValueFrom(
           this.volleystationCacheService.getTeamByShortId({
@@ -120,7 +126,10 @@ export class MatchWatcherService implements OnApplicationBootstrap {
           }),
         ),
       ]);
-      if (!homeRoster || !awayRoster) continue;
+      if (!homeRoster || !awayRoster) {
+        this.logger.warn(`Не удалось получить профили команд`);
+        continue;
+      }
 
       // 2) реальные заявки — из event.teams.home/away.players
       const declaredHomeNums = new Set(
@@ -132,6 +141,9 @@ export class MatchWatcherService implements OnApplicationBootstrap {
 
       // 3) стартовые номера первого сета
       const firstSet = event.scout?.sets?.[0] ?? null;
+      if (!firstSet?.startingLineup?.home || !firstSet?.startingLineup?.away) {
+        continue;
+      }
       const homeStartNums = new Set(firstSet?.startingLineup.home ?? []);
       const awayStartNums = new Set(firstSet?.startingLineup.away ?? []);
 
