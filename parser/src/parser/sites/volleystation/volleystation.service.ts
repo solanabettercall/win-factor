@@ -68,6 +68,7 @@ export class VolleystationService implements IVolleystationService {
       .get(href, {
         // По желанию можно явно указать maxRedirects, но по умолчанию Axios даст 5–10 редиректов.
         maxRedirects: 10,
+        timeout: 5000,
         // Делаем так, чтобы Axios не «крошил» ошибку 403/404, а сразу возвращал ответ
         validateStatus: (status) => status < 500,
       })
@@ -107,10 +108,6 @@ export class VolleystationService implements IVolleystationService {
           const hasOgType = !!$('meta[property="og:type"][content="website"]')
             .length;
           if (!hasOgType) {
-            // Если мета-тега нет — считаем «невалидной» страницей
-            this.logger.warn(
-              `Сайт ${href} не содержит og:type=website, пропускаем`,
-            );
             return null;
           }
 
@@ -216,7 +213,7 @@ export class VolleystationService implements IVolleystationService {
       .filter(Boolean);
   }
 
-  getPlayers(competition: ICompetition): Observable<IPlayer[] | null> {
+  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
     const url = new URL(competition.url);
     url.pathname += `players/`;
     const { origin, href } = url;
@@ -258,17 +255,17 @@ export class VolleystationService implements IVolleystationService {
           }
         }
 
-        return players.length ? plainToInstance(Player, players) : null;
+        return players.length ? plainToInstance(Player, players) : [];
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {
           this.logger.warn(`Не найдено ${href}`);
-          return of(null);
+          return of([]);
         }
         this.logger.error(
           `Ошибка при окончательной обработке ${href}: ${err.message}`,
         );
-        return of(null);
+        return of([]);
       }),
     );
   }

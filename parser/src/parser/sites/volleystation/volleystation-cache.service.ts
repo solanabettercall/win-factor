@@ -89,14 +89,12 @@ export class VolleystationCacheService implements IVolleystationSocketService {
       return from(this.redisService.isNegativeCached(cacheKey)).pipe(
         mergeMap((isNegative) => {
           if (isNegative) {
-            this.logger.debug(`Negative cache: ${cacheKey}`);
             return of(null);
           }
 
           return from(this.redisService.getJson(cacheKey, Competition)).pipe(
             mergeMap((cached) => {
               if (cached && !Array.isArray(cached)) {
-                this.logger.debug(`Кэш найден: ${cacheKey}`);
                 return of(cached);
               }
 
@@ -125,9 +123,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
                           cacheKey,
                           ttlValue,
                         );
-                        this.logger.debug(
-                          `Negative cache установлен: ${cacheKey}`,
-                        );
                       }
                     } catch (e) {
                       this.logger.warn(`Ошибка кэширования: ${e.message}`);
@@ -149,9 +144,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return concat(
       loadVersion('v1'),
       defer(() => {
-        this.logger.debug(
-          `v1 не дал результата, пробуем v2: competition ${id}`,
-        );
         return loadVersion('v2');
       }),
     ).pipe(first((v): v is ICompetition => !!v, null));
@@ -218,7 +210,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, Player)).pipe(
       switchMap((cached): Observable<Player[]> => {
         if (Array.isArray(cached)) {
-          this.logger.debug(`Игроки найдены в кэше: ${cacheKey}`);
           return of(cached);
         }
 
@@ -229,21 +220,26 @@ export class VolleystationCacheService implements IVolleystationSocketService {
           return of([cached]);
         }
 
-        this.logger.debug(`Игроки не найдены в кэше, загружаем: ${cacheKey}`);
-
         return this.volleystationService.getPlayers(competition).pipe(
           tap(async (players: Player[]) => {
             try {
               const TTL = ttl.players.cache();
               await this.redisService.setJson(cacheKey, players, TTL);
-              this.logger.debug(`Игроки сохранены в кэш: ${cacheKey}`);
             } catch (error) {
               this.logger.warn(
                 `Ошибка при сохранении игроков в кэш: ${error.message}`,
               );
             }
           }),
+          catchError((error) => {
+            this.logger.error(`Ошибка при загрузке игроков: ${error.message}`);
+            return of([] as Player[]);
+          }),
         );
+      }),
+      catchError((error) => {
+        this.logger.error(`Неожиданная ошибка в getPlayers: ${error.message}`);
+        return of([] as Player[]);
       }),
     );
   }
@@ -255,7 +251,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, PlayerProfile)).pipe(
       switchMap((cached): Observable<PlayerProfile | null> => {
         if (cached && !Array.isArray(cached)) {
-          this.logger.debug(`Игрок найден в кэше: ${cacheKey}`);
           return of(cached);
         }
 
@@ -265,15 +260,12 @@ export class VolleystationCacheService implements IVolleystationSocketService {
           );
         }
 
-        this.logger.debug(`Игрок не найден в кэше, загружаем: ${cacheKey}`);
-
         return this.volleystationService.getPlayer(dto).pipe(
           tap(async (player: PlayerProfile | null) => {
             if (player) {
               try {
                 const TTL = ttl.player.cache();
                 await this.redisService.setJson(cacheKey, player, TTL);
-                this.logger.debug(`Профиль игрока сохранён в кэш: ${cacheKey}`);
               } catch (error) {
                 this.logger.warn(
                   `Ошибка при сохранении профиля игрока в кэш: ${error.message}`,
@@ -295,7 +287,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
       switchMap((cached): Observable<TeamRoster | null> => {
         if (cached && !Array.isArray(cached)) {
-          this.logger.debug(`Команда найдена в кэше: ${cacheKey}`);
           return of(cached);
         }
 
@@ -315,7 +306,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
 
                 // Основное сохранение по полному ID
                 await this.redisService.setJson(cacheKey, roster, TTL);
-                this.logger.debug(`Команда сохранена в кэш: ${cacheKey}`);
 
                 // Дополнительное сохранение по короткому ID
                 const idParts = dto.teamId.split('-');
@@ -323,9 +313,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
                   const shortId = idParts[idParts.length - 1];
                   const shortCacheKey = `volleystation:${competition.id}:team:short:${shortId}`;
                   await this.redisService.setJson(shortCacheKey, roster, TTL);
-                  this.logger.debug(
-                    `Команда сохранена по короткому ID: ${shortCacheKey}`,
-                  );
                 }
               } catch (error) {
                 this.logger.warn(
@@ -348,9 +335,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, TeamRoster)).pipe(
       map((cached) => {
         if (cached && !Array.isArray(cached)) {
-          this.logger.debug(
-            `Команда найдена в кэше по короткому ID: ${cacheKey}`,
-          );
           return cached;
         }
 
@@ -380,7 +364,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
     return from(this.redisService.getJson(cacheKey, Team)).pipe(
       switchMap((cached): Observable<Team[]> => {
         if (Array.isArray(cached)) {
-          this.logger.debug(`Команды найдены в кэше: ${cacheKey}`);
           return of(cached);
         }
 
@@ -391,22 +374,28 @@ export class VolleystationCacheService implements IVolleystationSocketService {
           return of([cached]);
         }
 
-        this.logger.debug(`Команды не найдены в кэше, загружаем: ${cacheKey}`);
-
         return this.volleystationService.getTeams(competition).pipe(
           tap(async (teams: Team[]) => {
             try {
               const TTL = ttl.teams.cache();
-
               await this.redisService.setJson(cacheKey, teams, TTL);
-              this.logger.debug(`Команды сохранены в кэш: ${cacheKey}`);
             } catch (error) {
               this.logger.warn(
                 `Ошибка при сохранении команд в кэш: ${error.message}`,
               );
             }
           }),
+          // fallback: если getTeams вернул ошибку или ничего не вернул — вернуть пустой массив
+          catchError((error) => {
+            this.logger.error(`Ошибка при загрузке команд: ${error.message}`);
+            return of([] as Team[]);
+          }),
         );
+      }),
+      // fallback: если что-то пошло не так в switchMap — вернуть пустой массив
+      catchError((error) => {
+        this.logger.error(`Неожиданная ошибка в getTeams: ${error.message}`);
+        return of([] as Team[]);
       }),
     );
   }
@@ -494,54 +483,6 @@ export class VolleystationCacheService implements IVolleystationSocketService {
                   `Ошибка при сохранении матча в кэш: ${error.message}`,
                 );
               }
-            }
-          }),
-        );
-      }),
-    );
-  }
-
-  /**
-   * @deprecated
-   */
-  getDetailedMatches(dto: GetMatchesDto): Observable<FullRawMatch[]> {
-    const { competition, type } = dto;
-    const TTL = randomInt(600, 900);
-    const cacheKey = `volleystation:${competition.id}:detailedMatches:${type}`;
-
-    return from(this.redisService.getJson(cacheKey, RawMatch)).pipe(
-      switchMap((cached): Observable<FullRawMatch[]> => {
-        if (Array.isArray(cached)) {
-          this.logger.debug(`Данные найдены в кэше: ${cacheKey}`);
-          return of(cached.map((match) => ({ ...match }) as FullRawMatch));
-        }
-        if (cached) {
-          this.logger.warn(
-            `Ожидался массив, но получен одиночный объект: ${cacheKey}`,
-          );
-          return of([cached] as FullRawMatch[]);
-        }
-
-        this.logger.debug(`Данные не найдены в кэше, запрашиваем: ${cacheKey}`);
-
-        return this.getMatches(dto).pipe(
-          switchMap((matches) => {
-            const matchInfoRequests = matches.map((match) =>
-              this.getMatchInfo(match.id).pipe(
-                switchMap((matchInfo) =>
-                  // Вместо ...null используем ...(matchInfo || {}) для безопасного объединения
-                  of({ ...match, ...(matchInfo || {}) } as FullRawMatch),
-                ),
-              ),
-            );
-            return forkJoin(matchInfoRequests);
-          }),
-          tap(async (fullMatches) => {
-            try {
-              await this.redisService.setJson(cacheKey, fullMatches, TTL);
-              this.logger.debug(`Данные для полных матчей сохранены в кэш`);
-            } catch (error) {
-              this.logger.warn(`Ошибка при сохранении в кэш: ${error.message}`);
             }
           }),
         );

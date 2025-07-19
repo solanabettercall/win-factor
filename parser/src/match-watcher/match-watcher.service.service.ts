@@ -89,11 +89,8 @@ export class MatchWatcherService implements OnApplicationBootstrap {
 
   @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
   async run() {
-    const matches = await firstValueFrom(
+    const upcomingMatches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
-    );
-    const todayMatches = matches.filter((match) =>
-      isToday(match.event.startDate),
     );
     // const upcomingMatches: UpcomingMatcheDto[] = [];
 
@@ -104,8 +101,8 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     //       b.event.startDate.getUTCMilliseconds(),
     //   )
     //   .slice(0, 1);
-    this.logger.debug(`Найдено ${todayMatches.length} матчей сегодня`);
-    for (const { competition, event } of matches) {
+    this.logger.debug(`Найдено ${upcomingMatches.length} матчей сегодня`);
+    for (const { competition, event } of upcomingMatches) {
       if (!isToday(event.startDate)) continue;
 
       if (!event?.teams?.home?.code || !event?.teams?.away?.code) {

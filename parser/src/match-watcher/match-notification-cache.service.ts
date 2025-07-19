@@ -20,7 +20,6 @@ export class MatchNotificationCacheService {
       event.away.onBench.length;
 
     if (totalRelevant === 0) {
-      this.logger.verbose('Пустое событие — никого на скамейке и вне заявки');
       return;
     }
 
@@ -29,7 +28,6 @@ export class MatchNotificationCacheService {
     const cached = await this.redisService.get(cacheKey);
 
     if (cached) {
-      this.logger.verbose(`Событие ${cacheKey} уже отправлено`);
       return;
     }
 

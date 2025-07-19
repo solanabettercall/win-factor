@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
 import {
   catchError,
@@ -8,6 +8,7 @@ import {
   finalize,
   firstValueFrom,
   from,
+  lastValueFrom,
   map,
   mergeMap,
   Observable,
@@ -26,6 +27,11 @@ import { Competition } from 'src/monitoring/schemas/competition.schema';
 import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
 import { PlayByPlayEvent } from '../sites/volleystation/models/match-details/play-by-play-event.model';
 import { MatchService } from 'src/monitoring/match.service';
+import { ICompetition } from '../sites/volleystation/interfaces/vollestation-competition.interface';
+import { Player } from '../sites/volleystation/models/team-roster/player';
+import { Team } from '../sites/volleystation/models/team-list/team';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 
 export enum JobType {
   COMPETITION = 'competition',
@@ -40,7 +46,7 @@ export enum JobType {
 }
 
 @Injectable()
-export class CacheScraperService {
+export class CacheScraperService implements OnApplicationBootstrap {
   private logger = new Logger(CacheScraperService.name);
 
   constructor(
@@ -54,109 +60,67 @@ export class CacheScraperService {
     this.cachScraperQueue.pause().then();
   }
 
-  async onModuleInit() {}
-
-  @Cron(CronExpression.EVERY_30_SECONDS, {
-    waitForCompletion: true,
-    disabled: true,
-  })
-  async info() {
-    await this.cachScraperQueue.resume();
-    const activeJobsCount = await this.cachScraperQueue.getActiveCount();
-    this.logger.verbose(`Активных задач: ${activeJobsCount}`);
+  async onApplicationBootstrap() {
+    // await this.processCompetitions();
   }
 
-  @Cron(CronExpression.EVERY_HOUR, {
-    waitForCompletion: true,
-    disabled: false,
-  })
   async processCompetitions() {
-    // await this.cachScraperQueue.resume();
     this.logger.log('Запуск поиска турниров');
-    for (let id = 1; id <= 1000; id++) {
-      const data: Pick<GetCompeitionDto, 'id'> = {
-        id,
-      };
-      await this.cachScraperQueue.add(JobType.COMPETITION_INFO, data, {
-        priority: priorities.competition,
-        deduplication: {
-          id: `${JobType.COMPETITION_INFO}:${id}`,
-          ttl: ttl.competition.deduplication(),
-        },
-        repeat: {
-          every: ttl.competition.repeat(),
-          key: `${JobType.COMPETITION_INFO}:${id}`,
-          immediately: true,
-        },
-      });
-    }
-  }
-
-  // @Cron(CronExpression.EVERY_30_SECONDS, {
-  //   waitForCompletion: true,
-  //   disabled: false,
-  // })
-  async run() {
-    this.logger.log('Запуск наполнения кэша');
-    const competitions = await firstValueFrom(
-      this.competitionService.getCompetitions(),
-    );
-
-    for (const competition of competitions) {
-      await this.cachScraperQueue.add(JobType.COMPETITION, competition, {
-        priority: priorities.competition,
-        deduplication: {
-          id: `${JobType.COMPETITION}:${competition.id}`,
-          ttl: ttl.competition.deduplication(),
-        },
-        repeat: {
-          every: ttl.competition.repeat(),
-          key: `${JobType.COMPETITION}:${competition.id}`,
-          immediately: true,
-        },
-      });
-    }
-  }
-
-  @Cron(CronExpression.EVERY_30_SECONDS, {
-    waitForCompletion: true,
-    disabled: false,
-  })
-  async handlePlayByPlayCron() {
-    this.logger.debug('Старт крон-задачи getPlayByPlayEvents');
-
-    const competitions = await firstValueFrom(
-      this.competitionService.getCompetitions(),
-    );
-
-    for (const competition of competitions) {
-      const rawMatches = await firstValueFrom(
-        this.volleystationCacheService.getMatches({
-          competition,
-          type: MatchListType.Schedule,
-        }),
+    for (let id = 20; id <= 700; id++) {
+      const competition: ICompetition | null = await lastValueFrom(
+        this.volleystationCacheService.getCompetition(id),
       );
+      if (competition) {
+        await this.competitionService.createCompetition(competition);
 
-      this.logger.verbose(
-        `[${competition.id}] Турнир: ${competition.name} Матчей: ${rawMatches.length}`,
-      );
-
-      for (const rawMatch of rawMatches) {
-        const match = await firstValueFrom(
-          this.volleystationCacheService.getMatchInfo(rawMatch.id),
+        const teams: Team[] = await lastValueFrom(
+          this.volleystationCacheService.getTeams(competition),
         );
 
-        if (match) {
-          await this.matchService.saveMatch(competition, match);
-          this.logger.verbose(`Сохранили матч ${match.matchId}`);
+        for (const { id, name } of teams) {
+          const team = await lastValueFrom(
+            this.volleystationCacheService.getTeam({ competition, teamId: id }),
+          );
+          if (team) {
+            this.logger.verbose(`Добавили команду ${name}`);
+          }
         }
+
+        const players: Player[] = await lastValueFrom(
+          this.volleystationCacheService.getPlayers(competition),
+        );
+
+        this.logger.log(
+          `Добавлен турнир [${competition.id}] ${competition.name} Команд: ${teams.length} Игроков: ${players.length}`,
+        );
+
+        const scheduledMatches: RawMatch[] = await lastValueFrom(
+          this.volleystationCacheService.getMatches({
+            competition,
+            type: MatchListType.Schedule,
+          }),
+        );
+        for (const { id } of scheduledMatches) {
+          const matchInfo = await lastValueFrom(
+            this.volleystationCacheService.getMatchInfo(id),
+          );
+          if (!matchInfo) {
+            this.logger.debug(`Не удалось получить подробности матча ${id}`);
+            continue;
+          }
+          const formattedDate = format(
+            toZonedTime(matchInfo.startDate, 'Europe/Moscow'),
+            'dd.MM.yyyy HH:mm',
+          );
+          this.logger.verbose(
+            `Матч ${matchInfo.matchId} дата: ${formattedDate}`,
+          );
+
+          await this.matchService.saveMatch(competition, matchInfo);
+        }
+      } else {
+        this.logger.log(`Турнир не найден [${id}]`);
       }
     }
-  }
-
-  async onApplicationBootstrap() {
-    await this.cachScraperQueue.resume();
-    this.processCompetitions();
-    this.run();
   }
 }
