@@ -91,6 +91,15 @@ export class CacheScraperService implements OnApplicationBootstrap {
           this.volleystationCacheService.getPlayers(competition),
         );
 
+        for (const { id: playerId, name } of players) {
+          const player = await lastValueFrom(
+            this.volleystationCacheService.getPlayer({ competition, playerId }),
+          );
+          if (player) {
+            this.logger.verbose(`Добавили игрока ${name}`);
+          }
+        }
+
         this.logger.log(
           `Добавлен турнир [${competition.id}] ${competition.name} Команд: ${teams.length} Игроков: ${players.length}`,
         );
