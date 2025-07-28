@@ -74,7 +74,7 @@ export class VolleystationService implements IVolleystationService {
       })
       .pipe(
         retry({
-          count: 10,
+          count: 3,
           delay: (error, retryIndex) => {
             const status = error?.response?.status || 0;
             if (status === 404) {
@@ -220,7 +220,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
 
@@ -590,7 +590,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -963,7 +963,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -1074,7 +1074,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
@@ -1259,7 +1259,7 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());

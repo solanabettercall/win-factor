@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { MatchService } from '../monitoring/match.service';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, lastValueFrom } from 'rxjs';
 import { CompetitionService } from '../monitoring/competition.service';
 import { isToday } from 'date-fns';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
@@ -45,7 +45,7 @@ export class MatchWatcherService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    await this.run();
+    await this.fetchMatches();
   }
 
   private readonly logger = new Logger(MatchWatcherService.name);
@@ -87,27 +87,39 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     };
   }
 
+  /**
+   * Постоянно обновляет ближайшие матчи и сохраняет в БД
+   */
+  @Cron(CronExpression.EVERY_5_SECONDS, { waitForCompletion: true })
+  async fetchMatches() {
+    const upcomingMatches = await firstValueFrom(
+      this.matchService.getUpcomingMatches(),
+    );
+    for (const { event, competition } of upcomingMatches) {
+      const { matchId } = event;
+      const matchInfo: PlayByPlayEvent = await lastValueFrom(
+        this.volleystationCacheService.getMatchInfo(matchId),
+      );
+      await this.matchService.saveMatch(competition, matchInfo);
+    }
+  }
+
+  /**
+   * Достает матчи из базы и проверяет составы и мониторинг и посылает события (да-да SRP пошёл нахуй)
+   */
   @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
   async run() {
     const upcomingMatches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
     );
-    // const upcomingMatches: UpcomingMatcheDto[] = [];
 
-    // const upcomingMatches = matches
-    //   .sort(
-    //     (a, b) =>
-    //       a.event.startDate.getUTCMilliseconds() -
-    //       b.event.startDate.getUTCMilliseconds(),
-    //   )
-    //   .slice(0, 1);
     this.logger.debug(`Найдено ${upcomingMatches.length} матчей сегодня`);
     for (const { competition, event } of upcomingMatches) {
       if (!isToday(event.startDate)) continue;
 
       if (!event?.teams?.home?.code || !event?.teams?.away?.code) {
         this.logger.warn('Не удалось получить код команды');
-        return;
+        continue;
       }
       const [homeRoster, awayRoster] = await Promise.all([
         firstValueFrom(

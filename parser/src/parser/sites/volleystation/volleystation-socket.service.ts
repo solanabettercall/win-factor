@@ -27,7 +27,7 @@ export class VolleystationSocketService
         path: '/socket.io/',
         transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5,
         reconnectionDelay: 2000,
         query: { token: this.socketToken },
         extraHeaders: {

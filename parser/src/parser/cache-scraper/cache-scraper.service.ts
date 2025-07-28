@@ -101,7 +101,7 @@ export class CacheScraperService implements OnApplicationBootstrap {
             type: MatchListType.Schedule,
           }),
         );
-        for (const { id } of scheduledMatches) {
+        for (const { id } of scheduledMatches.slice(0, 5)) {
           const matchInfo = await lastValueFrom(
             this.volleystationCacheService.getMatchInfo(id),
           );
