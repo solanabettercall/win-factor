@@ -4,7 +4,7 @@ import { VolleystationCacheService } from '../sites/volleystation/volleystation-
 import { CompetitionService } from 'src/monitoring/competition.service';
 import { MatchService } from 'src/monitoring/match.service';
 import { MatchListType } from '../sites/volleystation/types';
-import * as pLimit from 'p-limit';
+import pLimit from 'p-limit';
 import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 @Injectable()
