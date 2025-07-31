@@ -12,7 +12,11 @@ import {
   map,
   mergeMap,
   Observable,
+  range,
+  takeUntil,
   tap,
+  timeout,
+  timer,
 } from 'rxjs';
 import { InjectQueue } from '@nestjs/bullmq';
 import { MatchListType, VolleyJobData } from '../sites/volleystation/types';
@@ -67,69 +71,117 @@ export class CacheScraperService implements OnApplicationBootstrap {
   @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
   async processCompetitions() {
     this.logger.log('Запуск поиска турниров');
-    for (let id = 20; id <= 1000; id++) {
-      const competition: ICompetition | null = await lastValueFrom(
-        this.volleystationCacheService.getCompetition(id),
-      );
-      if (competition) {
-        await this.competitionService.createCompetition(competition);
 
-        const teams: Team[] = await lastValueFrom(
-          this.volleystationCacheService.getTeams(competition),
-        );
+    const HARD_TIMEOUT = 2 * 60 * 60 * 1000; // 2 часа
 
-        for (const { id, name } of teams) {
-          const team = await lastValueFrom(
-            this.volleystationCacheService.getTeam({ competition, teamId: id }),
+    await lastValueFrom(
+      range(20, 981).pipe(
+        concatMap((id) =>
+          this.volleystationCacheService.getCompetition(id).pipe(
+            timeout(10000),
+            catchError(() => EMPTY),
+            concatMap((competition) => {
+              if (!competition) {
+                this.logger.log(`Турнир не найден [${id}]`);
+                return EMPTY;
+              }
+
+              return from(
+                this.competitionService.createCompetition(competition),
+              ).pipe(
+                concatMap(() =>
+                  this.volleystationCacheService.getTeams(competition).pipe(
+                    timeout(10000),
+                    concatMap((teams) =>
+                      from(teams).pipe(
+                        concatMap(({ id: teamId, name }) =>
+                          this.volleystationCacheService
+                            .getTeam({ competition, teamId })
+                            .pipe(
+                              timeout(10000),
+                              tap((team) => {
+                                if (team) {
+                                  this.logger.verbose(
+                                    `Добавили команду ${name}`,
+                                  );
+                                }
+                              }),
+                              catchError(() => EMPTY),
+                            ),
+                        ),
+                      ),
+                    ),
+                    concatMap(() =>
+                      this.volleystationCacheService
+                        .getPlayers(competition)
+                        .pipe(
+                          timeout(10000),
+                          concatMap((players) =>
+                            from(players).pipe(
+                              concatMap(({ id: playerId, name }) =>
+                                this.volleystationCacheService
+                                  .getPlayer({ competition, playerId })
+                                  .pipe(
+                                    timeout(10000),
+                                    tap((player) => {
+                                      if (player) {
+                                        this.logger.verbose(
+                                          `Добавили игрока ${name}`,
+                                        );
+                                      }
+                                    }),
+                                    catchError(() => EMPTY),
+                                  ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ),
+                    concatMap(() =>
+                      this.volleystationCacheService
+                        .getMatches({
+                          competition,
+                          type: MatchListType.Schedule,
+                        })
+                        .pipe(
+                          timeout(10000),
+                          concatMap((matches) =>
+                            from(matches.slice(0, 5)).pipe(
+                              concatMap(({ id }) =>
+                                this.volleystationCacheService
+                                  .getMatchInfo(id)
+                                  .pipe(
+                                    timeout(10000),
+                                    concatMap((matchInfo) =>
+                                      matchInfo
+                                        ? from(
+                                            this.matchService.saveMatch(
+                                              competition,
+                                              matchInfo,
+                                            ),
+                                          )
+                                        : EMPTY,
+                                    ),
+                                    catchError(() => EMPTY),
+                                  ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        takeUntil(timer(HARD_TIMEOUT)),
+        finalize(() => {
+          this.logger.log(
+            'Поиск турниров завершён (или достигнут лимит времени)',
           );
-          if (team) {
-            this.logger.verbose(`Добавили команду ${name}`);
-          }
-        }
-
-        const players: Player[] = await lastValueFrom(
-          this.volleystationCacheService.getPlayers(competition),
-        );
-
-        for (const { id: playerId, name } of players) {
-          const player = await lastValueFrom(
-            this.volleystationCacheService.getPlayer({ competition, playerId }),
-          );
-          if (player) {
-            this.logger.verbose(`Добавили игрока ${name}`);
-          }
-        }
-
-        this.logger.log(
-          `Добавлен турнир [${competition.id}] ${competition.name} Команд: ${teams.length} Игроков: ${players.length}`,
-        );
-
-        const scheduledMatches: RawMatch[] = await lastValueFrom(
-          this.volleystationCacheService.getMatches({
-            competition,
-            type: MatchListType.Schedule,
-          }),
-        );
-        for (const { id } of scheduledMatches.slice(0, 5)) {
-          const matchInfo = await lastValueFrom(
-            this.volleystationCacheService.getMatchInfo(id),
-          );
-          if (!matchInfo) {
-            continue;
-          }
-          const formattedDate = format(
-            toZonedTime(matchInfo.startDate, 'Europe/Moscow'),
-            'dd.MM.yyyy HH:mm',
-          );
-          this.logger.verbose(
-            `Матч ${matchInfo.matchId} дата: ${formattedDate}`,
-          );
-
-          await this.matchService.saveMatch(competition, matchInfo);
-        }
-      } else {
-        this.logger.log(`Турнир не найден [${id}]`);
-      }
-    }
+        }),
+      ),
+    );
   }
 }

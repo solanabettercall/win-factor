@@ -1,5 +1,10 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   catchError,
   delay,
@@ -88,7 +93,7 @@ export class VolleystationService implements IVolleystationService {
             const delayTime =
               status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
             this.logger.warn(
-              `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (статус: ${status})`,
+              `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
             );
             return of(null).pipe(delay(delayTime));
           },
@@ -228,13 +233,12 @@ export class VolleystationService implements IVolleystationService {
             return throwError(() => new NotFoundException());
           }
 
-          const isRetryable = [500, 502, 503, 504, 429, 403].includes(status);
+          const isRetryable = [500, 502, 503, 504].includes(status);
           const baseDelay = isRetryable ? Math.pow(2, retryIndex) * 1000 : 0;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${baseDelay / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} (ошибка: ${status} - ${error.message})`,
           );
-
           return of(null).pipe(delay(baseDelay));
         },
       }),
@@ -594,10 +598,12 @@ export class VolleystationService implements IVolleystationService {
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));
@@ -967,10 +973,12 @@ export class VolleystationService implements IVolleystationService {
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));
@@ -1078,11 +1086,12 @@ export class VolleystationService implements IVolleystationService {
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
-
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));
@@ -1263,10 +1272,12 @@ export class VolleystationService implements IVolleystationService {
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));

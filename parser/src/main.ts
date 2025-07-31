@@ -1,15 +1,25 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger } from '@nestjs/common';
+import { Logger, LogLevel } from '@nestjs/common';
 import 'reflect-metadata';
-import { appConfig } from './config/parser.config';
+import { appConfig, Environment } from './config/parser.config';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { ErrorLoggingInterceptor } from './interceptors/error-logging.interceptor';
 
 async function bootstrap() {
-  const { port } = appConfig();
+  const { port, env } = appConfig();
+
+  let logLevels: LogLevel[];
+  if (env === Environment.production) {
+    logLevels = ['error', 'warn', 'log'];
+  } else if (env === Environment.development) {
+    logLevels = ['error', 'warn'];
+  } else {
+    logLevels = ['error', 'warn', 'log', 'debug', 'verbose'];
+  }
+
   const logger = new Logger(AppModule.name);
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { logger: logLevels });
 
   // Глобальные фильтры и перехватчики
   app.useGlobalFilters(new AllExceptionsFilter());
