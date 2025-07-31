@@ -17,7 +17,7 @@ import { VolleystationCacheService } from './volleystation-cache.service';
           timeout: 10000,
         };
         const config = appConfig();
-        if (config.isLocal && config.proxy) {
+        if (config.proxy) {
           options.proxy = {
             host: config.proxy.host,
             port: config.proxy.port,
