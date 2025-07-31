@@ -113,7 +113,7 @@ export class MatchWatcherService implements OnApplicationBootstrap {
       this.matchService.getUpcomingMatches(),
     );
 
-    this.logger.debug(`Найдено ${upcomingMatches.length} матчей сегодня`);
+    this.logger.log(`Найдено ${upcomingMatches.length} матчей сегодня`);
     for (const { competition, event } of upcomingMatches) {
       if (!isToday(event.startDate)) continue;
 
