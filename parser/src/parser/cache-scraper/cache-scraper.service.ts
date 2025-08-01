@@ -122,7 +122,7 @@ export class CacheScraperService {
       const matches = await this.volleystationCacheService
         .getMatches({ competition, type: MatchListType.Schedule })
         .toPromise();
-      for (const raw of matches.slice(0, this.maxMatches)) {
+      for (const raw of matches) {
         try {
           const info = await this.volleystationCacheService
             .getMatchInfo(raw.id)
