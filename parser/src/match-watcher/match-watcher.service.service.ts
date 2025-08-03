@@ -5,7 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { MatchService } from '../monitoring/match.service';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, lastValueFrom } from 'rxjs';
 import { CompetitionService } from '../monitoring/competition.service';
 import { isToday } from 'date-fns';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
@@ -45,7 +45,7 @@ export class MatchWatcherService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
-    await this.run();
+    await this.fetchMatches();
   }
 
   private readonly logger = new Logger(MatchWatcherService.name);
@@ -87,25 +87,40 @@ export class MatchWatcherService implements OnApplicationBootstrap {
     };
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
-  async run() {
-    const matches = await firstValueFrom(
+  /**
+   * Постоянно обновляет ближайшие матчи и сохраняет в БД
+   */
+  @Cron(CronExpression.EVERY_5_SECONDS, { waitForCompletion: true })
+  async fetchMatches() {
+    const upcomingMatches = await firstValueFrom(
       this.matchService.getUpcomingMatches(),
     );
-    // const upcomingMatches: UpcomingMatcheDto[] = [];
+    for (const { event, competition } of upcomingMatches) {
+      const { matchId } = event;
+      const matchInfo: PlayByPlayEvent = await lastValueFrom(
+        this.volleystationCacheService.getMatchInfo(matchId),
+      );
+      await this.matchService.saveMatch(competition, matchInfo);
+    }
+  }
 
-    // const upcomingMatches = matches
-    //   .sort(
-    //     (a, b) =>
-    //       a.event.startDate.getUTCMilliseconds() -
-    //       b.event.startDate.getUTCMilliseconds(),
-    //   )
-    //   .slice(0, 1);
-    this.logger.debug(`Найдено ${matches.length} матчей сегодня`);
-    for (const { competition, event } of matches) {
+  /**
+   * Достает матчи из базы и проверяет составы и мониторинг и посылает события (да-да SRP пошёл нахуй)
+   */
+  @Cron(CronExpression.EVERY_10_SECONDS, { waitForCompletion: true })
+  async run() {
+    const upcomingMatches = await firstValueFrom(
+      this.matchService.getUpcomingMatches(),
+    );
+
+    this.logger.log(`Найдено ${upcomingMatches.length} матчей сегодня`);
+    for (const { competition, event } of upcomingMatches) {
       if (!isToday(event.startDate)) continue;
 
-      // 1) берём кеши для полной информации об игроках
+      if (!event?.teams?.home?.code || !event?.teams?.away?.code) {
+        this.logger.warn('Не удалось получить код команды');
+        continue;
+      }
       const [homeRoster, awayRoster] = await Promise.all([
         firstValueFrom(
           this.volleystationCacheService.getTeamByShortId({
@@ -120,7 +135,10 @@ export class MatchWatcherService implements OnApplicationBootstrap {
           }),
         ),
       ]);
-      if (!homeRoster || !awayRoster) continue;
+      if (!homeRoster || !awayRoster) {
+        this.logger.warn(`Не удалось получить профили команд`);
+        continue;
+      }
 
       // 2) реальные заявки — из event.teams.home/away.players
       const declaredHomeNums = new Set(
@@ -132,6 +150,9 @@ export class MatchWatcherService implements OnApplicationBootstrap {
 
       // 3) стартовые номера первого сета
       const firstSet = event.scout?.sets?.[0] ?? null;
+      if (!firstSet?.startingLineup?.home || !firstSet?.startingLineup?.away) {
+        continue;
+      }
       const homeStartNums = new Set(firstSet?.startingLineup.home ?? []);
       const awayStartNums = new Set(firstSet?.startingLineup.away ?? []);
 

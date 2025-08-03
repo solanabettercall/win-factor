@@ -222,6 +222,7 @@ ${formatTeamBlock(
         is_disabled: true,
       },
     });
+    this.logger.log(`Уведомление отправлено в канал ${channelId}: ${message}`);
   }
 
   private readonly templates: Record<MenuTemplateType, MenuTemplate<MyCtx>> = {
@@ -318,7 +319,6 @@ ${formatTeamBlock(
         return `${state ? '✅' : ''} #${player.number} ${player.name}`;
       },
       isSet: async (ctx, key) => {
-        console.log(ctx);
         const playerId = parseInt(key);
         const isSelected = await firstValueFrom(
           this.monitoringService.isPlayerMonitored({

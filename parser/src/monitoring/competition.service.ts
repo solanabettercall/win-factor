@@ -20,7 +20,7 @@ export class CompetitionService {
     private readonly volleystationCacheService: VolleystationCacheService,
   ) {}
 
-  createCompetition(competition: Competition): Observable<Competition> {
+  createCompetition(competition: Competition): Promise<Competition> {
     return this.competitionRepository.upsertCompetition(competition);
   }
 

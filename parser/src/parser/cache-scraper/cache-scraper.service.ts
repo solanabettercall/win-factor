@@ -1,162 +1,151 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
-import {
-  catchError,
-  concatMap,
-  EMPTY,
-  filter,
-  finalize,
-  firstValueFrom,
-  from,
-  map,
-  mergeMap,
-  Observable,
-  tap,
-} from 'rxjs';
-import { InjectQueue } from '@nestjs/bullmq';
-import { MatchListType, VolleyJobData } from '../sites/volleystation/types';
-import { Queue } from 'bullmq';
-import { SCRAPER_QUEUE } from './consts/queue';
-import { ttl } from './consts/ttl';
-import { priorities } from './consts/priorities';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { GetCompeitionDto } from '../sites/volleystation/dtos/get-competition.dto';
+import { VolleystationCacheService } from '../sites/volleystation/volleystation-cache.service';
 import { CompetitionService } from 'src/monitoring/competition.service';
-import { Competition } from 'src/monitoring/schemas/competition.schema';
-import { RawMatch } from '../sites/volleystation/models/match-list/raw-match';
-import { PlayByPlayEvent } from '../sites/volleystation/models/match-details/play-by-play-event.model';
 import { MatchService } from 'src/monitoring/match.service';
-
-export enum JobType {
-  COMPETITION = 'competition',
-  COMPETITION_INFO = 'competition_info',
-  TEAM = 'team',
-  PLAYER = 'player',
-  MATCH = 'match',
-  SCHEDULED_MATCHES = 'scheduled_matches',
-  RESULTS_MATCHES = 'results_matches',
-  TEAMS = 'teams',
-  PLAYERS = 'players',
-}
+import { MatchListType } from '../sites/volleystation/types';
+import pLimit from 'p-limit';
+import { Competition } from 'src/monitoring/schemas/competition.schema';
 
 @Injectable()
 export class CacheScraperService {
-  private logger = new Logger(CacheScraperService.name);
+  private readonly logger = new Logger(CacheScraperService.name);
+  private isProcessing = false;
+
+  private readonly startId = 20;
+  private readonly endId = 980;
+  private readonly maxMatches = 5;
+  private readonly requestTimeout = 10_000;
+  private readonly hardTimeout = 2 * 60 * 60 * 1000;
+  private readonly concurrency = 5;
 
   constructor(
     private readonly volleystationCacheService: VolleystationCacheService,
     private readonly competitionService: CompetitionService,
     private readonly matchService: MatchService,
+  ) {}
 
-    @InjectQueue(SCRAPER_QUEUE)
-    private cachScraperQueue: Queue<VolleyJobData>,
-  ) {
-    this.cachScraperQueue.pause().then();
-  }
+  @Cron(CronExpression.EVERY_10_SECONDS)
+  async processCompetitions(): Promise<void> {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+    this.logger.log('Запущена обработка турниров');
+    const deadline = Date.now() + this.hardTimeout;
 
-  async onModuleInit() {}
+    try {
+      const limit = pLimit(this.concurrency);
+      const ids = Array.from(
+        { length: this.endId - this.startId + 1 },
+        (_, i) => i + this.startId,
+      );
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
-    waitForCompletion: true,
-    disabled: true,
-  })
-  async info() {
-    await this.cachScraperQueue.resume();
-    const activeJobsCount = await this.cachScraperQueue.getActiveCount();
-    this.logger.verbose(`Активных задач: ${activeJobsCount}`);
-  }
-
-  @Cron(CronExpression.EVERY_HOUR, {
-    waitForCompletion: true,
-    disabled: false,
-  })
-  async processCompetitions() {
-    // await this.cachScraperQueue.resume();
-    this.logger.log('Запуск поиска турниров');
-    for (let id = 1; id <= 1000; id++) {
-      const data: Pick<GetCompeitionDto, 'id'> = {
-        id,
-      };
-      await this.cachScraperQueue.add(JobType.COMPETITION_INFO, data, {
-        priority: priorities.competition,
-        deduplication: {
-          id: `${JobType.COMPETITION_INFO}:${id}`,
-          ttl: ttl.competition.deduplication(),
-        },
-        repeat: {
-          every: ttl.competition.repeat(),
-          key: `${JobType.COMPETITION_INFO}:${id}`,
-          immediately: true,
-        },
-      });
+      for (const id of ids) {
+        if (Date.now() > deadline) {
+          this.logger.warn('Превышено время обработки: прерываемся');
+          break;
+        }
+        await limit(() => this.handleCompetition(id));
+      }
+    } catch (err) {
+      this.logger.error('Неизвестная ошибка при обработке турниров: ', err);
+    } finally {
+      this.isProcessing = false;
+      this.logger.log('Цикл обработки турниров завершен');
     }
   }
 
-  // @Cron(CronExpression.EVERY_30_SECONDS, {
-  //   waitForCompletion: true,
-  //   disabled: false,
-  // })
-  async run() {
-    this.logger.log('Запуск наполнения кэша');
-    const competitions = await firstValueFrom(
-      this.competitionService.getCompetitions(),
-    );
-
-    for (const competition of competitions) {
-      await this.cachScraperQueue.add(JobType.COMPETITION, competition, {
-        priority: priorities.competition,
-        deduplication: {
-          id: `${JobType.COMPETITION}:${competition.id}`,
-          ttl: ttl.competition.deduplication(),
-        },
-        repeat: {
-          every: ttl.competition.repeat(),
-          key: `${JobType.COMPETITION}:${competition.id}`,
-          immediately: true,
-        },
-      });
+  private async handleCompetition(id: number): Promise<void> {
+    try {
+      const competition = await this.volleystationCacheService
+        .getCompetition(id)
+        .toPromise();
+      if (!competition) return;
+      await this.competitionService.createCompetition(competition);
+      this.logger.log(`[${competition.id}] Обработка турнира`);
+      await this.processTeams(competition);
+      await this.processPlayers(competition);
+      await this.processMatches(competition);
+    } catch (err) {
+      this.logger.error(`[${id}] Ошибка обработки турнира: `, err);
     }
   }
 
-  @Cron(CronExpression.EVERY_30_SECONDS, {
-    waitForCompletion: true,
-    disabled: false,
-  })
-  async handlePlayByPlayCron() {
-    this.logger.debug('Старт крон-задачи getPlayByPlayEvents');
-
-    const competitions = await firstValueFrom(
-      this.competitionService.getCompetitions(),
-    );
-
-    for (const competition of competitions) {
-      const rawMatches = await firstValueFrom(
-        this.volleystationCacheService.getMatches({
-          competition,
-          type: MatchListType.Schedule,
-        }),
-      );
-
-      this.logger.verbose(
-        `[${competition.id}] Турнир: ${competition.name} Матчей: ${rawMatches.length}`,
-      );
-
-      for (const rawMatch of rawMatches) {
-        const match = await firstValueFrom(
-          this.volleystationCacheService.getMatchInfo(rawMatch.id),
-        );
-
-        if (match) {
-          await this.matchService.saveMatch(competition, match);
-          this.logger.verbose(`Сохранили матч ${match.matchId}`);
+  private async processTeams(competition: Competition): Promise<void> {
+    try {
+      const teams = await this.volleystationCacheService
+        .getTeams(competition)
+        .toPromise();
+      for (const { id: teamId, name } of teams) {
+        try {
+          const team = await this.volleystationCacheService
+            .getTeam({ competition, teamId })
+            .toPromise();
+          if (team)
+            this.logger.verbose(
+              `[${competition.id}] Обработана команда: ${name}`,
+            );
+        } catch (err) {
+          this.logger.error(`Error fetching team ${name}`, err);
         }
       }
+    } catch (err) {
+      this.logger.error('Error processing teams', err);
     }
   }
 
-  async onApplicationBootstrap() {
-    await this.cachScraperQueue.resume();
-    this.processCompetitions();
-    this.run();
+  private async processPlayers(competition: Competition): Promise<void> {
+    try {
+      const players = await this.volleystationCacheService
+        .getPlayers(competition)
+        .toPromise();
+      for (const { id: playerId, name } of players) {
+        try {
+          const player = await this.volleystationCacheService
+            .getPlayer({ competition, playerId })
+            .toPromise();
+          if (player)
+            this.logger.verbose(`[${competition.id}] Обработан игрок: ${name}`);
+        } catch (err) {
+          this.logger.error(
+            `[${competition.id}] Ошибка обработки игрока: ${name}`,
+            err,
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.error(`[${competition.id}] Ошибка обработки игроков: `, err);
+    }
+  }
+
+  private async processMatches(competition: Competition): Promise<void> {
+    try {
+      const matches = await this.volleystationCacheService
+        .getMatches({ competition, type: MatchListType.Schedule })
+        .toPromise();
+      for (const raw of matches) {
+        try {
+          const info = await this.volleystationCacheService
+            .getMatchInfo(raw.id)
+            .toPromise();
+          if (info) {
+            await this.matchService.saveMatch(competition, info);
+            this.logger.verbose(
+              `[${competition.id}] Обработан матч: ${raw.id}`,
+            );
+          } else {
+            this.logger.verbose(
+              `[${competition.id}] Подробная информация о матче недоступна: ${raw.id}`,
+            );
+          }
+        } catch (err) {
+          this.logger.error(
+            `[${competition.id}] Ошибка обработки матча: ${raw.id}`,
+            err,
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.error(`[${competition.id}] Ошибка обработки матчей: `, err);
+    }
   }
 }

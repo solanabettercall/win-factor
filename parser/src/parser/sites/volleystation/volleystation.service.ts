@@ -1,5 +1,10 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   catchError,
   delay,
@@ -68,12 +73,13 @@ export class VolleystationService implements IVolleystationService {
       .get(href, {
         // По желанию можно явно указать maxRedirects, но по умолчанию Axios даст 5–10 редиректов.
         maxRedirects: 10,
+        timeout: 5000,
         // Делаем так, чтобы Axios не «крошил» ошибку 403/404, а сразу возвращал ответ
         validateStatus: (status) => status < 500,
       })
       .pipe(
         retry({
-          count: 10,
+          count: 3,
           delay: (error, retryIndex) => {
             const status = error?.response?.status || 0;
             if (status === 404) {
@@ -87,7 +93,7 @@ export class VolleystationService implements IVolleystationService {
             const delayTime =
               status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
             this.logger.warn(
-              `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (статус: ${status})`,
+              `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
             );
             return of(null).pipe(delay(delayTime));
           },
@@ -107,10 +113,6 @@ export class VolleystationService implements IVolleystationService {
           const hasOgType = !!$('meta[property="og:type"][content="website"]')
             .length;
           if (!hasOgType) {
-            // Если мета-тега нет — считаем «невалидной» страницей
-            this.logger.warn(
-              `Сайт ${href} не содержит og:type=website, пропускаем`,
-            );
             return null;
           }
 
@@ -216,14 +218,14 @@ export class VolleystationService implements IVolleystationService {
       .filter(Boolean);
   }
 
-  getPlayers(competition: ICompetition): Observable<IPlayer[] | null> {
+  getPlayers(competition: ICompetition): Observable<IPlayer[]> {
     const url = new URL(competition.url);
     url.pathname += `players/`;
     const { origin, href } = url;
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
 
@@ -231,13 +233,12 @@ export class VolleystationService implements IVolleystationService {
             return throwError(() => new NotFoundException());
           }
 
-          const isRetryable = [500, 502, 503, 504, 429, 403].includes(status);
+          const isRetryable = [500, 502, 503, 504].includes(status);
           const baseDelay = isRetryable ? Math.pow(2, retryIndex) * 1000 : 0;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${baseDelay / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} (ошибка: ${status} - ${error.message})`,
           );
-
           return of(null).pipe(delay(baseDelay));
         },
       }),
@@ -258,17 +259,17 @@ export class VolleystationService implements IVolleystationService {
           }
         }
 
-        return players.length ? plainToInstance(Player, players) : null;
+        return players.length ? plainToInstance(Player, players) : [];
       }),
       catchError((err) => {
         if (err instanceof NotFoundException) {
           this.logger.warn(`Не найдено ${href}`);
-          return of(null);
+          return of([]);
         }
         this.logger.error(
           `Ошибка при окончательной обработке ${href}: ${err.message}`,
         );
-        return of(null);
+        return of([]);
       }),
     );
   }
@@ -593,14 +594,16 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));
@@ -966,14 +969,16 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));
@@ -1077,15 +1082,16 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
-
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));
@@ -1262,14 +1268,16 @@ export class VolleystationService implements IVolleystationService {
 
     return this.httpService.get(href).pipe(
       retry({
-        count: 10,
+        count: 3,
         delay: (error, retryIndex) => {
           const status = error?.status || 0;
           if (status === 404) return throwError(() => new NotFoundException());
+          if (status === 403 || status === 429)
+            return throwError(() => new UnauthorizedException());
           const delayTime = status === 500 ? 0 : Math.pow(2, retryIndex) * 1000;
 
           this.logger.warn(
-            `Повторная попытка №${retryIndex + 1} через ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
+            `${href} №${retryIndex + 1} ${delayTime / 1000} сек (ошибка: ${status} - ${error.message})`,
           );
 
           return of(null).pipe(delay(delayTime));

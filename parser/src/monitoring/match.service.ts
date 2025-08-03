@@ -20,7 +20,6 @@ export class MatchService {
   }
 
   getUpcomingMatches(): Observable<UpcomingMatcheDto[]> {
-    this.logger.debug('getUpcomingMatches');
-    return this.matchRepository.getAll();
+    return this.matchRepository.getToday();
   }
 }
