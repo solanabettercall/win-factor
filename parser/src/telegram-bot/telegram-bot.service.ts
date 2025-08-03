@@ -45,7 +45,10 @@ type MenuTemplateType =
   | 'competition'
   | 'team'
   | 'monitoredCompetitions'
-  | 'monitoredCompetition';
+  | 'monitoredCompetition'
+  | 'statisticsCompetitions'
+  | 'statisticsCompetition'
+  | 'statisticsTeam';
 
 @Injectable()
 export class TelegramBotService implements OnModuleInit {
@@ -274,6 +277,72 @@ ${formatTeamBlock(
         ctx.session.selectedCompetition,
       );
     }),
+    statisticsCompetitions: new MenuTemplate<MyCtx>(async () => {
+      return this.formattingService.statisticsCompetitionsTitle();
+    }),
+    statisticsCompetition: new MenuTemplate<MyCtx>(async (ctx) => {
+      const id = parseInt(ctx.match[1]);
+      const selectedCompetition = await firstValueFrom(
+        this.competitionService.getCompetitionById(id),
+      );
+      ctx.session.selectedCompetition = selectedCompetition;
+      return this.formattingService.statisticsCompetitionTitle(
+        ctx.session.selectedCompetition,
+      );
+    }),
+    statisticsTeam: new MenuTemplate<MyCtx>(async (ctx) => {
+      const id = ctx.match[2];
+      const selectedTeam = await firstValueFrom(
+        this.monitoringService.getTeamById(ctx.session.selectedCompetition, id),
+      );
+      ctx.session.selectedTeam = selectedTeam;
+
+      // Получаем полный состав команды с статистикой
+      const teamRoster = await firstValueFrom(
+        this.monitoringService.getTeam({
+          competition: ctx.session.selectedCompetition,
+          teamId: selectedTeam.id,
+        }),
+      );
+
+      // Загружаем статистику для каждого игрока
+      const playersWithStats: PlayerWithStatistic[] = [];
+      for (const player of teamRoster.players) {
+        try {
+          const playerProfile = await firstValueFrom(
+            this.monitoringService.getPlayer({
+              competition: ctx.session.selectedCompetition,
+              playerId: player.id,
+            }),
+          );
+          const playerWithStats: PlayerWithStatistic = {
+            ...player,
+            statistic: playerProfile?.statistic,
+          };
+          playersWithStats.push(playerWithStats);
+        } catch (error) {
+          // Если не удалось получить статистику, добавляем игрока без неё
+          playersWithStats.push(player);
+        }
+      }
+
+      // Создаем новый объект teamRoster с игроками, содержащими статистику
+      const teamRosterWithStats = {
+        ...teamRoster,
+        players: playersWithStats,
+      };
+
+      const statisticsMessage = this.formattingService.formatTeamStatistics(
+        ctx.session.selectedCompetition,
+        ctx.session.selectedTeam,
+        teamRosterWithStats,
+      );
+
+      return {
+        parse_mode: 'HTML' as const,
+        ...statisticsMessage,
+      };
+    }),
   };
 
   private buildTemplates() {
@@ -282,6 +351,9 @@ ${formatTeamBlock(
     });
     this.templates.main.submenu('mcs', this.templates.monitoredCompetitions, {
       text: this.formattingService.monitoredCompetitionsButton(),
+    });
+    this.templates.main.submenu('sc', this.templates.statisticsCompetitions, {
+      text: this.formattingService.statisticsCompetitionsButton(),
     });
 
     this.templates.team.select('player', {
@@ -471,6 +543,71 @@ ${formatTeamBlock(
       },
     );
     this.templates.monitoredCompetition.manualRow(
+      createBackMainMenuButtons(
+        this.formattingService.backButtonText(),
+        this.formattingService.homeButtonText(),
+      ),
+    );
+
+    this.templates.statisticsCompetitions.chooseIntoSubmenu(
+      'competition',
+      this.templates.statisticsCompetition,
+      {
+        choices: async () => {
+          const competitions = await firstValueFrom(
+            this.competitionService.getCompetitions(),
+          );
+          return competitions.reduce<Record<string, string>>(
+            (acc, competition) => {
+              acc[competition.id.toString()] = competition.name;
+              return acc;
+            },
+            {},
+          );
+        },
+        columns: 1,
+        getCurrentPage: async (ctx) => ctx.session.page,
+        setPage: (ctx, pg) => {
+          ctx.session.page = pg;
+        },
+      },
+    );
+    this.templates.statisticsCompetitions.manualRow(
+      createBackMainMenuButtons(
+        this.formattingService.backButtonText(),
+        this.formattingService.homeButtonText(),
+      ),
+    );
+
+    this.templates.statisticsCompetition.chooseIntoSubmenu(
+      'team',
+      this.templates.statisticsTeam,
+      {
+        choices: async (ctx) => {
+          const competition = ctx.session.selectedCompetition;
+          const teams = await firstValueFrom(
+            this.monitoringService.getTeams(competition),
+          );
+          return teams.reduce<Record<string, string>>((acc, team) => {
+            acc[team.id.toString()] = team.name;
+            return acc;
+          }, {});
+        },
+        columns: 2,
+        getCurrentPage: async (ctx) => ctx.session.page,
+        setPage: (ctx, pg) => {
+          ctx.session.page = pg;
+        },
+      },
+    );
+    this.templates.statisticsCompetition.manualRow(
+      createBackMainMenuButtons(
+        this.formattingService.backButtonText(),
+        this.formattingService.homeButtonText(),
+      ),
+    );
+
+    this.templates.statisticsTeam.manualRow(
       createBackMainMenuButtons(
         this.formattingService.backButtonText(),
         this.formattingService.homeButtonText(),
