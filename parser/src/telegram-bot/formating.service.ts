@@ -95,22 +95,35 @@ export class FormattingService {
       }
     };
 
-    // Сортируем игроков: сначала с рейтингом (по убыванию), потом без рейтинга по номеру
+    // Сортируем игроков
     const sortedPlayers = [...teamRoster.players].sort((a, b) => {
-      const aHasStats =
-        a.statistic?.pointsScored !== undefined &&
-        a.statistic?.setsPlayed !== undefined;
-      const bHasStats =
-        b.statistic?.pointsScored !== undefined &&
-        b.statistic?.setsPlayed !== undefined;
+      const aHasRating = a.statistic?.pointsScored && a.statistic?.setsPlayed;
+      const bHasRating = b.statistic?.pointsScored && b.statistic?.setsPlayed;
+      const aHasPoints = a.statistic?.pointsScored;
+      const bHasPoints = b.statistic?.pointsScored;
 
-      if (aHasStats && !bHasStats) return -1;
-      if (!aHasStats && bHasStats) return 1;
-      if (!aHasStats && !bHasStats) return a.number - b.number;
+      // 1. Если есть рейтинг (очки и сеты) - сортируем по рейтингу
+      if (aHasRating && bHasRating) {
+        const aRating = a.statistic!.pointsScored! / a.statistic!.setsPlayed!;
+        const bRating = b.statistic!.pointsScored! / b.statistic!.setsPlayed!;
+        return bRating - aRating;
+      }
 
-      const aRating = a.statistic!.pointsScored / a.statistic!.setsPlayed;
-      const bRating = b.statistic!.pointsScored / b.statistic!.setsPlayed;
-      return bRating - aRating;
+      // 2. Игроки с рейтингом выше чем с одними очками
+      if (aHasRating && !bHasRating) return -1;
+      if (!aHasRating && bHasRating) return 1;
+
+      // 3. Если только очки - сортируем по очкам
+      if (aHasPoints && bHasPoints) {
+        return b.statistic!.pointsScored! - a.statistic!.pointsScored!;
+      }
+
+      // 4. Игроки с очками выше чем без статистики
+      if (aHasPoints && !bHasPoints) return -1;
+      if (!aHasPoints && bHasPoints) return 1;
+
+      // 5. Остальные по номеру
+      return a.number - b.number;
     });
 
     const lines = [
@@ -124,13 +137,15 @@ export class FormattingService {
       let playerLine = `[${player.number}] <b>${player.name}</b> (${formatPosition(player.position)})`;
 
       if (
-        player.statistic?.pointsScored !== undefined &&
-        player.statistic?.setsPlayed !== undefined
+        player.statistic?.pointsScored > 0 &&
+        player.statistic?.setsPlayed > 0
       ) {
         const rating = (
           player.statistic.pointsScored / player.statistic.setsPlayed || 0
         ).toFixed(2);
         playerLine += `\n⭐️ <b>${rating}</b> (${player.statistic.pointsScored}/${player.statistic.setsPlayed})`;
+      } else if (player.statistic?.pointsScored > 0) {
+        playerLine += `\n⭐️ <b>${player.statistic?.pointsScored}</b>`;
       }
 
       lines.push(playerLine);

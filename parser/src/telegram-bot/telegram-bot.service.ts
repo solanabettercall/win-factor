@@ -101,15 +101,19 @@ export class TelegramBotService implements OnModuleInit {
         return null;
       }
       const lines = [];
-      const playersWithRating = list.map((p) => {
-        let rating: { rank: number; points: number; sets: number } | null =
-          null;
 
-        if (p.statistic?.pointsScored && p.statistic?.setsPlayed) {
+      const playersWithRating = list.map((p) => {
+        let rating: {
+          rank: number;
+          points: number;
+          sets: number | null;
+        } | null = null;
+
+        if (p.statistic?.pointsScored) {
           rating = {
             points: p.statistic.pointsScored,
             rank: p.statistic.pointsScored / p.statistic.setsPlayed,
-            sets: p.statistic.setsPlayed,
+            sets: p.statistic?.setsPlayed ?? null,
           };
         }
 
@@ -143,9 +147,13 @@ export class TelegramBotService implements OnModuleInit {
         );
 
         if (rating) {
-          playerLines.push(
-            `Рейтинг: ${rating.rank.toFixed(2)} (${rating.points}/${rating.sets})`,
-          );
+          if (rating.points > 0 && rating?.sets > 0) {
+            playerLines.push(
+              `Рейтинг: ${rating.rank.toFixed(2)} (${rating.points}/${rating.sets})`,
+            );
+          } else if (rating.points > 0) {
+            playerLines.push(`Очки: ${rating.points}`);
+          }
         }
 
         lines.push(playerLines.join('\n'));
@@ -252,7 +260,7 @@ ${formatTeamBlock(
       away.notDeclared,
       '🔵',
       type,
-    )}
+    )} 🔗 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">Подробнее</a>
 `.trim();
 
     await this.bot.api.sendMessage(channelId, message, {
