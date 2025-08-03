@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  Logger,
-  OnApplicationBootstrap,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { MatchService } from '../monitoring/match.service';
 import { firstValueFrom, lastValueFrom } from 'rxjs';
-import { CompetitionService } from '../monitoring/competition.service';
 import { isToday } from 'date-fns';
 import { VolleystationCacheService } from 'src/parser/sites/volleystation/volleystation-cache.service';
 import { MonitoringService } from 'src/monitoring/monitoring.service';
@@ -17,6 +11,11 @@ import { TeamRoster } from 'src/parser/sites/volleystation/models/team-roster/te
 import { MatchNotificationCacheService } from './match-notification-cache.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PlayerProfile } from 'src/parser/sites/volleystation/models/player-profile/player-profile';
+
+export enum NotificationType {
+  ROSTER_DECLARED = 'ROSTER_DECLARED',
+  MATCH_STARTED = 'MATCH_STARTED',
+}
 
 export type PlayerWithStatistic = Player &
   Partial<Pick<PlayerProfile, 'statistic'>>;
@@ -29,6 +28,7 @@ interface NotificationTeamInfo {
 }
 
 export interface MatchNotificationPayload {
+  type: NotificationType;
   competition: ICompetition;
   match: PlayByPlayEvent;
   home: NotificationTeamInfo;
@@ -148,13 +148,23 @@ export class MatchWatcherService implements OnApplicationBootstrap {
         event.teams.away.players.map((p) => p.shirtNumber),
       );
 
-      // 3) стартовые номера первого сета
-      const firstSet = event.scout?.sets?.[0] ?? null;
-      if (!firstSet?.startingLineup?.home || !firstSet?.startingLineup?.away) {
+      // Проверяем есть ли заявка у обеих команд
+      if (declaredHomeNums.size === 0 || declaredAwayNums.size === 0) {
         continue;
       }
-      const homeStartNums = new Set(firstSet?.startingLineup.home ?? []);
-      const awayStartNums = new Set(firstSet?.startingLineup.away ?? []);
+
+      // 3) стартовые номера первого сета
+      const firstSet = event.scout?.sets?.[0] ?? null;
+
+      // 🧪 ВРЕМЕННО ДЛЯ ТЕСТИРОВАНИЯ: принудительно очищаем стартовый состав
+      // const hasStartingLineup = false; // firstSet?.startingLineup?.home && firstSet?.startingLineup?.away;
+      // const homeStartNums = new Set([]); // new Set(firstSet?.startingLineup?.home ?? []);
+      // const awayStartNums = new Set([]); // new Set(firstSet?.startingLineup?.away ?? []);
+
+      const hasStartingLineup =
+        firstSet?.startingLineup?.home && firstSet?.startingLineup?.away; //
+      const homeStartNums = new Set(firstSet?.startingLineup?.home ?? []); //
+      const awayStartNums = new Set(firstSet?.startingLineup?.away ?? []); //
 
       // 4) мониторинг
       const [homeMon, awayMon] = await Promise.all([
@@ -276,15 +286,34 @@ export class MatchWatcherService implements OnApplicationBootstrap {
         } catch (error) {}
       }
 
-      // 6) единый payload и вывод в консоль
-      const payload: MatchNotificationPayload = {
-        competition,
-        match: event,
-        home: homeInfo,
-        away: awayInfo,
-      };
+      // 6) Отправляем уведомление о заявке только если есть не заявленные игроки
+      const hasNotDeclaredPlayers =
+        homeInfo.notDeclared.length > 0 || awayInfo.notDeclared.length > 0;
 
-      this.matchNotificationCacheService.handleEvent(payload);
+      if (hasNotDeclaredPlayers) {
+        const rosterPayload: MatchNotificationPayload = {
+          type: NotificationType.ROSTER_DECLARED,
+          competition,
+          match: event,
+          home: homeInfo,
+          away: awayInfo,
+        };
+
+        this.matchNotificationCacheService.handleEvent(rosterPayload);
+      }
+
+      // 7) Если есть стартовый состав, отправляем уведомление о начале матча
+      if (hasStartingLineup) {
+        const matchStartedPayload: MatchNotificationPayload = {
+          type: NotificationType.MATCH_STARTED,
+          competition,
+          match: event,
+          home: homeInfo,
+          away: awayInfo,
+        };
+
+        this.matchNotificationCacheService.handleEvent(matchStartedPayload);
+      }
     }
   }
 }

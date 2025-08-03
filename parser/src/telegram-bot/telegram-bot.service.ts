@@ -17,11 +17,11 @@ import { MonitoringService } from 'src/monitoring/monitoring.service';
 import { Competition } from 'src/monitoring/schemas/competition.schema';
 import {
   MatchNotificationPayload,
+  NotificationType,
   PlayerWithStatistic,
 } from 'src/match-watcher/match-watcher.service.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { addHours, format } from 'date-fns';
-import { Player } from 'src/parser/sites/volleystation/models/team-roster/player';
 
 interface SessionData {
   page: number;
@@ -71,7 +71,7 @@ export class TelegramBotService implements OnModuleInit {
     const { channelId } = appConfig().telegram;
     if (!channelId) return;
 
-    const { match, competition, home, away } = payload;
+    const { type, match, competition, home, away } = payload;
     const matchTime = format(
       addHours(new Date(match.startDate), 3),
       'dd.MM.yyyy HH:mm',
@@ -171,34 +171,68 @@ export class TelegramBotService implements OnModuleInit {
       onBench: PlayerWithStatistic[],
       notDeclared: PlayerWithStatistic[],
       colorEmoji: string,
+      notificationType: NotificationType,
     ) => {
+      // Для уведомления о заявке не показываем команды, где все игроки заявлены
+      if (
+        notificationType === NotificationType.ROSTER_DECLARED &&
+        notDeclared.length === 0
+      ) {
+        return '';
+      }
+
       const lines = [`<b>${colorEmoji} ${teamName}</b>`];
       lines.push('\n');
 
-      const notDeclaredBlock = formatPlayerList(notDeclared, '⚪️');
-      if (notDeclaredBlock) {
-        lines.push('❌ <b>Не заявлены:</b>');
-        lines.push(notDeclaredBlock);
-        lines.push('\n');
-      }
-      const benchBlock = formatPlayerList(onBench, '🔘');
-      if (benchBlock) {
-        lines.push('🪑 <b>На скамейке::</b>');
-        lines.push(benchBlock);
-        lines.push('\n');
-      }
+      // Для уведомления о заявке показываем только не заявленных игроков
+      if (notificationType === NotificationType.ROSTER_DECLARED) {
+        const notDeclaredBlock = formatPlayerList(notDeclared, '❌');
+        if (notDeclaredBlock) {
+          lines.push('❌ <b>Не заявлены:</b>');
+          lines.push(notDeclaredBlock);
+          lines.push('\n');
+        }
+      } else {
+        // Для уведомления о начале матча показываем полную информацию
+        const notDeclaredBlock = formatPlayerList(notDeclared, '⚪️');
+        if (notDeclaredBlock) {
+          lines.push('❌ <b>Не заявлены:</b>');
+          lines.push(notDeclaredBlock);
+          lines.push('\n');
+        }
+        const benchBlock = formatPlayerList(onBench, '🔘');
+        if (benchBlock) {
+          lines.push('🪑 <b>На скамейке::</b>');
+          lines.push(benchBlock);
+          lines.push('\n');
+        }
 
-      const fieldBlock = formatPlayerList(onField, '🟢');
-      if (fieldBlock) {
-        lines.push('👥 <b>Основной состав::</b>');
-        lines.push(fieldBlock);
-        lines.push('\n');
+        const fieldBlock = formatPlayerList(onField, '🟢');
+        if (fieldBlock) {
+          lines.push('👥 <b>Основной состав::</b>');
+          lines.push(fieldBlock);
+          lines.push('\n');
+        }
       }
 
       return lines.join('\n').replaceAll('\n\n\n', '\n\n');
     };
 
+    // Формируем сообщение в зависимости от типа уведомления
+    let notificationIcon = '';
+    let notificationTitle = '';
+
+    if (type === NotificationType.ROSTER_DECLARED) {
+      notificationIcon = '📋';
+      notificationTitle = 'Заявка команд';
+    } else if (type === NotificationType.MATCH_STARTED) {
+      notificationIcon = '🏁';
+      notificationTitle = 'Матч начался';
+    }
+
     const message = `
+${notificationIcon} <b>${notificationTitle}</b>
+
 <a href="${competition.url}">🏆 ${competition.name}</a>
 🕒 ${matchTime}
 
@@ -210,13 +244,15 @@ ${formatTeamBlock(
   home.onBench,
   home.notDeclared,
   '🔴',
+  type,
 )}${formatTeamBlock(
       match.teams.away.name,
       away.onField,
       away.onBench,
       away.notDeclared,
       '🔵',
-    )}🔗 <a href="https://widgets.volleystation.com/play-by-play/${match.matchId}">Подробнее</a>
+      type,
+    )}
 `.trim();
 
     await this.bot.api.sendMessage(channelId, message, {

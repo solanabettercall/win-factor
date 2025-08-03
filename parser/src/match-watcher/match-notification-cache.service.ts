@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { RedisService } from 'src/cache/redis.service';
-import { MatchNotificationPayload } from './match-watcher.service.service';
+import { MatchNotificationPayload, NotificationType } from './match-watcher.service.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
@@ -37,7 +37,7 @@ export class MatchNotificationCacheService {
   }
 
   private buildKey(event: MatchNotificationPayload): string {
-    const { competition, match, home, away } = event;
+    const { type, competition, match, home, away } = event;
 
     const makePart = (label: string, players: { number: number }[]) => {
       const sorted = players.map((p) => p.number).sort((a, b) => a - b);
@@ -46,6 +46,7 @@ export class MatchNotificationCacheService {
 
     const parts = [
       'match-notification',
+      type,
       competition.id,
       match.matchId,
       makePart('home-bench', home.onBench),
