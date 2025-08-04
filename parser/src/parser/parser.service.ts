@@ -38,10 +38,10 @@ export class ParserService implements OnApplicationBootstrap {
     //   this.volleystationService.getTeams(competition),
     // );
     // console.log(teams);
-    const competition = await firstValueFrom(
-      this.volleystationCacheService.getCompetition(674),
-    );
-    console.log(competition);
+    // const competition = await firstValueFrom(
+    //   this.volleystationCacheService.getCompetition(674),
+    // );
+    // console.log(competition);
     // const competitions = await firstValueFrom(
     //   this.volleystationCacheService.getCompetitions(),
     // );
@@ -62,7 +62,6 @@ export class ParserService implements OnApplicationBootstrap {
     //   );
     //   if (matchInfo) console.log(matchInfo.matchId);
     // }
-
     // const teamRoster = await firstValueFrom(
     //   this.volleystationCacheService.getTeam({
     //     competition,
