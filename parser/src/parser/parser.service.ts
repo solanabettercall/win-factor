@@ -39,7 +39,7 @@ export class ParserService implements OnApplicationBootstrap {
     // );
     // console.log(teams);
     // const competition = await firstValueFrom(
-    //   this.volleystationCacheService.getCompetition(285),
+    //   this.volleystationCacheService.getCompetition(674),
     // );
     // console.log(competition);
     // const competitions = await firstValueFrom(
@@ -62,13 +62,27 @@ export class ParserService implements OnApplicationBootstrap {
     //   );
     //   if (matchInfo) console.log(matchInfo.matchId);
     // }
+    // const teamRoster = await firstValueFrom(
+    //   this.volleystationCacheService.getTeam({
+    //     competition,
+    //     teamId: '2208293-7717',
+    //   }),
+    // );
+    // for (const { id } of teamRoster.players) {
+    //   const player = await firstValueFrom(
+    //     this.volleystationCacheService.getPlayer({
+    //       competition,
+    //       playerId: id,
+    //     }),
+    //   );
+    //   console.log(player);
+    // }
     // const player = await firstValueFrom(
     //   this.volleystationService.getPlayer({
     //     competition,
-    //     playerId: 2113662,
+    //     playerId: 2478794,
     //   }),
     // );
-    // console.log(player);
     // const player = await firstValueFrom(
     //   this.volleystationCacheService.getPlayer({
     //     competition,

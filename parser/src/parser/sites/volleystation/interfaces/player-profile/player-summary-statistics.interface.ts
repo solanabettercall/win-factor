@@ -1,7 +1,4 @@
 export interface IPlayerSummaryStatistics {
-  matchesPlayed: number;
-  setsPlayed: number;
+  setsPlayed: number | null;
   pointsScored: number;
-  numberOfAces: number;
-  pointsByBlock: number;
 }

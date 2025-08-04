@@ -282,12 +282,11 @@ export class VolleystationService implements IVolleystationService {
     const teamSection = $('section.player-detail');
     if (teamSection.length === 0) return null;
 
-    let [matchesPlayed, setsPlayed, pointsScored, numberOfAces, pointsByBlock] =
-      $(teamSection)
-        .find('div.stats-boxes div.box div.number')
-        .map((_, el) => {
-          return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
-        });
+    let [setsPlayed, pointsScored] = $(teamSection)
+      .find('div.stats-boxes div.box div.number')
+      .map((_, el) => {
+        return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
+      });
 
     if (!pointsScored && !setsPlayed) {
       const pointsScoredTemp = parseInt(
@@ -312,11 +311,8 @@ export class VolleystationService implements IVolleystationService {
     }
 
     const statistic: IPlayerSummaryStatistics = {
-      matchesPlayed,
       setsPlayed,
       pointsScored,
-      numberOfAces,
-      pointsByBlock,
     };
 
     const extractStatValue = (
@@ -569,6 +565,19 @@ export class VolleystationService implements IVolleystationService {
       spike,
     };
 
+    const pointsScored = parseInt(
+      $(
+        'div.grid.statistics-grid div.points-bar div.points-box div.points-value',
+      )
+        .text()
+        ?.trim() ?? '0',
+    );
+
+    const statistic: IPlayerSummaryStatistics = {
+      setsPlayed: null,
+      pointsScored,
+    };
+
     const number = parseInt(
       $('div.number-name div.shirt-number').text()?.trim() ?? '0',
     );
@@ -583,6 +592,7 @@ export class VolleystationService implements IVolleystationService {
       name,
       number,
       skills,
+      statistic,
     };
   }
 
