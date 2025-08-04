@@ -3,6 +3,8 @@ import * as io from 'socket.io-client';
 import { plainToInstance } from 'class-transformer';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
 import { Observable } from 'rxjs';
+import { timeout, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 export interface IVolleystationSocketService {
   getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null>;
@@ -14,6 +16,7 @@ export class VolleystationSocketService
 {
   private readonly logger = new Logger(VolleystationSocketService.name);
   private socket: io.Socket;
+  private isDestroying = false;
 
   private readonly socketUrl =
     process.env.VS_SOCKET_URL || 'wss://api.widgets.volleystation.com';
@@ -26,9 +29,7 @@ export class VolleystationSocketService
       const socket = io(this.socketUrl, {
         path: '/socket.io/',
         transports: ['websocket'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
+        reconnection: false, // Отключаем автоматические реконнекты
         query: { token: this.socketToken },
         extraHeaders: {
           Origin: 'https://widgets.volleystation.com',
@@ -86,40 +87,61 @@ export class VolleystationSocketService
   private setupListeners() {
     this.logger.debug('setupListeners() вызван');
 
-    this.socket.once('connect', () => {
+    this.socket.on('connect', () => {
       this.logger.debug('Событие connect');
       this.logger.log('Socket подключён.');
+      this.isDestroying = false; // сброс флага при успешном подключении
     });
 
-    this.socket.once('disconnect', (reason: string) => {
+    this.socket.on('disconnect', (reason: string) => {
       this.logger.debug(`Событие disconnect: ${reason}`);
       this.logger.warn(`Socket отключён: ${reason}`);
+      if (!this.isDestroying) {
+        this.isDestroying = true;
+        this.attemptRestart();
+      }
     });
 
-    this.socket.once('reconnect_attempt', (attempt: number) => {
-      this.logger.debug(`Событие reconnect_attempt #${attempt}`);
-      this.logger.log(`Попытка реконнекта #${attempt}`);
-    });
+    // НЕ слушаем connect_error - он вызывает stack overflow!
+    // Вместо этого используем таймаут для проверки подключения
+    setTimeout(() => {
+      if (!this.socket.connected && !this.isDestroying) {
+        this.logger.warn('Сокет не подключился за 10 секунд - перезапускаем');
+        this.isDestroying = true;
+        this.attemptRestart();
+      }
+    }, 10000); // 10 секунд на подключение
+  }
 
-    this.socket.once('reconnect', (attempt: number) => {
-      this.logger.debug(`Событие reconnect #${attempt}`);
-      this.logger.log(`Успешный реконнект после #${attempt}`);
-    });
+  private attemptRestart() {
+    setTimeout(() => {
+      try {
+        this.logger.log('Попытка перезапуска сокета');
+        // НЕ закрываем старый сокет - просто забываем про него
+        // Пусть GC сам его уберет, чтобы избежать stack overflow
+        if (this.socket) {
+          try {
+            this.socket.removeAllListeners();
+          } catch (e) {
+            // Игнорируем любые ошибки при удалении listeners
+          }
+        }
 
-    this.socket.once('reconnect_error', (err) => {
-      this.logger.debug(`Событие reconnect_error: ${err.message}`);
-      this.logger.warn(`Ошибка реконнекта: ${err.message}`);
-    });
-
-    this.socket.once('reconnect_failed', () => {
-      this.logger.debug('Событие reconnect_failed');
-      this.logger.error('Реконнект не удался.');
-    });
+        // Создаем новый сокет
+        this.socket = this.createSocket();
+        this.setupListeners();
+        this.isDestroying = false;
+      } catch (err) {
+        this.logger.error(`Ошибка при перезапуске сокета: ${err.message}`);
+        // Повторная попытка через большую задержку
+        setTimeout(() => this.attemptRestart(), 15000);
+      }
+    }, 5000); // Задержка между попытками 5 секунд
   }
 
   public getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
     // this.logger.debug(`getMatchInfo(${matchId}) вызван`);
-    return new Observable((observer) => {
+    return new Observable<PlayByPlayEvent | null>((observer) => {
       const handler = (err: Error, response: { data: PlayByPlayEvent[] }) => {
         if (err) {
           this.logger.debug(`Ошибка в обработчике find: ${err.message}`);
@@ -147,7 +169,15 @@ export class VolleystationSocketService
       return () => {
         this.socket.off('find', handler);
       };
-    });
+    }).pipe(
+      timeout(10000), // 10 секунд таймаут
+      catchError((err) => {
+        this.logger.warn(
+          `Таймаут запроса для матча ${matchId}: ${err.message}`,
+        );
+        return of(null); // Возвращаем null при ошибке
+      }),
+    );
   }
 
   async onModuleDestroy() {
