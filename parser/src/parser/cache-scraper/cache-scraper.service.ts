@@ -25,7 +25,7 @@ export class CacheScraperService {
     private readonly matchService: MatchService,
   ) {}
 
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  // @Cron(CronExpression.EVERY_10_SECONDS)
   async processCompetitions(): Promise<void> {
     if (this.isProcessing) return;
     this.isProcessing = true;

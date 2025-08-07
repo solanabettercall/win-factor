@@ -282,33 +282,23 @@ export class VolleystationService implements IVolleystationService {
     const teamSection = $('section.player-detail');
     if (teamSection.length === 0) return null;
 
-    let [setsPlayed, pointsScored] = $(teamSection)
-      .find('div.stats-boxes div.box div.number')
-      .map((_, el) => {
-        return $(el).text()?.trim() ? parseInt($(el).text()?.trim(), 10) : 0;
-      });
+    const statBoxes = $(teamSection).find('div.stats-boxes.player div.box');
 
-    if (!pointsScored && !setsPlayed) {
-      const pointsScoredTemp = parseInt(
-        $('div.points-box div.value')
-          .clone()
-          .children()
-          .remove()
-          .end()
-          .text()
-          .trim(),
-        10,
-      );
-      const setsPlayedTemp = parseInt(
-        $('div.table-row.summary div.columns-item.sets').text().trim(),
-        10,
-      );
+    let setsPlayed: number = 0;
+    let pointsScored: number = 0;
 
-      if (isNumber(pointsScoredTemp) && isNumber(setsPlayedTemp)) {
-        pointsScored = pointsScoredTemp;
-        setsPlayed = setsPlayedTemp;
+    statBoxes.each((_, el) => {
+      const label = $(el).find('.label').text().trim();
+
+      const numberText = $(el).find('.number').text().trim();
+      const number = parseInt(numberText, 10);
+
+      if (label === 'Sets played') {
+        setsPlayed = number;
+      } else if (label === 'Points scored') {
+        pointsScored = number;
       }
-    }
+    });
 
     const statistic: IPlayerSummaryStatistics = {
       setsPlayed,
