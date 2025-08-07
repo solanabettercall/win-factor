@@ -136,7 +136,9 @@ export class MatchWatcherService implements OnApplicationBootstrap {
         ),
       ]);
       if (!homeRoster || !awayRoster) {
-        this.logger.warn(`Не удалось получить профили команд`);
+        this.logger.warn(
+          `[${competition?.id}] Не удалось получить профили команд: ${event?.teams?.home?.code} | ${event?.teams?.away?.code}`,
+        );
         continue;
       }
 
