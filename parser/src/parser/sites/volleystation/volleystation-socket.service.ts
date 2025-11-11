@@ -1,10 +1,14 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import * as io from 'socket.io-client';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import * as WebSocket from 'ws';
 import { plainToInstance } from 'class-transformer';
 import { PlayByPlayEvent } from './models/match-details/play-by-play-event.model';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { timeout, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 
 export interface IVolleystationSocketService {
   getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null>;
@@ -12,170 +16,135 @@ export interface IVolleystationSocketService {
 
 @Injectable()
 export class VolleystationSocketService
-  implements OnModuleInit, IVolleystationSocketService
+  implements OnModuleInit, OnModuleDestroy, IVolleystationSocketService
 {
   private readonly logger = new Logger(VolleystationSocketService.name);
-  private socket: io.Socket;
+  private socket: WebSocket | null = null;
   private isDestroying = false;
 
   private readonly socketUrl =
-    process.env.VS_SOCKET_URL || 'wss://api.widgets.volleystation.com';
-  private readonly socketToken =
-    process.env.VS_SOCKET_TOKEN || 'PhodQuahof1ShmunWoifdedgasvuipki';
+    process.env.VS_SOCKET_URL ||
+    'wss://api.widgets.volleystation.com/socket.io/?connectionPathName=%2Fplay-by-play%2F2161020&token=PhodQuahof1ShmunWoifdedgasvuipki&EIO=3&transport=websocket';
 
-  private createSocket(): io.Socket {
+  private createSocket(): WebSocket {
     this.logger.debug('createSocket() вызван');
-    try {
-      const socket = io(this.socketUrl, {
-        path: '/socket.io/',
-        transports: ['websocket'],
-        reconnection: false, // Отключаем автоматические реконнекты
-        query: { token: this.socketToken },
-        extraHeaders: {
-          Origin: 'https://widgets.volleystation.com',
-          Referer: 'https://widgets.volleystation.com',
-        },
-      });
 
-      this.logger.debug('Сокет создан');
-      return socket;
-    } catch (error) {
-      this.logger.error(`Ошибка создания сокета: ${error.message}`);
-      throw error;
-    }
+    const ws = new WebSocket(this.socketUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        Origin: 'https://volleystation.com',
+        Referer: 'https://volleystation.com',
+      },
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2',
+      maxVersion: 'TLSv1.3',
+      ciphers: [
+        'TLS_AES_128_GCM_SHA256',
+        'TLS_AES_256_GCM_SHA384',
+        'TLS_CHACHA20_POLY1305_SHA256',
+      ].join(':'),
+    });
+
+    ws.on('open', () => {
+      this.logger.log('✅ Подключено к серверу Volleystation');
+      ws.send('40'); // handshake namespace (Socket.IO Engine.IO v3)
+      this.isDestroying = false;
+    });
+
+    ws.on('message', (data) => this.handleMessage(data.toString()));
+    ws.on('close', (code, reason) => {
+      this.logger.warn(`🔌 Socket закрыт (${code}): ${reason}`);
+      if (!this.isDestroying) this.restart();
+    });
+    ws.on('error', (err) => {
+      this.logger.error(`❌ Socket ошибка: ${err.message}`);
+      if (!this.isDestroying) this.restart();
+    });
+
+    return ws;
   }
 
   async onModuleInit() {
     this.logger.debug('onModuleInit() вызван');
-    try {
-      this.socket = this.createSocket();
-      this.setupListeners();
-      this.logger.debug('вышли из setupListeners()');
-      await this.waitForConnection();
-    } catch (err) {
-      this.logger.error(`Ошибка подключения при инициализации: ${err.message}`);
+    this.socket = this.createSocket();
+  }
+
+  private restart() {
+    this.isDestroying = true;
+    setTimeout(() => {
+      this.logger.log('♻️ Перезапуск соединения...');
+      try {
+        this.socket?.removeAllListeners();
+        this.socket = this.createSocket();
+      } catch (e) {
+        this.logger.error(`Ошибка при перезапуске: ${e.message}`);
+      } finally {
+        this.isDestroying = false;
+      }
+    }, 5000);
+  }
+
+  private handleMessage(msg: string) {
+    if (msg.startsWith('42')) {
+      // обычное Socket.IO сообщение
+      try {
+        const jsonStart = msg.indexOf('[');
+        const payload = JSON.parse(msg.slice(jsonStart));
+        this.logger.debug(`📥 Payload: ${JSON.stringify(payload)}`);
+      } catch (err) {
+        this.logger.warn(`Ошибка разбора сообщения: ${err.message}`);
+      }
+    } else if (msg === '3') {
+      // pong
+    } else if (msg === '2') {
+      // ping → отвечаем pong
+      this.socket?.send('3');
     }
   }
 
-  private waitForConnection(): Promise<void> {
-    this.logger.debug('waitForConnection() вызван');
-    return new Promise((resolve, reject) => {
-      const onConnect = () => {
-        this.logger.debug('onConnect событие');
-        cleanup();
-        resolve();
-      };
-
-      const onError = (err: Error) => {
-        this.logger.debug(`onError событие: ${err.message}`);
-        cleanup();
-        reject(err);
-      };
-
-      const cleanup = () => {
-        this.logger.debug('cleanup() вызван');
-        this.socket.off('connect', onConnect);
-        this.socket.off('connect_error', onError);
-      };
-
-      this.logger.debug('Подписка на события подключения');
-      this.socket.once('connect', onConnect);
-      this.socket.once('connect_error', onError);
-    });
-  }
-
-  private setupListeners() {
-    this.logger.debug('setupListeners() вызван');
-
-    this.socket.on('connect', () => {
-      this.logger.debug('Событие connect');
-      this.logger.log('Socket подключён.');
-      this.isDestroying = false; // сброс флага при успешном подключении
-    });
-
-    this.socket.on('disconnect', (reason: string) => {
-      this.logger.debug(`Событие disconnect: ${reason}`);
-      this.logger.warn(`Socket отключён: ${reason}`);
-      if (!this.isDestroying) {
-        this.isDestroying = true;
-        this.attemptRestart();
+  public getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
+    return new Observable<PlayByPlayEvent | null>((observer) => {
+      if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+        this.logger.warn('Сокет не готов, отклоняем запрос');
+        observer.next(null);
+        observer.complete();
+        return;
       }
-    });
 
-    // НЕ слушаем connect_error - он вызывает stack overflow!
-    // Вместо этого используем таймаут для проверки подключения
-    setTimeout(() => {
-      if (!this.socket.connected && !this.isDestroying) {
-        this.logger.warn('Сокет не подключился за 10 секунд - перезапускаем');
-        this.isDestroying = true;
-        this.attemptRestart();
-      }
-    }, 10000); // 10 секунд на подключение
-  }
+      const payload = `422["get","widget/play-by-play","${matchId}",{}]`;
+      this.socket.send(payload);
+      this.logger.debug(`📤 Отправлено: ${payload}`);
 
-  private attemptRestart() {
-    setTimeout(() => {
-      try {
-        this.logger.log('Попытка перезапуска сокета');
-        // НЕ закрываем старый сокет - просто забываем про него
-        // Пусть GC сам его уберет, чтобы избежать stack overflow
-        if (this.socket) {
+      // слушаем следующее сообщение
+      const onMessage = (data: WebSocket.RawData) => {
+        const text = data.toString();
+        if (text.startsWith('43')) {
           try {
-            this.socket.removeAllListeners();
-          } catch (e) {
-            // Игнорируем любые ошибки при удалении listeners
+            const jsonStart = text.indexOf('[');
+            const [, , , response] = JSON.parse(text.slice(jsonStart));
+            const event = response?.data?.[0];
+            observer.next(
+              event ? plainToInstance(PlayByPlayEvent, event) : null,
+            );
+            observer.complete();
+          } catch (err) {
+            observer.error(err);
+          } finally {
+            this.socket?.off('message', onMessage);
           }
         }
-
-        // Создаем новый сокет
-        this.socket = this.createSocket();
-        this.setupListeners();
-        this.isDestroying = false;
-      } catch (err) {
-        this.logger.error(`Ошибка при перезапуске сокета: ${err.message}`);
-        // Повторная попытка через большую задержку
-        setTimeout(() => this.attemptRestart(), 15000);
-      }
-    }, 5000); // Задержка между попытками 5 секунд
-  }
-
-  public getMatchInfo(matchId: number): Observable<PlayByPlayEvent | null> {
-    // this.logger.debug(`getMatchInfo(${matchId}) вызван`);
-    return new Observable<PlayByPlayEvent | null>((observer) => {
-      const handler = (err: Error, response: { data: PlayByPlayEvent[] }) => {
-        if (err) {
-          this.logger.debug(`Ошибка в обработчике find: ${err.message}`);
-          this.logger.warn(`Ошибка от сервера: ${err.message}`);
-          observer.error(err);
-          return;
-        }
-
-        const event = response.data?.[0] ?? null;
-        observer.next(event ? plainToInstance(PlayByPlayEvent, event) : null);
-        observer.complete();
       };
 
-      // this.logger.debug('Отправка socket.emit(find)');
-      this.socket.emit(
-        'find',
-        'widget/play-by-play',
-        {
-          matchId,
-          $limit: 1,
-        },
-        handler,
-      );
+      this.socket.on('message', onMessage);
 
       return () => {
-        this.socket.off('find', handler);
+        this.socket?.off('message', onMessage);
       };
     }).pipe(
-      timeout(10000), // 10 секунд таймаут
+      timeout(10000),
       catchError((err) => {
-        this.logger.warn(
-          `Таймаут запроса для матча ${matchId}: ${err.message}`,
-        );
-        return of(null); // Возвращаем null при ошибке
+        this.logger.warn(`Таймаут запроса: ${err.message}`);
+        return of(null);
       }),
     );
   }
@@ -183,14 +152,10 @@ export class VolleystationSocketService
   async onModuleDestroy() {
     this.logger.debug('onModuleDestroy() вызван');
     if (this.socket) {
-      this.logger.debug('Удаление всех слушателей сокета');
+      this.isDestroying = true;
       this.socket.removeAllListeners();
-
-      if (this.socket.connected) {
-        this.logger.debug('Сокет подключён, закрываем');
-        this.socket.close();
-        this.logger.log('Socket закрыт.');
-      }
+      this.socket.close();
+      this.logger.log('Socket закрыт.');
     }
   }
 }

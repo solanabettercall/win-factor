@@ -70,7 +70,7 @@ export const ttl: Record<CachableEntityType, ICacheOption> = {
   },
 
   scheduledMatch: {
-    cache: () => randomInt(600, 900),
+    cache: () => randomInt(10, 30),
     repeat: () => randomInt(75_000, 150_000),
     deduplication: () => randomInt(75_000, 150_000),
   },
