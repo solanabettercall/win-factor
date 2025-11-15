@@ -100,7 +100,9 @@ export class MatchWatcherService implements OnApplicationBootstrap {
       const matchInfo: PlayByPlayEvent = await lastValueFrom(
         this.volleystationCacheService.getMatchInfo(matchId),
       );
-      await this.matchService.saveMatch(competition, matchInfo);
+      if (matchInfo) {
+        await this.matchService.saveMatch(competition, matchInfo);
+      }
     }
   }
 
