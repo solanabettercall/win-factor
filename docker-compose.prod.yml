@@ -23,6 +23,10 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    environment:
+      NODE_EXTRA_CA_CERTS: /mitmproxy/mitmproxy-ca-cert.pem
+    volumes:
+      - mitmproxy_data:/mitmproxy:ro
     restart: always
 
   cloudflare_proxy:
@@ -30,6 +34,8 @@ services:
     build: ./cloudscraper
     env_file:
       - .env
+    volumes:
+      - mitmproxy_data:/root/.mitmproxy
     restart: always
 
   redis:
@@ -93,3 +99,4 @@ services:
 volumes:
   redis_data:
   mongo_data:
+  mitmproxy_data:
